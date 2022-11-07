@@ -172,10 +172,11 @@ class Base(object):
         funs = []
         vectors = []
         coord_list = []
-        guess_vx_vy = initial_guess
         for t in t_coords:
             for x in x_coords:
                 for y in y_coords:
+                    u, n = interpolate_u_n_point(t,x,y)
+                    guess_vx_vy = [u[1]/u[0], u[2]/u[0]]
                     coords = [t,x,y]
                     sol = minimize(self.residual_ib,x0=guess_vx_vy,args=(coords,L),bounds=((-0.99,0.99),(-0.99,0.99)),tol=1e-6)#,method='CG')
                     vectors.append(self.get_U_mu(sol.x))
