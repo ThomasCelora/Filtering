@@ -175,26 +175,26 @@ class Base(object):
         for t in t_coords:
             for x in x_coords:
                 for y in y_coords:
-                    u, n = interpolate_u_n_point(t,x,y)
+                    u, n = self.interpolate_u_n_coords(t,x,y)
                     guess_vx_vy = [u[1]/u[0], u[2]/u[0]]
                     coords = [t,x,y]
-                    sol = minimize(self.residual_ib,x0=guess_vx_vy,args=(coords,L),bounds=((-0.99,0.99),(-0.99,0.99)),tol=1e-6)#,method='CG')
-                    vectors.append(self.get_U_mu(sol.x))
-                    funs.append(sol.fun)
-                    coord_list.append(coords)
-                    guess_vx_vy = [sol.x[0],sol.x[1]]
-                    # try:
-                    #     sol = minimize(residual_ib,x0=guess_vx_vy,args=(coords,L),bounds=((-0.99,0.99),(-0.99,0.99)),tol=1e-6)#,method='CG')
-                    #     vectors.append(get_U_mu(sol.x))
-                    #     funs.append(sol.fun)
-                    #     coord_list.append(coords)
-                    #     guess_vx_vy = [sol.x[0],sol.x[1]]
-                    #     if (sol.fun > 1e-5):
-                    #         print("Warning! Residual is large: ",sol.fun)
-                    # except:
-                    #     print("Failed for ",coords)
-                    # finally:
-                    #     continue
+                    #sol = minimize(self.residual_ib,x0=guess_vx_vy,args=(coords,L),bounds=((-0.7,0.7),(-0.7,0.7)),tol=1e-6)#,method='CG')
+                    #vectors.append(self.get_U_mu(sol.x))
+                    #funs.append(sol.fun)
+                    #coord_list.append(coords)
+                    #guess_vx_vy = [sol.x[0],sol.x[1]]
+                    try:
+                        sol = minimize(residual_ib,x0=guess_vx_vy,args=(coords,L),bounds=((-0.7,0.7),(-0.7,0.7)),tol=1e-6)#,method='CG')
+                        vectors.append(get_U_mu(sol.x))
+                        funs.append(sol.fun)
+                        coord_list.append(coords)
+                        #guess_vx_vy = [sol.x[0],sol.x[1]]
+                        if (sol.fun > 1e-5):
+                            print("Warning! Residual is large: ",sol.fun)
+                    except:
+                        print("Failed for ",coords)
+                    finally:
+                        pass
         return coord_list, vectors, funs
     
     

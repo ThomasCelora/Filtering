@@ -51,7 +51,7 @@ if __name__ == '__main__':
     y_range = [0.0,0.0]
     initial_guess = [-0.38,0.0]
     L = 0.01
-    args = [(t_range, [xr, xr], [yr, yr], L, 1, 1, 1, initial_guess) for xr in np.linspace(-0.4, 0.4, 41) for yr in np.linspace(-0.2, 0.2, 21)]
+    args = [([tr, tr], [xr, xr], [yr, yr], L, 1, 1, 1, initial_guess) for tr in np.linspace(0.0, 15.0, 16) for xr in np.linspace(-0.4, 0.4, 41) for yr in np.linspace(-0.2, 0.2, 21)]
     # KH_observers = system.find_observers(t_range,x_range,y_range,L,1,1,1,initial_guess)
     # print(KH_observers)
     # with open('KH_observers.pickle', 'wb') as handle:
@@ -69,7 +69,7 @@ if __name__ == '__main__':
 #                                                (t_range4,x_range,y_range,L,1,1,1,initial_guess),
 #                                                (t_range5,x_range,y_range,L,1,1,1,initial_guess)])))
 
-        g.write(p.starmap(system.find_observers, args))
+        g.write(str(p.starmap(system.find_observers, args)))
 
     mid = timer()
     print("time, mins:", (mid - start)/60) # Time in seconds, e.g. 5.38091952400282
