@@ -184,8 +184,8 @@ class Base(object):
                     #coord_list.append(coords)
                     #guess_vx_vy = [sol.x[0],sol.x[1]]
                     try:
-                        sol = minimize(residual_ib,x0=guess_vx_vy,args=(coords,L),bounds=((-0.7,0.7),(-0.7,0.7)),tol=1e-6)#,method='CG')
-                        vectors.append(get_U_mu(sol.x))
+                        sol = minimize(self.residual_ib,x0=guess_vx_vy,args=(coords,L),bounds=((-0.7,0.7),(-0.7,0.7)),tol=1e-6)#,method='CG')
+                        vectors.append(self.get_U_mu(sol.x))
                         funs.append(sol.fun)
                         coord_list.append(coords)
                         #guess_vx_vy = [sol.x[0],sol.x[1]]
@@ -195,6 +195,9 @@ class Base(object):
                         print("Failed for ",coords)
                     finally:
                         pass
+        # f_to_write.write(str(coord_list)+str(vectors)+str(funs))
+        with open('KH_observers.pickle', 'wb') as handle:
+            pickle.dump([coord_list, vectors, funs], handle, protocol=pickle.HIGHEST_PROTOCOL)
         return coord_list, vectors, funs
     
     

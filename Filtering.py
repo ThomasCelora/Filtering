@@ -51,29 +51,23 @@ if __name__ == '__main__':
     y_range = [0.0,0.0]
     initial_guess = [-0.38,0.0]
     L = 0.01
+    f_rts = open("runtimes.txt", "a")
+    f_obs = open("observers.txt", "a")
     args = [([tr, tr], [xr, xr], [yr, yr], L, 1, 1, 1, initial_guess) for tr in np.linspace(0.0, 15.0, 16) for xr in np.linspace(-0.4, 0.4, 41) for yr in np.linspace(-0.2, 0.2, 21)]
     # KH_observers = system.find_observers(t_range,x_range,y_range,L,1,1,1,initial_guess)
     # print(KH_observers)
     # with open('KH_observers.pickle', 'wb') as handle:
     #     pickle.dump(KH_observers, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    f = open("runtimes.txt", "a")
-    g = open("observers.txt", "a")
-    start = timer()
-    with Pool(40) as p:
-        # print(p.map(partial(system.find_observers, x_range,y_range,L,1,1,1,initial_guess),
-        #                                     [t_range,t_range2]))
-#        g.write(p.starmap(system.find_observers, [(t_range1, x_range,y_range,L,1,1,1,initial_guess), 
-#                                                (t_range2,x_range,y_range,L,1,1,1,initial_guess)])
-#                                                (t_range3,x_range,y_range,L,1,1,1,initial_guess),
-#                                                (t_range4,x_range,y_range,L,1,1,1,initial_guess),
-#                                                (t_range5,x_range,y_range,L,1,1,1,initial_guess)])))
 
-        g.write(str(p.starmap(system.find_observers, args)))
+    start = timer()
+    with Pool(2) as p:
+        # f_obs.write(str(p.starmap(system.find_observers, args)))
+        p.starmap(system.find_observers, args)
 
     mid = timer()
-    print("time, mins:", (mid - start)/60) # Time in seconds, e.g. 5.38091952400282
-    f.write("Parallel time, mins:"+ str((mid - start)/60)) # Time in seconds, e.g. 5.38091952400282
+    print("time, mins:", (mid - start)/60,"\n") # Time in seconds, e.g. 5.38091952400282
+    f_rts.write("Parallel time, mins:"+ str((mid - start)/60) + "\n") # Time in seconds, e.g. 5.38091952400282
     
 #    system.find_observers(t_range1, x_range,y_range,L,1,1,1,initial_guess)
 #    system.find_observers(t_range2, x_range,y_range,L,1,1,1,initial_guess)
@@ -82,18 +76,11 @@ if __name__ == '__main__':
 #    print(system.find_observers(t_range5, x_range,y_range,L,1,1,1,initial_guess))
 
     end = timer()
-    print("time, mins:", (end - mid)/60) # Time in seconds, e.g. 5.38091952400282
-    f.write("Serial time, mins:"+str((end - mid)/60)) # Time in seconds, e.g. 5.38091952400282
-    f.close()
-    g.close()
+    print("time, mins:", (end - mid)/60,"\n") # Time in seconds, e.g. 5.38091952400282
+    f_rts.write("Serial time, mins:"+str((end - mid)/60) + "\n") # Time in seconds, e.g. 5.38091952400282
+    f_rts.close()
+    f_obs.close()
         
-# def f(x):
-#     return x*x
-
-# if __name__ == '__main__':
-#     with Pool(5) as p:
-#         print(p.map(f, [1, 2, 3]))
-
 
 
 
