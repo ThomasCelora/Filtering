@@ -63,7 +63,7 @@ if __name__ == '__main__':
     start = timer()
     with Pool(2) as p:
         # f_obs.write(str(p.starmap(system.find_observers, args)))
-        p.starmap(system.find_observers, args)
+        f_obs.write(str(p.starmap(system.find_observers, args)))
 
     mid = timer()
     print("time, mins:", (mid - start)/60,"\n") # Time in seconds, e.g. 5.38091952400282
