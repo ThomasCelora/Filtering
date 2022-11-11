@@ -28,7 +28,7 @@ class Base(object):
         fs4 = []
         num_files = 11
         for n in range(num_files):
-          fs1.append(h5py.File('./Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
+          fs1.append(h5py.File('../Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
         #   fs2.append(h5py.File('../Git/Plotting/BDNK/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
         #   fs2.append(h5py.File('../Git/Plotting/ISCE/KH/Ideal/dp_400x400x0_'+str(n)+'.hdf5','r'))
         #   fs3.append(h5py.File('../Git/Plotting/ISCE/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
