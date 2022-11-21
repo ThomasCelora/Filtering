@@ -1,0 +1,4 @@
+Parallel time, mins:11.80610066
+Serial time, mins:1.4911666666724461e-05
+Parallel time, mins:10.373162773333336
+Serial time, mins:5.441666667138634e-06
