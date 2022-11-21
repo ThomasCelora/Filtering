@@ -128,7 +128,7 @@ class PostProcessing(object):
     def filter_scalar(self, point, U, quant_str, L):
         # contruct tetrad...
         E_x, E_y = Base.construct_tetrad(U)
-        corners = Base.find_boundary_pts(E_x,E_y,P,L):
+        corners = Base.find_boundary_pts(E_x,E_y,P,L)
         t, x, y = point
         integrated_quant = tplquad(self.scalar_val,t-(L/2),t+(L/2),x-(L/2),x+(L/2),y-(L/2),y+(L/2),args=quant_str)
         return integrated_quant / (L**3) # seems too simple!?

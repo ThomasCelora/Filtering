@@ -53,7 +53,8 @@ if __name__ == '__main__':
     L = 0.01
     f_rts = open("runtimes.txt", "a")
     f_obs = open("observers.txt", "a")
-    args = [([tr, tr], [xr, xr], [yr, yr], L, 1, 1, 1, initial_guess) for tr in np.linspace(0.0, 15.0, 16) for xr in np.linspace(-0.4, 0.4, 41) for yr in np.linspace(-0.2, 0.2, 21)]
+    # args = [([tr, tr], [xr, xr], [yr, yr], L, 1, 1, 1, initial_guess) for tr in np.linspace(0.0, 15.0, 16) for xr in np.linspace(-0.4, 0.4, 41) for yr in np.linspace(-0.2, 0.2, 21)]
+    args = [([tr, tr], [xr, xr], [yr, yr], L, 1, 1, 1, initial_guess) for tr in np.linspace(6.0, 6.0, 1) for xr in np.linspace(0.0, 0.0, 1) for yr in np.linspace(0.0, 0.0, 1)]
     # KH_observers = system.find_observers(t_range,x_range,y_range,L,1,1,1,initial_guess)
     # print(KH_observers)
     # with open('KH_observers.pickle', 'wb') as handle:
