@@ -26,7 +26,7 @@ class PostProcessing(object):
         fs1 = []
         num_files = 11
         for n in range(num_files):
-          fs1.append(h5py.File('../Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
+          fs1.append(h5py.File('./Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
         fss = [fs1]
         nx = ny = 800
         
@@ -61,7 +61,7 @@ class PostProcessing(object):
         # Define Minkowski metric
         self.metric = np.zeros((4,4))
         self.metric[0,0] = -1
-        self.metric[1,1] = metric[2,2] = metric[3,3] = +1
+        self.metric[1,1] = self.metric[2,2] = self.metric[3,3] = +1
         
         # Load the coordinates and observers already calculated
         with open('KH_observers.pickle', 'rb') as f:
@@ -133,15 +133,66 @@ class PostProcessing(object):
         integrated_quant = tplquad(self.scalar_val,t-(L/2),t+(L/2),x-(L/2),x+(L/2),y-(L/2),y+(L/2),args=quant_str)
         return integrated_quant / (L**3) # seems too simple!?
 
-    def project_tensor(vector1_wrt, vector2_wrt, to_project):
+    def project_tensor(self, vector1_wrt, vector2_wrt, to_project):
         projection = np.inner(vector1_wrt,np.inner(vector2_wrt,to_project))
         return projection
     
+    def orthogonal_projector(self, u):
+        return self.metric + np.outer(u,u)
     
+    def values_from_hdf5(self, point, quant_str):
+        return self.macros[quant_str][point[0],point[1],point[2]] # fix
     
+if __name__ == '__main__':
+
+    import pickle
     
+    Processor = PostProcessing()
     
+    f_obs = open("observers.txt", "r")
+    observers = f_obs.read()
+    # print(observers)
+    # print(observers[2:-1:1])
+    #print(observers.split("]],"))
+    pickle_file = open("KH_observers.pickle",'r')
+    obs_pickle = pickle.load(pickle_file)
+    print(obs_pickle)
     
+    points = 
+    Us = # Filtered
+
+    scalar_strs = ['n', 'T', 'rho', 'p']
+    micros = []
+
+    for point, U in zip(points, Us):
+        for scalar_str in scalar_strs:
+            filtered N, Rho, P = Processor.filter_scalar(point, U, quant_str, L)
+            coarse n, rho, p = Processor.ns[point, scalar_str], Processor.Ts[point, scalar_str], ...       
+            coarse W, vx, vy = Processor.Ws[point, scalar_str], Processor.vxs[point, scalar_str], ...   
+            coarse_Id_SET = calc_Id_SET(u, p, rho)
+            # filtered_Id_SET = calc_Id_SET(U, P, Rho)
+            
+            rho_res = Processor.project_tensor(U,U,coarse_Id_SET)
+            
+            Pi, q, pi = Processor.calc_NonId_terms(u,p,rho) # coarse dissipative pieces
+            
+            # coarse_nId_SET = Processor.calc_NonId_SET(u, p, rho, Pi, q, pi)
+            filtered_nId_SET = Processor.calc_NonId_SET(U, P, Rho, Pi, q, pi)
+            
+            h_mu_nu = orthogonal_projector(self, U)
+            parallel_proj = Processor.project_tensor(U,U,coarse_Id_SET)
+            orthog_proj = Processor.project_tensor(h_mu_nu,h_mu_nu,coarse_Id_SET)
+            mixed_proj = Processor.project_tensor(h_mu_nu, U, coarse_Id_SET)
+            q_res = mixed_proj / (2*U)
+            S_mu_mu = np.trace(momentum_proj) # = (rho + p + Pi) u^2 + 2 q^mu u_mu + 4(p + Pi) CHECK
+            Pi_res = (S_mu_mu - 4(P+Pi) - 2*q_res*U ) / U**2 - rho_res - P
+            
+            
+            
+            
+            
+            
+            
     
     
     

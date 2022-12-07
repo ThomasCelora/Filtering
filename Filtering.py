@@ -55,32 +55,32 @@ if __name__ == '__main__':
     f_obs = open("observers.txt", "a")
     # args = [([tr, tr], [xr, xr], [yr, yr], L, 1, 1, 1, initial_guess) for tr in np.linspace(0.0, 15.0, 16) for xr in np.linspace(-0.4, 0.4, 41) for yr in np.linspace(-0.2, 0.2, 21)]
     args = [([tr, tr], [xr, xr], [yr, yr], L, 1, 1, 1, initial_guess) for tr in np.linspace(6.0, 6.0, 1) for xr in np.linspace(0.0, 0.0, 1) for yr in np.linspace(0.0, 0.0, 1)]
-    # KH_observers = system.find_observers(t_range,x_range,y_range,L,1,1,1,initial_guess)
-    # print(KH_observers)
-    # with open('KH_observers.pickle', 'wb') as handle:
-    #     pickle.dump(KH_observers, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    KH_observers = system.find_observers(t_range,x_range,y_range,L,1,1,1,initial_guess)
+    print(KH_observers)
+    with open('KH_observers.pickle', 'wb') as handle:
+        pickle.dump(KH_observers, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-    start = timer()
-    with Pool(2) as p:
-        # f_obs.write(str(p.starmap(system.find_observers, args)))
-        f_obs.write(str(p.starmap(system.find_observers, args)))
+#     start = timer()
+#     with Pool(2) as p:
+#         # f_obs.write(str(p.starmap(system.find_observers, args)))
+#         f_obs.write(str(p.starmap(system.find_observers, args)))
 
-    mid = timer()
-    print("time, mins:", (mid - start)/60,"\n") # Time in seconds, e.g. 5.38091952400282
-    f_rts.write("Parallel time, mins:"+ str((mid - start)/60) + "\n") # Time in seconds, e.g. 5.38091952400282
+#     mid = timer()
+#     print("time, mins:", (mid - start)/60,"\n") # Time in seconds, e.g. 5.38091952400282
+#     f_rts.write("Parallel time, mins:"+ str((mid - start)/60) + "\n") # Time in seconds, e.g. 5.38091952400282
     
-#    system.find_observers(t_range1, x_range,y_range,L,1,1,1,initial_guess)
-#    system.find_observers(t_range2, x_range,y_range,L,1,1,1,initial_guess)
-#    print(system.find_observers(t_range3, x_range,y_range,L,1,1,1,initial_guess))
-#    print(system.find_observers(t_range4, x_range,y_range,L,1,1,1,initial_guess))
-#    print(system.find_observers(t_range5, x_range,y_range,L,1,1,1,initial_guess))
+# #    system.find_observers(t_range1, x_range,y_range,L,1,1,1,initial_guess)
+# #    system.find_observers(t_range2, x_range,y_range,L,1,1,1,initial_guess)
+# #    print(system.find_observers(t_range3, x_range,y_range,L,1,1,1,initial_guess))
+# #    print(system.find_observers(t_range4, x_range,y_range,L,1,1,1,initial_guess))
+# #    print(system.find_observers(t_range5, x_range,y_range,L,1,1,1,initial_guess))
 
-    end = timer()
-    print("time, mins:", (end - mid)/60,"\n") # Time in seconds, e.g. 5.38091952400282
-    f_rts.write("Serial time, mins:"+str((end - mid)/60) + "\n") # Time in seconds, e.g. 5.38091952400282
-    f_rts.close()
-    f_obs.close()
+#     end = timer()
+#     print("time, mins:", (end - mid)/60,"\n") # Time in seconds, e.g. 5.38091952400282
+#     f_rts.write("Serial time, mins:"+str((end - mid)/60) + "\n") # Time in seconds, e.g. 5.38091952400282
+#     f_rts.close()
+#     f_obs.close()
         
 
 
