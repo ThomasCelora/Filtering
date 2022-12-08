@@ -18,8 +18,6 @@ from scipy.integrate import solve_ivp, quad, tplquad
 import cProfile, pstats, io
 
 
-# if __name__ == '__main__':
-
 class PostProcessing(object):
         
     def __init__(self):
