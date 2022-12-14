@@ -48,10 +48,27 @@ class PostProcessing(object):
             self.rhos.append(fs['Primitive/rho'][:])
             self.ps.append(fs['Primitive/p'][:])
             self.Ws.append(fs['Auxiliary/W'][:])
+            vxs_fine = fs['Primitive/v1'][:]
+            vxs_coarse = np.zeros((nx/2,ny/2))
+            for i in range(nx/2):
+                for j in range(ny/2):
+                    vxs_coarse[i][j] = vxs_fine[i*2][j*2] + vxs_fine[i*2+1][j*2] \
+                                       + vxs_fine[i*2][j*2+1] + vxs_fine[i*2][j*2+1]
 
         self.ut = self.Ws
-        self.ux = np.dot(Ws,vxs])
-        self.uy = np.dot(Ws,vys])
+        self.ux = np.dot(Ws,vxs)
+        self.uy = np.dot(Ws,vys)
+    
+        self.variables = {'v_x': self.vxs,
+                          'v_y': self.vys,
+                          'n': self.ns,
+                          'rho': self.rhos,
+                          'p': self.ps,
+                          'W': self.Ws,
+                          'u_t': self.ut,
+                          'u_x': self.ux,
+                          'u_y': self.uy}
+        
         
         # EoS & dissipation parameters
         self.coefficients = {'gamma': 5/3,
