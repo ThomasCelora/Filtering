@@ -84,7 +84,7 @@ class Base(object):
         u_interpd = W_interpd, vx_interpd, vy_interpd
         return [u_interpd[0][0], u_interpd[1][0], u_interpd[2][0]], n_interpd[0]
     
-    def Mink_dot(self, vec1,vec2):
+    def Mink_dot(vec1,vec2):
         dot = -vec1[0]*vec2[0] # time component
         for i in range(1,len(vec1)):
             dot += vec1[i]*vec2[i] # spatial components
