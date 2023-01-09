@@ -42,16 +42,16 @@ class PostProcessing(object):
         self.dy = (self.ys[-1] - self.ys[0])/self.ny
 
         # Define fluid variables for both the fine and coarse data
-        self.vxs = []
-        self.vys = []
-        self.uts = []
-        self.uxs = []
-        self.uys = []
-        self.ns = []
-        self.rhos = []
-        self.ps = []
-        self.Ws = []
-        self.Ts = []
+        self.vxs = np.zeros((num_files, self.nx, self.ny))
+        self.vys = np.zeros((num_files, self.nx, self.ny))
+        self.uts = np.zeros((num_files, self.nx, self.ny))
+        self.uxs = np.zeros((num_files, self.nx, self.ny))
+        self.uys = np.zeros((num_files, self.nx, self.ny))
+        self.ns = np.zeros((num_files, self.nx, self.ny))
+        self.rhos = np.zeros((num_files, self.nx, self.ny))
+        self.ps = np.zeros((num_files, self.nx, self.ny))
+        self.Ws = np.zeros((num_files, self.nx, self.ny))
+        self.Ts = np.zeros((num_files, self.nx, self.ny))
         self.vars = {'v1': self.vxs,
                           'v2': self.vys,
                           'n': self.ns,
@@ -89,13 +89,13 @@ class PostProcessing(object):
         # for fs, c_fs in fss:
         # Load the data
         # for f_f, f_c in zip(fs_f,fs_c):
-        for f_f in fs_f:
+        for f_f, counter in zip(fs_f, range(num_files)):
             for p_v_s in self.prim_vars_strs:
-                self.vars[p_v_s].append(f_f['Primitive/'+p_v_s][:])
-                # self.vars_c[p_v_s].append(f_c['Primitive/'+p_v_s][:])
+                self.vars[p_v_s][counter] = f_f['Primitive/'+p_v_s][:]
+                # self.vars_c[p_v_s][counter] = f_c['Primitive/'+p_v_s][:]
             for a_v_s in self.aux_vars_strs:
-                self.vars[a_v_s].append(f_f['Auxiliary/'+a_v_s][:])
-                # self.vars_c[a_v_s].append(f_c['Primitive/'+a_v_s][:])
+                self.vars[a_v_s][counter] = f_f['Auxiliary/'+a_v_s][:]
+                # self.vars_c[a_v_s][counter] = f_c['Primitive/'+a_v_s][:]
             # Artificial coarse data
             vxs_fine = f_f['Primitive/v1'][:]
             vxs_c = np.zeros((self.c_nx,self.c_ny))
@@ -126,9 +126,9 @@ class PostProcessing(object):
         self.cen_SO_stencil = [1/12, -2/3, 0, 2/3, -1/12]
 
         # Define Minkowski metric
-        self.metric = np.zeros((4,4))
+        self.metric = np.zeros((3,3))
         self.metric[0,0] = -1
-        self.metric[1,1] = self.metric[2,2] = self.metric[3,3] = +1
+        self.metric[1,1] = self.metric[2,2] = +1
         
         # Load the coordinates and observers already calculated
         with open('KH_observers.pickle', 'rb') as f:
@@ -162,8 +162,8 @@ class PostProcessing(object):
         Id_SET = rho*np.outer(u,u) + p*self.metric
         return Id_SET
 
-    def calc_NonId_SET(self,u,p,rho,n,coefficients):
-        Pi, q, pi = self.calc_NonId_terms(u,p,rho,n)
+    def calc_NonId_SET(self,u,p,rho,n,Pi, q, pi):
+        #Pi, q, pi = self.calc_NonId_terms(u,p,rho,n)
         u_mu_u_nu = np.outer(u,u)
         h_mu_nu = self.metric + u_mu_u_nu
         NonId_SET = rho*u_mu_u_nu + (p+Pi)*h_mu_nu + np.outer(q,u) + np.outer(u,q) + pi
@@ -175,13 +175,13 @@ class PostProcessing(object):
         dt_quant = np.dot(self.cen_SO_stencil, values) / self.dT
         return dt_quant
     
-    def calc_x_deriv(self, quant_str):
+    def calc_x_deriv(self, quant_str, point):
         t, x, y = point
         values = [self.scalar_val(t,X,y,quant_str) for X in np.linspace(x-2*self.dX,x+2*self.dX,5)]
         dX_quant = np.dot(self.cen_SO_stencil, values) / self.dX
         return dX_quant
 
-    def calc_y_deriv(self, quant_str):
+    def calc_y_deriv(self, quant_str, point):
         t, x, y = point
         values = [self.scalar_val(t,x,Y,quant_str) for Y in np.linspace(y-2*self.dX,y+2*self.dY,5)]
         dX_quant = np.dot(self.cen_SO_stencil, values) / self.dY
@@ -200,29 +200,29 @@ class PostProcessing(object):
         start, end = corners[0], corners[2]
         t, x, y = point
         # integrated_quant = nquad(self.scalar_val,t-(L/2),t+(L/2),x-(L/2),x+(L/2),y-(L/2),y+(L/2),args=quant_str)
-        print(quant_str)
-        integrated_quant = nquad(func=self.scalar_val,ranges=[[start[0],end[0]],[start[1],end[1]],[start[2],end[2]]],args=[quant_str])
+        # print(quant_str)
+        # integrated_quant = nquad(func=self.scalar_val,ranges=[[start[0],end[0]],[start[1],end[1]],[start[2],end[2]]],args=[quant_str])
         # integrated_quant = nquad(func=self.scalar_val_point,
         #     ranges=[[start[0], start[1],start[2]],[end[0],end[1],end[2]]],args=quant_str)
         integrand = 0
         counter = 0
         start_cell, end_cell = self.find_nearest_cell([t-(L/2),x-(L/2),y-(L/2)]), self.find_nearest_cell([t+(L/2),x+(L/2),y+(L/2)])
-        print(start_cell, end_cell)
+        # print(start_cell, end_cell)
         for i in range(start_cell[0],end_cell[0]+1):
             for j in range(start_cell[1],end_cell[1]+1):
                 for k in range(start_cell[2],end_cell[2]+1):
                     integrand += self.vars[quant_str][i][j,k]
                     counter += 1
-        print(counter)
-        print(integrated_quant[0],integrand)
+        # print(counter)
+        # print(integrated_quant[0]/counter,integrand/self.L**3)
         return integrand/counter
         # for t_s in np.linspace(t-(L/2),t+(L/2),40):
         #     for x_pos np.linspace(x-2*self.dX,x+2*self.dX,40):
         #         for y_pos in np.linspace(y-2*self.dX,y+2*self.dY,40):
         #             integrand += self.vars[quant_str][self.find_nearest_cell(t_pos,x_pos,y_pos)]
-        return integrated_quant[0] / (self.L**3) # seems too simple!?
+        # return integrated_quant[0] / (self.L**3) # seems too simple!?
 
-    def project_tensor(vector1_wrt, vector2_wrt, to_project):
+    def project_tensor(self,vector1_wrt, vector2_wrt, to_project):
         projection = np.inner(vector1_wrt,np.inner(vector2_wrt,to_project))
         return projection
     
@@ -295,14 +295,14 @@ if __name__ == '__main__':
         u = [W, u_x, u_y]
 
         # Calculate Non-Ideal terms
-        Pi, q, pi = Processor.calc_NonId_terms(u,p,rho) # coarse dissipative pieces
+        Pi, q, pi = Processor.calc_NonId_terms(u,p,rho,n) # coarse dissipative pieces
 
         # Construct coarse Id & Non-Id SET         
         coarse_Id_SET = Processor.calc_Id_SET(u, p, rho)
-        coarse_nId_SET = Processor.calc_NonId_SET(u, p, rho, Pi, q, pi)
+        coarse_nId_SET = Processor.calc_NonId_SET(u, p, rho, n, Pi, q, pi)
         # Construct filtered Id & Non-Id SET
         filtered_Id_SET = Processor.calc_Id_SET(U, P, Rho)
-        filtered_nId_SET = Processor.calc_NonId_SET(U, P, Rho, Pi, q, pi)           
+        filtered_nId_SET = Processor.calc_NonId_SET(U, P, Rho, N, Pi, q, pi)           
         
         # Do required projections of SET
         h_mu_nu = Processor.orthogonal_projector(U)
@@ -312,10 +312,10 @@ if __name__ == '__main__':
     
         # Obtain residuals
         rho_res = parallel_proj
-        q_res = mixed_proj / (2*U)
+        q_res = mixed_proj / 2*np.sqrt(np.inner(U,U)) # np.outer(U,U) #(2*U)
         S_mu_mu = np.trace(orthog_proj) # = (rho + p + Pi) u^2 + 2 q^mu u_mu + 4(p + Pi) CHECK
-        Pi_res = (S_mu_mu - 4*(P+Pi) - 2*q_res*U ) / U**2 - rho_res - P
-            
+        Pi_res = (S_mu_mu - 4*(P+Pi) - 2*q_res*U ) / np.inner(U,U) - rho_res - P
+        print(rho_res,q_res,Pi_res)
             
             
             
