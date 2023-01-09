@@ -22,66 +22,104 @@ import math
 class PostProcessing(object):
         
     def __init__(self):
-        fs1 = []
+        fs_f = [] # fine
+        fs_c = [] # coarse
         num_files = 11
         for n in range(num_files):
-          fs1.append(h5py.File('./Data/KH/Ideal/dp_400x400x0_'+str(n)+'.hdf5','r'))
-        fss = [fs1]
+          fs_f.append(h5py.File('./Data/KH/Ideal/dp_400x400x0_'+str(n)+'.hdf5','r'))
+          # fs_c.append(h5py.File('./Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
+        fss = [fs_f]
         self.nx, self.ny = int(400), int(400)
         self.c_nx, self.c_ny = int(self.nx/2), int(self.ny/2) # coarse
+        # self.c_nx, self.c_ny = 200, 200 # coarse
         
         self.ts = np.linspace(0,30,11) # Need to actually get these
         self.xs = np.linspace(-0.5,0.5,self.nx)
         self.ys =  np.linspace(-1.0,1.0,self.ny)
         self.points = (self.ts,self.xs,self.ys)
-        # self.dt get this...
+        # self.dt get this from files...
         self.dx = (self.xs[-1] - self.xs[0])/self.nx # actual grid-resolution
         self.dy = (self.ys[-1] - self.ys[0])/self.ny
+
+        # Define fluid variables for both the fine and coarse data
         self.vxs = []
         self.vys = []
+        self.uts = []
+        self.uxs = []
+        self.uys = []
         self.ns = []
         self.rhos = []
         self.ps = []
         self.Ws = []
         self.Ts = []
-        for fs in fss[0]:
-            self.vxs.append(fs['Primitive/v1'][:])
-            self.vys.append(fs['Primitive/v2'][:])
-            self.ns.append(fs['Primitive/n'][:])
-            self.rhos.append(fs['Primitive/rho'][:])
-            self.ps.append(fs['Primitive/p'][:])
-            self.Ws.append(fs['Auxiliary/W'][:])
-            self.Ts.append(fs['Auxiliary/T'][:])
-            vxs_fine = fs['Primitive/v1'][:]
-            vxs_coarse = np.zeros((self.c_nx,self.c_ny))
-            for i in range(self.c_nx):
-                for j in range(self.c_ny):
-                    vxs_coarse[i][j] = vxs_fine[i*2][j*2] + vxs_fine[i*2+1][j*2] \
-                                       + vxs_fine[i*2][j*2+1] + vxs_fine[i*2][j*2+1]
-
-        self.ut = self.Ws
-        self.ux = np.dot(self.ut,self.vxs)
-        self.uy = np.dot(self.ut,self.vys)
-    
-        self.vars = {'v_x': self.vxs,
-                          'v_y': self.vys,
+        self.vars = {'v1': self.vxs,
+                          'v2': self.vys,
                           'n': self.ns,
-                          'R': self.rhos,
+                          'rho': self.rhos,
                           'p': self.ps,
                           'W': self.Ws,
-                          'u_t': self.ut,
-                          'u_x': self.ux,
-                          'u_y': self.uy,
+                          'u_t': self.uts,
+                          'u_x': self.uxs,
+                          'u_y': self.uys,
                           'T': self.Ts}
+
+        self.vxs_c = []
+        self.vys_c = []
+        self.uts_c = []
+        self.uxs_c = []
+        self.uys_c = []
+        self.ns_c = []
+        self.rhos_c = []
+        self.ps_c = []
+        self.Ws_c = []
+        self.Ts_c = []        
+        self.vars_c = {'v1': self.vxs_c,
+                          'v2': self.vys_c,
+                          'n': self.ns_c,
+                          'rho': self.rhos_c,
+                          'p': self.ps_c,
+                          'W': self.Ws_c,
+                          'u_t': self.uts_c,
+                          'u_x': self.uxs_c,
+                          'u_y': self.uys_c,
+                          'T': self.Ts_c}  
         
-        
+        self.prim_vars_strs = ['v1','v2','n','rho','p']
+        self.aux_vars_strs= ['W','T']
+        # for fs, c_fs in fss:
+        # Load the data
+        # for f_f, f_c in zip(fs_f,fs_c):
+        for f_f in fs_f:
+            for p_v_s in self.prim_vars_strs:
+                self.vars[p_v_s].append(f_f['Primitive/'+p_v_s][:])
+                # self.vars_c[p_v_s].append(f_c['Primitive/'+p_v_s][:])
+            for a_v_s in self.aux_vars_strs:
+                self.vars[a_v_s].append(f_f['Auxiliary/'+a_v_s][:])
+                # self.vars_c[a_v_s].append(f_c['Primitive/'+a_v_s][:])
+            # Artificial coarse data
+            vxs_fine = f_f['Primitive/v1'][:]
+            vxs_c = np.zeros((self.c_nx,self.c_ny))
+            for i in range(self.c_nx):
+                for j in range(self.c_ny):
+                    vxs_c[i][j] = vxs_fine[i*2][j*2] + vxs_fine[i*2+1][j*2] \
+                                       + vxs_fine[i*2][j*2+1] + vxs_fine[i*2][j*2+1]
+
+        self.uts = self.Ws
+        self.uxs = np.multiply(self.uts,self.vxs) # broken I think
+        self.uys = np.multiply(self.uts,self.vys)
+        self.uts_c = self.Ws_c
+        self.uxs_c = np.multiply(self.uts_c,self.vxs_c)
+        self.uys_c = np.multiply(self.uts_c,self.vys_c)
+    
+  
         # EoS & dissipation parameters
         self.coefficients = {'gamma': 5/3,
                         'zeta': 1e-2,
                         'kappa': 1e-4,
                         'eta': 1e-2}
         
-        self.L = 0.1
+        # Size of box for spatial filtering
+        self.L = 2*np.sqrt(self.dx*self.dy) # filtering size
         self.dT = 0.01 # steps to take for differential calculations
         self.dX = 0.01
         self.dY = 0.01
@@ -155,20 +193,34 @@ class PostProcessing(object):
     def scalar_val_point(self, point, quant_str):
         return interpn(self.points,self.vars[quant_str],point)
     
-    def filter_scalar(self, point, U, quant_str, L):
+    def filter_scalar(self, point, U, quant_str):
         # contruct tetrad...
         E_x, E_y = Base.construct_tetrad(Base,U)
         corners = Base.find_boundary_pts(Base,E_x,E_y,point,L)
         start, end = corners[0], corners[2]
         t, x, y = point
         # integrated_quant = nquad(self.scalar_val,t-(L/2),t+(L/2),x-(L/2),x+(L/2),y-(L/2),y+(L/2),args=quant_str)
-        print(type(quant_str))
-        print(start,end)
-        print(start[0],end[2])
-        integrated_quant = nquad(func=self.scalar_val,ranges=[[start[0],end[0]],[start[1],end[1]],[start[2],end[2]]],args=quant_str)
+        print(quant_str)
+        integrated_quant = nquad(func=self.scalar_val,ranges=[[start[0],end[0]],[start[1],end[1]],[start[2],end[2]]],args=[quant_str])
         # integrated_quant = nquad(func=self.scalar_val_point,
         #     ranges=[[start[0], start[1],start[2]],[end[0],end[1],end[2]]],args=quant_str)
-        return integrated_quant[0] / (L**3) # seems too simple!?
+        integrand = 0
+        counter = 0
+        start_cell, end_cell = self.find_nearest_cell([t-(L/2),x-(L/2),y-(L/2)]), self.find_nearest_cell([t+(L/2),x+(L/2),y+(L/2)])
+        print(start_cell, end_cell)
+        for i in range(start_cell[0],end_cell[0]+1):
+            for j in range(start_cell[1],end_cell[1]+1):
+                for k in range(start_cell[2],end_cell[2]+1):
+                    integrand += self.vars[quant_str][i][j,k]
+                    counter += 1
+        print(counter)
+        print(integrated_quant[0],integrand)
+        return integrand/counter
+        # for t_s in np.linspace(t-(L/2),t+(L/2),40):
+        #     for x_pos np.linspace(x-2*self.dX,x+2*self.dX,40):
+        #         for y_pos in np.linspace(y-2*self.dX,y+2*self.dY,40):
+        #             integrand += self.vars[quant_str][self.find_nearest_cell(t_pos,x_pos,y_pos)]
+        return integrated_quant[0] / (self.L**3) # seems too simple!?
 
     def project_tensor(vector1_wrt, vector2_wrt, to_project):
         projection = np.inner(vector1_wrt,np.inner(vector2_wrt,to_project))
@@ -191,8 +243,7 @@ class PostProcessing(object):
     def find_nearest_cell(self, point):
         t_pos = self.find_nearest(self.ts,point[0])
         x_pos = self.find_nearest(self.xs,point[1])
-        y_pos = self.find_nearest(self.xs,point[2])
-        print(t_pos,x_pos,y_pos)
+        y_pos = self.find_nearest(self.ys,point[2])
         return [np.where(self.ts==t_pos)[0][0], np.where(self.xs==x_pos)[0][0], np.where(self.ys==y_pos)[0][0]]
     
 if __name__ == '__main__':
@@ -217,11 +268,9 @@ if __name__ == '__main__':
 
     #print(points,Us)
 
-    scalar_strs = ['n', 'R', 'p']
+    scalar_strs = ['rho', 'n', 'p']
     vector_strs = ['W', 'u_x', 'u_y']
-    micros = []
     L = 0.1
-    Ns = []
 
     for point, U in zip(points, Us):
         #for scalar_str in scalar_strs:
@@ -230,13 +279,14 @@ if __name__ == '__main__':
             # print(Ns)
 
         # Filter scalar fields
-        N = Processor.filter_scalar(point, U, scalar_strs[0], L)
-        Rho = Processor.filter_scalar(point, U, scalar_strs[1], L)
-        P = Processor.filter_scalar(point, U, scalar_strs[2], L)
+        N = Processor.filter_scalar(point, U, scalar_strs[0])
+        Rho = Processor.filter_scalar(point, U, scalar_strs[1])
+        P = Processor.filter_scalar(point, U, scalar_strs[2])
         T = P/N
-        
-        
-
+        U_t = Processor.filter_scalar(point, U, vector_strs[0])
+        U_x = Processor.filter_scalar(point, U, vector_strs[1])
+        U_y = Processor.filter_scalar(point, U, vector_strs[2])
+      
         # Obtain coarse values
         n, rho, p = Processor.values_from_hdf5(point, scalar_strs[0]),\
             Processor.values_from_hdf5(point, scalar_strs[1]), Processor.values_from_hdf5(point, scalar_strs[2])
@@ -252,7 +302,7 @@ if __name__ == '__main__':
         coarse_nId_SET = Processor.calc_NonId_SET(u, p, rho, Pi, q, pi)
         # Construct filtered Id & Non-Id SET
         filtered_Id_SET = Processor.calc_Id_SET(U, P, Rho)
-        filtered_nId_SET = Processor.calc_NonId_SET(U, P, Rho, Pi, q, pi)            
+        filtered_nId_SET = Processor.calc_NonId_SET(U, P, Rho, Pi, q, pi)           
         
         # Do required projections of SET
         h_mu_nu = Processor.orthogonal_projector(U)
