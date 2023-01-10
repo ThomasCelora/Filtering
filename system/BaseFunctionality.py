@@ -26,10 +26,12 @@ class Base(object):
         fs2 = []
         fs3 = []
         fs4 = []
-        num_files = 11
+        num_files = 51
         for n in range(1,num_files+1):
-#          fs1.append(h5py.File('./Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
-          fs1.append(h5py.File('./Data/KH/Shear/dp_400x800x0_'+str(n)+'.hdf5','r'))
+          # fs1.append(h5py.File('./Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
+          # fs1.append(h5py.File('./Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
+          fs1.append(h5py.File('../../../.../scratch/mjh1n20/Filtering_Data/KH/dp_800x800x0_'+str(n)+'.hdf5','r'))
+          # fs1.append(h5py.File('./Data/KH/Shear/dp_400x800x0_'+str(n)+'.hdf5','r'))
         #   fs2.append(h5py.File('../Git/Plotting/BDNK/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
         #   fs2.append(h5py.File('../Git/Plotting/ISCE/KH/Ideal/dp_400x400x0_'+str(n)+'.hdf5','r'))
         #   fs3.append(h5py.File('../Git/Plotting/ISCE/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))

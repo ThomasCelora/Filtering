@@ -131,7 +131,7 @@ class PostProcessing(object):
         self.metric[1,1] = self.metric[2,2] = +1
         
         # Load the coordinates and observers already calculated
-        with open('KH_observers.pickle', 'rb') as f:
+        with open('KH_observer.pickle', 'rb') as f:
             # The protocol version used is detected automatically, so we do not
             # have to specify it.
             self.coord_list, self.vectors, self.funs = pickle.load(f)
@@ -258,7 +258,7 @@ if __name__ == '__main__':
     with open('test_obs.pickle', 'rb') as filehandle:
         # Read the data as a binary data stream
         test_obs = pickle.load(filehandle)
-    #print(test_obs)
+    print(test_obs)
     
     points = []
     Us = [] # Filtered
@@ -315,7 +315,9 @@ if __name__ == '__main__':
         q_res = mixed_proj / 2*np.sqrt(np.inner(U,U)) # np.outer(U,U) #(2*U)
         S_mu_mu = np.trace(orthog_proj) # = (rho + p + Pi) u^2 + 2 q^mu u_mu + 4(p + Pi) CHECK
         Pi_res = (S_mu_mu - 4*(P+Pi) - 2*q_res*U ) / np.inner(U,U) - rho_res - P
-        print(rho_res,q_res,Pi_res)
+        print("Rho residual: ", rho_res)
+        print("q residual: ", q_res)
+        print("Pi residual: ", Pi_res)
             
             
             
