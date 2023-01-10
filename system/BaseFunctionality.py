@@ -27,8 +27,9 @@ class Base(object):
         fs3 = []
         fs4 = []
         num_files = 11
-        for n in range(num_files):
-          fs1.append(h5py.File('./Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
+        for n in range(1,num_files+1):
+#          fs1.append(h5py.File('./Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
+          fs1.append(h5py.File('./Data/KH/Shear/dp_400x800x0_'+str(n)+'.hdf5','r'))
         #   fs2.append(h5py.File('../Git/Plotting/BDNK/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
         #   fs2.append(h5py.File('../Git/Plotting/ISCE/KH/Ideal/dp_400x400x0_'+str(n)+'.hdf5','r'))
         #   fs3.append(h5py.File('../Git/Plotting/ISCE/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
@@ -45,7 +46,7 @@ class Base(object):
         # fss = [fs1, fs2, fs3, fs4]
         fss = [fs1]
         # nx = ny = 200
-        nx = ny = 800
+        nx, ny = 400, 800
         
         ts = np.linspace(0,30,11) # Need to actually get these
         xs = np.linspace(-0.5,0.5,nx) # These too...

@@ -61,7 +61,7 @@ if __name__ == '__main__':
 
 
     start = timer()
-    with Pool(2) as p:
+    with Pool(40) as p:
         # f_obs.write(str(p.starmap(system.find_observers, args)))
         f_obs.write(str(p.starmap(system.find_observers, args)))
 
