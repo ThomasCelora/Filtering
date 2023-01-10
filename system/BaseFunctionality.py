@@ -85,7 +85,7 @@ class Base(object):
         u_interpd = W_interpd, vx_interpd, vy_interpd
         return [u_interpd[0][0], u_interpd[1][0], u_interpd[2][0]], n_interpd[0]
     
-    def Mink_dot(self, vec1,vec2):
+    def Mink_dot(vec1,vec2):
         dot = -vec1[0]*vec2[0] # time component
         for i in range(1,len(vec1)):
             dot += vec1[i]*vec2[i] # spatial components
@@ -177,6 +177,7 @@ class Base(object):
             for x in x_coords:
                 for y in y_coords:
                     u, n = self.interpolate_u_n_coords(t,x,y)
+                    # guess_vx_vy = initial_guess
                     guess_vx_vy = [u[1]/u[0], u[2]/u[0]]
                     coords = [t,x,y]
                     #sol = minimize(self.residual_ib,x0=guess_vx_vy,args=(coords,L),bounds=((-0.7,0.7),(-0.7,0.7)),tol=1e-6)#,method='CG')
