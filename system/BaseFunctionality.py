@@ -49,8 +49,8 @@ class Base(object):
         fss = [fs1]
         # nx = ny = 200
         nx, ny = 400, 800
-        
-        ts = np.linspace(0,30,11) # Need to actually get these
+        nts = num_files
+        ts = np.linspace(10,15,nts) # Need to actually get these
         xs = np.linspace(-0.5,0.5,nx) # These too...
         ys =  np.linspace(-1.0,1.0,ny)
         # X, Y = np.meshgrid(xs,ys)
