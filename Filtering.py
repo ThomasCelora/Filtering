@@ -46,10 +46,10 @@ if __name__ == '__main__':
 #     print("root-found: ",get_U_mu(sol.x))
 #     print("blabla")
 
-    t_range = [6.0,6.0]
-    x_range = [0.0,0.0]
-    y_range = [0.0,0.0]
-    initial_guess = [0.0,0.0]
+    # t_range = [6.0,6.0]
+    # x_range = [0.0,0.0]
+    # y_range = [0.0,0.0]
+    # initial_guess = [0.0,0.0]
     L = 0.01
     f_rts = open("runtimes.txt", "a")
     f_obs = open("observers.txt", "a")
@@ -63,9 +63,10 @@ if __name__ == '__main__':
     handle = open('KH_observers.pickle', 'wb')
     start = timer()
     with Pool(40) as p:
-        pickle.dump(p.starmap(system.find_observers, args), handle, protocol=pickle.HIGHEST_PROTOCOL)
+        results = p.starmap(system.find_observers, args)
+        pickle.dump(np.array(results), handle, protocol=pickle.HIGHEST_PROTOCOL)
+        f_obs.write(str(results))
         mid = timer()
-        f_obs.write(str(p.starmap(system.find_observers, args)))
         end = timer()
 
     # mid = timer()
