@@ -132,15 +132,15 @@ class PostProcessing(object):
         self.metric[1,1] = self.metric[2,2] = +1
         
         # Load the coordinates and observers already calculated
-        with open('KH_observers.pickle', 'rb') as f:
+        with open('test_obs.pickle', 'rb') as f:
             # The protocol version used is detected automatically, so we do not
             # have to specify it.
             inputs = pickle.load(f)
-            self.coord_list = np.zeros()
-            for 
-                coords
-                observers 
-            self.coord_list, self.vectors, self.funs = pickle.load(f)
+            # print(inputs)
+            self.coords = self.vectors = np.zeros((len(inputs),3))
+            for counter in range(len(inputs)):
+                self.coords[counter] = inputs[counter][0]
+                self.vectors = inputs[counter][1]
    
     # def calc_4vel(W,vx,vy):
     #     return [W,W]
@@ -252,6 +252,50 @@ class PostProcessing(object):
         y_pos = self.find_nearest(self.ys,point[2])
         return [np.where(self.ts==t_pos)[0][0], np.where(self.xs==x_pos)[0][0], np.where(self.ys==y_pos)[0][0]]
     
+    def calc_residual(self, point_and_vel):
+            point, U = point_and_vel
+            # Filter scalar fields
+            N = Processor.filter_scalar(point, U, scalar_strs[0])
+            Rho = Processor.filter_scalar(point, U, scalar_strs[1])
+            P = Processor.filter_scalar(point, U, scalar_strs[2])
+            T = P/N
+            U_t = Processor.filter_scalar(point, U, vector_strs[0])
+            U_x = Processor.filter_scalar(point, U, vector_strs[1])
+            U_y = Processor.filter_scalar(point, U, vector_strs[2])
+          
+            # Obtain coarse values
+            n, rho, p = Processor.values_from_hdf5(point, scalar_strs[0]),\
+                Processor.values_from_hdf5(point, scalar_strs[1]), Processor.values_from_hdf5(point, scalar_strs[2])
+            W, u_x, u_y = Processor.values_from_hdf5(point, vector_strs[0]),\
+                Processor.values_from_hdf5(point, vector_strs[1]), Processor.values_from_hdf5(point, vector_strs[2])
+            u = [W, u_x, u_y]
+
+            # Calculate Non-Ideal terms
+            Pi, q, pi = Processor.calc_NonId_terms(u,p,rho,n) # coarse dissipative pieces
+
+            # Construct coarse Id & Non-Id SET         
+            coarse_Id_SET = Processor.calc_Id_SET(u, p, rho)
+            coarse_nId_SET = Processor.calc_NonId_SET(u, p, rho, n, Pi, q, pi)
+            # Construct filtered Id & Non-Id SET
+            filtered_Id_SET = Processor.calc_Id_SET(U, P, Rho)
+            filtered_nId_SET = Processor.calc_NonId_SET(U, P, Rho, N, Pi, q, pi)           
+            
+            # Do required projections of SET
+            h_mu_nu = Processor.orthogonal_projector(U)
+            parallel_proj = Processor.project_tensor(U,U,coarse_Id_SET)
+            orthog_proj = Processor.project_tensor(h_mu_nu,h_mu_nu,coarse_Id_SET)
+            mixed_proj = Processor.project_tensor(h_mu_nu, U, coarse_Id_SET)
+        
+            # Obtain residuals
+            rho_res = parallel_proj
+            q_res = mixed_proj / 2*np.sqrt(np.inner(U,U)) # np.outer(U,U) #(2*U)
+            S_mu_mu = np.trace(orthog_proj) # = (rho + p + Pi) u^2 + 2 q^mu u_mu + 4(p + Pi) CHECK
+            Pi_res = (S_mu_mu - 4*(P+Pi) - 2*q_res*U ) / np.inner(U,U) - rho_res - P
+            print("Rho residual: ", rho_res)
+            print("q residual: ", q_res)
+            print("Pi residual: ", Pi_res)    
+    
+    
 if __name__ == '__main__':
     
     Processor = PostProcessing()
@@ -261,77 +305,32 @@ if __name__ == '__main__':
     # print(observers)
     # print(observers[2:-1:1])
     #print(observers.split("]],"))
-    with open('test_obs.pickle', 'rb') as filehandle:
-        # Read the data as a binary data stream
-        test_obs = pickle.load(filehandle)
-    print(test_obs)
+    # with open('test_obs.pickle', 'rb') as filehandle:
+    #     # Read the data as a binary data stream
+    #     test_obs = pickle.load(filehandle)
+    # print(test_obs)
     
-    points = []
-    Us = [] # Filtered
-    for i in range(len(test_obs)): #awful
-        points.append(test_obs[i][0])
-        Us.append(test_obs[i][1])
+    # points = []
+    # Us = [] # Filtered
+    # for i in range(len(test_obs)): #awful
+    #     points.append(test_obs[i][0])
+    #     Us.append(test_obs[i][1])
 
     #print(points,Us)
 
     scalar_strs = ['rho', 'n', 'p']
     vector_strs = ['W', 'u_x', 'u_y']
-    L = 0.1
+    args = [(coord, vector) for coord, vector in zip(Processor.coords, Processor.vectors)]
 
-    # residuals_handle = open('Residuals.pickle', 'wb')
-    # start = timer()
-    # with Pool(40) as p:
-    #     pickle.dump(p.starmap(Processor.calc_residuals), residuals_handle, protocol=pickle.HIGHEST_PROTOCOL)
-    # end = timer()
+    residuals_handle = open('Residuals.pickle', 'wb')
+    start = timer()
+    with Pool(40) as p:
+        pickle.dump(p.starmap(Processor.calc_residuals, args), residuals_handle, protocol=pickle.HIGHEST_PROTOCOL)
+    end = timer()
     
     
     
-    for point, U in zip(points, Us):
-        #for scalar_str in scalar_strs:
-            
-            # Ns.append(Processor.filter_scalar(point, U, scalar_str, L))
-            # print(Ns)
 
-        # Filter scalar fields
-        N = Processor.filter_scalar(point, U, scalar_strs[0])
-        Rho = Processor.filter_scalar(point, U, scalar_strs[1])
-        P = Processor.filter_scalar(point, U, scalar_strs[2])
-        T = P/N
-        U_t = Processor.filter_scalar(point, U, vector_strs[0])
-        U_x = Processor.filter_scalar(point, U, vector_strs[1])
-        U_y = Processor.filter_scalar(point, U, vector_strs[2])
-      
-        # Obtain coarse values
-        n, rho, p = Processor.values_from_hdf5(point, scalar_strs[0]),\
-            Processor.values_from_hdf5(point, scalar_strs[1]), Processor.values_from_hdf5(point, scalar_strs[2])
-        W, u_x, u_y = Processor.values_from_hdf5(point, vector_strs[0]),\
-            Processor.values_from_hdf5(point, vector_strs[1]), Processor.values_from_hdf5(point, vector_strs[2])
-        u = [W, u_x, u_y]
-
-        # Calculate Non-Ideal terms
-        Pi, q, pi = Processor.calc_NonId_terms(u,p,rho,n) # coarse dissipative pieces
-
-        # Construct coarse Id & Non-Id SET         
-        coarse_Id_SET = Processor.calc_Id_SET(u, p, rho)
-        coarse_nId_SET = Processor.calc_NonId_SET(u, p, rho, n, Pi, q, pi)
-        # Construct filtered Id & Non-Id SET
-        filtered_Id_SET = Processor.calc_Id_SET(U, P, Rho)
-        filtered_nId_SET = Processor.calc_NonId_SET(U, P, Rho, N, Pi, q, pi)           
-        
-        # Do required projections of SET
-        h_mu_nu = Processor.orthogonal_projector(U)
-        parallel_proj = Processor.project_tensor(U,U,coarse_Id_SET)
-        orthog_proj = Processor.project_tensor(h_mu_nu,h_mu_nu,coarse_Id_SET)
-        mixed_proj = Processor.project_tensor(h_mu_nu, U, coarse_Id_SET)
-    
-        # Obtain residuals
-        rho_res = parallel_proj
-        q_res = mixed_proj / 2*np.sqrt(np.inner(U,U)) # np.outer(U,U) #(2*U)
-        S_mu_mu = np.trace(orthog_proj) # = (rho + p + Pi) u^2 + 2 q^mu u_mu + 4(p + Pi) CHECK
-        Pi_res = (S_mu_mu - 4*(P+Pi) - 2*q_res*U ) / np.inner(U,U) - rho_res - P
-        print("Rho residual: ", rho_res)
-        print("q residual: ", q_res)
-        print("Pi residual: ", Pi_res)
             
             
             

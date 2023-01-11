@@ -49,7 +49,7 @@ if __name__ == '__main__':
     # t_range = [6.0,6.0]
     # x_range = [0.0,0.0]
     # y_range = [0.0,0.0]
-    # initial_guess = [0.0,0.0]
+    initial_guess = [0.0,0.0]
     L = 0.01
     f_rts = open("runtimes.txt", "a")
     f_obs = open("observers.txt", "a")
