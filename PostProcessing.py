@@ -18,6 +18,7 @@ from scipy.integrate import solve_ivp, quad, tplquad, nquad
 import cProfile, pstats, io
 from system.BaseFunctionality import Base
 import math
+from multiprocessing import Process, Pool
 
 class PostProcessing(object):
         
@@ -131,11 +132,16 @@ class PostProcessing(object):
         self.metric[1,1] = self.metric[2,2] = +1
         
         # Load the coordinates and observers already calculated
-        with open('KH_observer.pickle', 'rb') as f:
+        with open('KH_observers.pickle', 'rb') as f:
             # The protocol version used is detected automatically, so we do not
             # have to specify it.
+            inputs = pickle.load(f)
+            self.coord_list = np.zeros()
+            for 
+                coords
+                observers 
             self.coord_list, self.vectors, self.funs = pickle.load(f)
-     
+   
     # def calc_4vel(W,vx,vy):
     #     return [W,W]
         
@@ -272,6 +278,14 @@ if __name__ == '__main__':
     vector_strs = ['W', 'u_x', 'u_y']
     L = 0.1
 
+    # residuals_handle = open('Residuals.pickle', 'wb')
+    # start = timer()
+    # with Pool(40) as p:
+    #     pickle.dump(p.starmap(Processor.calc_residuals), residuals_handle, protocol=pickle.HIGHEST_PROTOCOL)
+    # end = timer()
+    
+    
+    
     for point, U in zip(points, Us):
         #for scalar_str in scalar_strs:
             

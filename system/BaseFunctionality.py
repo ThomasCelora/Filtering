@@ -22,7 +22,7 @@ import cProfile, pstats, io
 class Base(object):
     
     def __init__(self):
-        fs1 = []
+        self.fs1 = []
         fs2 = []
         fs3 = []
         fs4 = []
@@ -30,7 +30,7 @@ class Base(object):
         for n in range(1,num_files+1):
           # fs1.append(h5py.File('./Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
           # fs1.append(h5py.File('./Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
-          fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/dp_400x800x0_'+str(n)+'.hdf5','r'))
+          self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/dp_400x800x0_'+str(n)+'.hdf5','r'))
           # fs1.append(h5py.File('./Data/KH/Shear/dp_400x800x0_'+str(n)+'.hdf5','r'))
         #   fs2.append(h5py.File('../Git/Plotting/BDNK/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
         #   fs2.append(h5py.File('../Git/Plotting/ISCE/KH/Ideal/dp_400x400x0_'+str(n)+'.hdf5','r'))
@@ -46,7 +46,7 @@ class Base(object):
         #   fs3.append(h5py.File('ISCE/Rotor/lowres/data_serial_'+str(n)+'.hdf5','r'))
         #   fs4.append(h5py.File('ISCE/Rotor/long_highres/data_serial_'+str(n)+'.hdf5','r'))
         # fss = [fs1, fs2, fs3, fs4]
-        fss = [fs1]
+        # fss = [fs1]
         # nx = ny = 200
         nx, ny = 400, 800
         nts = num_files
@@ -57,17 +57,17 @@ class Base(object):
         self.points = (ts,xs,ys)
         self.dx = (xs[-1] - xs[0])/nx
         self.dy = (ys[-1] - ys[0])/ny
-        self.vxs = []
-        self.vys = []
-        self.ns = []
-        for fs in fss[0]:
-            self.vxs.append(fs['Primitive/v1'][:])
-            self.vys.append(fs['Primitive/v2'][:])
-            self.ns.append(fs['Primitive/n'][:])
+        self.vxs = np.zeros((num_files, self.nx, self.ny))
+        self.vys = np.zeros((num_files, self.nx, self.ny))
+        self.ns = np.zeros((num_files, self.nx, self.ny))
+        for counter in range(num_files):
+            self.vxs[counter] = self.fs1[counter]['Primitive/v1'][:]
+            self.vys[counter] = self.fs1[counter]['Primitive/v2'][:]
+            self.ns[counter] = self.fs1[counter]['Primitive/n'][:]
 
     def u_n_values_from_hdf5(self, t_n,i,j):
     #     t_n = np.where(ts[:]==t)[0][0]
-        return [fs1[t_n]['Auxiliary/W'][i,j], fs1[t_n]['Primitive/v1'][i,j], fs1[t_n]['Primitive/v2'][i,j]], fs1[t_n]['Primitive/n'][i,j]
+        return [self.fs1[t_n]['Auxiliary/W'][i,j], self.fs1[t_n]['Primitive/v1'][i,j], self.fs1[t_n]['Primitive/v2'][i,j]], self.fs1[t_n]['Primitive/n'][i,j]
     
     # gives the fluid's 4-velocity at any point in time and space
     def interpolate_u_n_coords(self, t,x,y):
@@ -200,8 +200,9 @@ class Base(object):
                     finally:
                         pass
         # f_to_write.write(str(coord_list)+str(vectors)+str(funs))
-        with open('KH_observers.pickle', 'wb') as handle:
-            pickle.dump([coord_list, vectors, funs], handle, protocol=pickle.HIGHEST_PROTOCOL)
+        # DON'T THINK THIS WAS DOING ANYTHING??
+        # with open('KH_observers.pickle', 'wb') as handle:
+        #     pickle.dump(np.array([coord_list, vectors, funs]), handle, protocol=pickle.HIGHEST_PROTOCOL)
         return coord_list, vectors, funs
     
     
