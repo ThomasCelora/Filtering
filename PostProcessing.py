@@ -27,10 +27,11 @@ class PostProcessing(object):
         fs_c = [] # coarse
         num_files = 11
         for n in range(num_files):
-          fs_f.append(h5py.File('./Data/KH/Ideal/dp_400x400x0_'+str(n)+'.hdf5','r'))
-          # fs_c.append(h5py.File('./Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
+          # fs_f.append(h5py.File('./Data/KH/Ideal/dp_400x400x0_'+str(n)+'.hdf5','r'))
+          # fs_1f.append(h5py.File('./Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
+          fs_f.append(h5py.File('./Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
         fss = [fs_f]
-        self.nx, self.ny = int(400), int(400)
+        self.nx, self.ny = int(200), int(200)
         self.c_nx, self.c_ny = int(self.nx/2), int(self.ny/2) # coarse
         # self.c_nx, self.c_ny = 200, 200 # coarse
         
@@ -131,21 +132,32 @@ class PostProcessing(object):
         self.metric[0,0] = -1
         self.metric[1,1] = self.metric[2,2] = +1
         
+        # Strings for iterating over for filtering in calc_residual
+        self.scalar_strs = ['rho', 'n', 'p']
+        self.vector_strs = ['W', 'u_x', 'u_y']
+        
         # Load the coordinates and observers already calculated
         with open('test_obs.pickle', 'rb') as f:
             # The protocol version used is detected automatically, so we do not
             # have to specify it.
             inputs = pickle.load(f)
             # print(inputs)
-            self.coords = self.vectors = np.zeros((len(inputs),3))
+            self.coords = []
+            self.vectors = []#np.zeros((len(inputs),3))
             for counter in range(len(inputs)):
-                self.coords[counter] = inputs[counter][0]
-                self.vectors = inputs[counter][1]
-   
+                # print(inputs[counter][0])
+                self.coords.append(inputs[counter][0])
+                self.vectors.append(inputs[counter][1])
+
+                # self.coords[counter] = inputs[counter][0]
+                # self.vectors[counter] = inputs[counter][1]
+            # print(self.vectors)
+            # print(self.coords)
+
     # def calc_4vel(W,vx,vy):
     #     return [W,W]
         
-    def calc_NonId_terms(self,u,p,rho,n):
+    def calc_NonId_terms(self,u,p,rho,n,point):
         # u = np.dot(W,[1,vx,vy]) # check this works...
         dtut = self.calc_t_deriv('u_t',point)
         dxux = self.calc_x_deriv('u_x',point)
@@ -155,9 +167,13 @@ class PostProcessing(object):
         dxT = self.calc_x_deriv('T',point)
         dyT = self.calc_y_deriv('T',point)
         Theta = dtut + dxux + dyuy
+        # a = np.array([ux*dxux+uy*dyux+uz*dzux,ux*dxuy+uy*dyuy+uz*dzuy,ux*dxuz+uy*dyuz+uz*dzuz])
         Pi = -self.coefficients['zeta']*Theta
-        q = -self.coefficients['kappa']*(dxT + dyT) # FIX
-        pi = -self.coefficients['eta']*(dxuy + dyux - (2/3)*Theta)
+        print(dxT.shape)
+        q = -self.coefficients['kappa']*np.array([0.0, dxT, dyT]) # FI
+        pi = -self.coefficients['eta']*np.array([[0.0, 2*dxux - (2/3)*Theta, dxuy + dyux],\
+                                                 [dyux + dxuy,0.0,2*dyuy - (2/3)*Theta],
+                                                 [dyux + dxuy,2*dyuy - (2/3)*Theta,0.0]])
         return Pi, q, pi
     
     def p_from_EoS(self,rho, n):
@@ -202,7 +218,7 @@ class PostProcessing(object):
     def filter_scalar(self, point, U, quant_str):
         # contruct tetrad...
         E_x, E_y = Base.construct_tetrad(Base,U)
-        corners = Base.find_boundary_pts(Base,E_x,E_y,point,L)
+        corners = Base.find_boundary_pts(Base,E_x,E_y,point,self.L)
         start, end = corners[0], corners[2]
         t, x, y = point
         # integrated_quant = nquad(self.scalar_val,t-(L/2),t+(L/2),x-(L/2),x+(L/2),y-(L/2),y+(L/2),args=quant_str)
@@ -212,7 +228,8 @@ class PostProcessing(object):
         #     ranges=[[start[0], start[1],start[2]],[end[0],end[1],end[2]]],args=quant_str)
         integrand = 0
         counter = 0
-        start_cell, end_cell = self.find_nearest_cell([t-(L/2),x-(L/2),y-(L/2)]), self.find_nearest_cell([t+(L/2),x+(L/2),y+(L/2)])
+        start_cell, end_cell = self.find_nearest_cell([t-(self.L/2),x-(self.L/2),y-(self.L/2)]), \
+            self.find_nearest_cell([t+(self.L/2),x+(self.L/2),y+(self.L/2)])
         # print(start_cell, end_cell)
         for i in range(start_cell[0],end_cell[0]+1):
             for j in range(start_cell[1],end_cell[1]+1):
@@ -252,45 +269,50 @@ class PostProcessing(object):
         y_pos = self.find_nearest(self.ys,point[2])
         return [np.where(self.ts==t_pos)[0][0], np.where(self.xs==x_pos)[0][0], np.where(self.ys==y_pos)[0][0]]
     
-    def calc_residual(self, point_and_vel):
-            point, U = point_and_vel
-            # Filter scalar fields
-            N = Processor.filter_scalar(point, U, scalar_strs[0])
-            Rho = Processor.filter_scalar(point, U, scalar_strs[1])
-            P = Processor.filter_scalar(point, U, scalar_strs[2])
+    def calc_residual(self, point, U):
+            # point, U = point_and_vel
+            
+            # Filter the scalar fields
+            N = self.filter_scalar(point, U, self.scalar_strs[0])
+            Rho = self.filter_scalar(point, U, self.scalar_strs[1])
+            P = self.filter_scalar(point, U, self.scalar_strs[2])
             T = P/N
-            U_t = Processor.filter_scalar(point, U, vector_strs[0])
-            U_x = Processor.filter_scalar(point, U, vector_strs[1])
-            U_y = Processor.filter_scalar(point, U, vector_strs[2])
+            U_t = self.filter_scalar(point, U, self.vector_strs[0])
+            U_x = self.filter_scalar(point, U, self.vector_strs[1])
+            U_y = self.filter_scalar(point, U, self.vector_strs[2])
           
             # Obtain coarse values
-            n, rho, p = Processor.values_from_hdf5(point, scalar_strs[0]),\
-                Processor.values_from_hdf5(point, scalar_strs[1]), Processor.values_from_hdf5(point, scalar_strs[2])
-            W, u_x, u_y = Processor.values_from_hdf5(point, vector_strs[0]),\
-                Processor.values_from_hdf5(point, vector_strs[1]), Processor.values_from_hdf5(point, vector_strs[2])
+            n, rho, p = self.values_from_hdf5(point, self.scalar_strs[0]),\
+                self.values_from_hdf5(point, self.scalar_strs[1]), self.values_from_hdf5(point, self.scalar_strs[2])
+            W, u_x, u_y = self.values_from_hdf5(point, self.vector_strs[0]),\
+                self.values_from_hdf5(point, self.vector_strs[1]), self.values_from_hdf5(point, self.vector_strs[2])
             u = [W, u_x, u_y]
 
             # Calculate Non-Ideal terms
-            Pi, q, pi = Processor.calc_NonId_terms(u,p,rho,n) # coarse dissipative pieces
+            Pi, q, pi = self.calc_NonId_terms(u,p,rho,n,point) # coarse dissipative pieces
 
             # Construct coarse Id & Non-Id SET         
-            coarse_Id_SET = Processor.calc_Id_SET(u, p, rho)
-            coarse_nId_SET = Processor.calc_NonId_SET(u, p, rho, n, Pi, q, pi)
+            coarse_Id_SET = self.calc_Id_SET(u, p, rho)
+            coarse_nId_SET = self.calc_NonId_SET(u, p, rho, n, Pi, q, pi)
             # Construct filtered Id & Non-Id SET
-            filtered_Id_SET = Processor.calc_Id_SET(U, P, Rho)
-            filtered_nId_SET = Processor.calc_NonId_SET(U, P, Rho, N, Pi, q, pi)           
+            filtered_Id_SET = self.calc_Id_SET(U, P, Rho)
+            filtered_nId_SET = self.calc_NonId_SET(U, P, Rho, N, Pi, q, pi)           
             
             # Do required projections of SET
-            h_mu_nu = Processor.orthogonal_projector(U)
-            parallel_proj = Processor.project_tensor(U,U,coarse_Id_SET)
-            orthog_proj = Processor.project_tensor(h_mu_nu,h_mu_nu,coarse_Id_SET)
-            mixed_proj = Processor.project_tensor(h_mu_nu, U, coarse_Id_SET)
+            h_mu_nu = self.orthogonal_projector(U)
+            rho_res = self.project_tensor(U,U,filtered_nId_SET)
+            tau_res = np.inner(h_mu_nu,filtered_nId_SET) # tau = p + Pi+ pi
+            q_res = np.einsum('ij,i,jk',filtered_nId_SET,U,h_mu_nu)
+            
+            # orthog_proj = self.project_tensor(h_mu_nu,h_mu_nu,coarse_Id_SET)
+            # mixed_proj = self.project_tensor(h_mu_nu, U, coarse_Id_SET)
         
             # Obtain residuals
-            rho_res = parallel_proj
-            q_res = mixed_proj / 2*np.sqrt(np.inner(U,U)) # np.outer(U,U) #(2*U)
-            S_mu_mu = np.trace(orthog_proj) # = (rho + p + Pi) u^2 + 2 q^mu u_mu + 4(p + Pi) CHECK
-            Pi_res = (S_mu_mu - 4*(P+Pi) - 2*q_res*U ) / np.inner(U,U) - rho_res - P
+            # rho_res = parallel_proj
+            # q_res = mixed_proj / 2*np.sqrt(np.inner(U,U)) # np.outer(U,U) #(2*U)
+            # S_mu_mu = np.trace(orthog_proj) # = (rho + p + Pi) u^2 + 2 q^mu u_mu + 4(p + Pi) CHECK
+            # Pi_res = (S_mu_mu - 4*(P+Pi) - 2*q_res*U ) / np.inner(U,U) - rho_res - P
+            return rho_res, q_res, Pi_res
             print("Rho residual: ", rho_res)
             print("q residual: ", q_res)
             print("Pi residual: ", Pi_res)    
@@ -318,14 +340,16 @@ if __name__ == '__main__':
 
     #print(points,Us)
 
-    scalar_strs = ['rho', 'n', 'p']
-    vector_strs = ['W', 'u_x', 'u_y']
+
     args = [(coord, vector) for coord, vector in zip(Processor.coords, Processor.vectors)]
 
     residuals_handle = open('Residuals.pickle', 'wb')
     start = timer()
-    with Pool(40) as p:
-        pickle.dump(p.starmap(Processor.calc_residuals, args), residuals_handle, protocol=pickle.HIGHEST_PROTOCOL)
+    with Pool(2) as p:
+        residuals = p.starmap(Processor.calc_residual, args)
+        pickle.dump(residuals, residuals_handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(residuals)
+        # pickle.dump(p.starmap(Processor.calc_residual, args), residuals_handle, protocol=pickle.HIGHEST_PROTOCOL)
     end = timer()
     
     
