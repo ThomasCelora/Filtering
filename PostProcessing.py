@@ -287,35 +287,42 @@ class PostProcessing(object):
             W, u_x, u_y = self.values_from_hdf5(point, self.vector_strs[0]),\
                 self.values_from_hdf5(point, self.vector_strs[1]), self.values_from_hdf5(point, self.vector_strs[2])
             u = [W, u_x, u_y]
+            t = n/p
 
-            # Calculate Non-Ideal terms
-            Pi, q, pi = self.calc_NonId_terms(u,p,rho,n,point) # coarse dissipative pieces
-
-            # Construct coarse Id & Non-Id SET         
+            # Construct coarse Id SET         
             coarse_Id_SET = self.calc_Id_SET(u, p, rho)
-            coarse_nId_SET = self.calc_NonId_SET(u, p, rho, n, Pi, q, pi)
-            # Construct filtered Id & Non-Id SET
-            filtered_Id_SET = self.calc_Id_SET(U, P, Rho)
-            filtered_nId_SET = self.calc_NonId_SET(U, P, Rho, N, Pi, q, pi)           
-            
+            filtered_nId_SET = self.filter_tensor(point, U)        
+
             # Do required projections of SET
             h_mu_nu = self.orthogonal_projector(U)
             rho_res = self.project_tensor(U,U,filtered_nId_SET)
+            q_res = np.einsum('ij,i,jk',filtered_nId_SET,U,h_mu_nu)            
             tau_res = np.inner(h_mu_nu,filtered_nId_SET) # tau = p + Pi+ pi
-            q_res = np.einsum('ij,i,jk',filtered_nId_SET,U,h_mu_nu)
             
-            # orthog_proj = self.project_tensor(h_mu_nu,h_mu_nu,coarse_Id_SET)
-            # mixed_proj = self.project_tensor(h_mu_nu, U, coarse_Id_SET)
-        
-            # Obtain residuals
-            # rho_res = parallel_proj
-            # q_res = mixed_proj / 2*np.sqrt(np.inner(U,U)) # np.outer(U,U) #(2*U)
-            # S_mu_mu = np.trace(orthog_proj) # = (rho + p + Pi) u^2 + 2 q^mu u_mu + 4(p + Pi) CHECK
-            # Pi_res = (S_mu_mu - 4*(P+Pi) - 2*q_res*U ) / np.inner(U,U) - rho_res - P
-            return rho_res, q_res, Pi_res
-            print("Rho residual: ", rho_res)
-            print("q residual: ", q_res)
-            print("Pi residual: ", Pi_res)    
+            # Calculate Pi and pi residuals
+            tau_trace = np.trace(tau_res)
+            p_tilde = self.p_from_EoS(N, rho_res)
+            Pi_res = tau_trace - p_tilde
+            pi_res = tau_res - (p_tilde + Pi_res)*h_mu_nu 
+            
+
+            # Calculate Non-Ideal terms
+            # need to calc. derivatives here!
+            Theta, omega, sigma = self.calc_NonId_terms(T_tildes, U_tildes) # coarse dissipative pieces (without coefficients)
+            zeta, kappa, eta = -Pi_res/Theta, -q_res/omega, -pi_res/sigma
+            
+            # # Construct coarse Id & Non-Id SET         
+            # coarse_Id_SET = self.calc_Id_SET(u, p, rho)
+            # coarse_nId_SET = self.calc_NonId_SET(u, p, rho, n, Pi, q, pi)
+            # # Construct filtered Id & Non-Id SET
+            # filtered_Id_SET = self.calc_Id_SET(U, P, Rho)
+            # filtered_nId_SET = self.calc_NonId_SET(U, P, Rho, N, Pi, q, pi)           
+
+            # print("Rho residual: ", rho_res)
+            # print("q residual: ", q_res)
+            # print("Pi residual: ", Pi_res)    
+            
+            return zeta, kappa, eta
     
     
 if __name__ == '__main__':
