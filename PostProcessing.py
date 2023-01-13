@@ -30,6 +30,7 @@ class PostProcessing(object):
           # fs_f.append(h5py.File('./Data/KH/Ideal/dp_400x400x0_'+str(n)+'.hdf5','r'))
           # fs_1f.append(h5py.File('./Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
           fs_f.append(h5py.File('./Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
+          # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
         fss = [fs_f]
         self.nx, self.ny = int(200), int(200)
         self.c_nx, self.c_ny = int(self.nx/2), int(self.ny/2) # coarse
@@ -54,6 +55,7 @@ class PostProcessing(object):
         self.ps = np.zeros((num_files, self.nx, self.ny))
         self.Ws = np.zeros((num_files, self.nx, self.ny))
         self.Ts = np.zeros((num_files, self.nx, self.ny))
+        self.Id_SETs = np.zeros((num_files, self.nx, self.ny, 3, 3))
         self.vars = {'v1': self.vxs,
                           'v2': self.vys,
                           'n': self.ns,
@@ -63,7 +65,8 @@ class PostProcessing(object):
                           'u_t': self.uts,
                           'u_x': self.uxs,
                           'u_y': self.uys,
-                          'T': self.Ts}
+                          'T': self.Ts,
+                          'Id_SET': self.Id_SETs}
 
         self.vxs_c = []
         self.vys_c = []
@@ -88,6 +91,12 @@ class PostProcessing(object):
         
         self.prim_vars_strs = ['v1','v2','n','rho','p']
         self.aux_vars_strs= ['W','T']
+
+        # Define Minkowski metric
+        self.metric = np.zeros((3,3))
+        self.metric[0,0] = -1
+        self.metric[1,1] = self.metric[2,2] = +1
+
         # for fs, c_fs in fss:
         # Load the data
         # for f_f, f_c in zip(fs_f,fs_c):
@@ -98,13 +107,19 @@ class PostProcessing(object):
             for a_v_s in self.aux_vars_strs:
                 self.vars[a_v_s][counter] = f_f['Auxiliary/'+a_v_s][:]
                 # self.vars_c[a_v_s][counter] = f_c['Primitive/'+a_v_s][:]
-            # Artificial coarse data
-            vxs_fine = f_f['Primitive/v1'][:]
-            vxs_c = np.zeros((self.c_nx,self.c_ny))
+            # Construct Ideal SET
             for i in range(self.c_nx):
-                for j in range(self.c_ny):
-                    vxs_c[i][j] = vxs_fine[i*2][j*2] + vxs_fine[i*2+1][j*2] \
-                                       + vxs_fine[i*2][j*2+1] + vxs_fine[i*2][j*2+1]
+                for j in range(self.c_ny): # Fix with ux not  vx...
+                    self.Id_SETs[counter][i,j] = f_f['Primitive/rho'][i,j]*np.outer(f_f['Primitive/v1'][i,j],f_f['Primitive/v1'][i,j])\
+                        + f_f['Primitive/p'][i,j]*self.metric
+            
+            # Artificial coarse data
+            # vxs_fine = f_f['Primitive/v1'][:]
+            # vxs_c = np.zeros((self.c_nx,self.c_ny))
+            # for i in range(self.c_nx):
+            #     for j in range(self.c_ny):
+            #         vxs_c[i][j] = vxs_fine[i*2][j*2] + vxs_fine[i*2+1][j*2] \
+            #                            + vxs_fine[i*2][j*2+1] + vxs_fine[i*2][j*2+1]
 
         self.uts = self.Ws
         self.uxs = np.multiply(self.uts,self.vxs) # broken I think
@@ -127,11 +142,6 @@ class PostProcessing(object):
         self.dY = 0.01
         self.cen_SO_stencil = [1/12, -2/3, 0, 2/3, -1/12]
 
-        # Define Minkowski metric
-        self.metric = np.zeros((3,3))
-        self.metric[0,0] = -1
-        self.metric[1,1] = self.metric[2,2] = +1
-        
         # Strings for iterating over for filtering in calc_residual
         self.scalar_strs = ['rho', 'n', 'p']
         self.vector_strs = ['W', 'u_x', 'u_y']
@@ -170,7 +180,7 @@ class PostProcessing(object):
         # a = np.array([ux*dxux+uy*dyux+uz*dzux,ux*dxuy+uy*dyuy+uz*dzuy,ux*dxuz+uy*dyuz+uz*dzuz])
         Pi = -self.coefficients['zeta']*Theta
         print(dxT.shape)
-        q = -self.coefficients['kappa']*np.array([0.0, dxT, dyT]) # FI
+        q = -self.coefficients['kappa']*np.array([0.0, dxT, dyT]) # FIX
         pi = -self.coefficients['eta']*np.array([[0.0, 2*dxux - (2/3)*Theta, dxuy + dyux],\
                                                  [dyux + dxuy,0.0,2*dyuy - (2/3)*Theta],
                                                  [dyux + dxuy,2*dyuy - (2/3)*Theta,0.0]])
