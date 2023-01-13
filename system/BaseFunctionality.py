@@ -27,11 +27,13 @@ class Base(object):
         fs3 = []
         fs4 = []
         num_files = 5
-        for n in range(1,num_files+1):
+        for n in range(num_files):
           # fs1.append(h5py.File('./Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
-          # fs1.append(h5py.File('./Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
+           # self.fs1.append(h5py.File('../Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
           # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/dp_400x800x0_'+str(n)+'.hdf5','r'))
-          self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
+           self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
+          # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_1998_2002/dp_400x800x0_'+str(n)+'.hdf5','r'))
+          # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_2998_3002/dp_400x800x0_'+str(n)+'.hdf5','r'))
           # fs1.append(h5py.File('./Data/KH/Shear/dp_400x800x0_'+str(n)+'.hdf5','r'))
         #   fs2.append(h5py.File('../Git/Plotting/BDNK/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
         #   fs2.append(h5py.File('../Git/Plotting/ISCE/KH/Ideal/dp_400x400x0_'+str(n)+'.hdf5','r'))
@@ -58,9 +60,9 @@ class Base(object):
         self.points = (ts,xs,ys)
         self.dx = (xs[-1] - xs[0])/nx
         self.dy = (ys[-1] - ys[0])/ny
-        self.vxs = np.zeros((num_files, self.nx, self.ny))
-        self.vys = np.zeros((num_files, self.nx, self.ny))
-        self.ns = np.zeros((num_files, self.nx, self.ny))
+        self.vxs = np.zeros((num_files, nx, ny))
+        self.vys = np.zeros((num_files, nx, ny))
+        self.ns = np.zeros((num_files, nx, ny))
         for counter in range(num_files):
             self.vxs[counter] = self.fs1[counter]['Primitive/v1'][:]
             self.vys[counter] = self.fs1[counter]['Primitive/v2'][:]
