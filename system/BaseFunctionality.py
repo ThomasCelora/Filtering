@@ -26,7 +26,7 @@ class Base(object):
         fs2 = []
         fs3 = []
         fs4 = []
-        num_files = 51
+        num_files = 5
         for n in range(1,num_files+1):
           # fs1.append(h5py.File('./Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
           # fs1.append(h5py.File('./Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
@@ -51,7 +51,7 @@ class Base(object):
         # nx = ny = 200
         nx, ny = 400, 800
         nts = num_files
-        ts = np.linspace(10,15,nts) # Need to actually get these
+        ts = np.linspace(9.98,10.02,nts) # Need to actually get these
         xs = np.linspace(-0.5,0.5,nx) # These too...
         ys =  np.linspace(-1.0,1.0,ny)
         # X, Y = np.meshgrid(xs,ys)
