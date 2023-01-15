@@ -58,7 +58,7 @@ if __name__ == '__main__':
     #         for xr in np.linspace(x_range[0], x_range[1], 41)\
     #         for yr in np.linspace(y_range[0], y_range[1], 21)]
     # args = [([tr, tr], [xr, xr], [yr, yr], L, 1, 1, 1, initial_guess) for tr in np.linspace(6.0, 6.0, 1) for xr in np.linspace(0.0, 0.0, 1) for yr in np.linspace(0.0, 0.0, 1)]
-    KH_observers = system.find_observers(t_range,x_range,y_range,L,5,41,21,initial_guess)
+    KH_observers = system.find_observers(t_range,x_range,y_range,L,1,2,1,initial_guess)
     # print(KH_observers)
     with open('KH_observers.pickle', 'wb') as handle:
         pickle.dump(KH_observers, handle, protocol=pickle.HIGHEST_PROTOCOL)
