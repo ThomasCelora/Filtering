@@ -90,7 +90,7 @@ class Base(object):
         u_interpd = W_interpd, vx_interpd, vy_interpd
         return [u_interpd[0][0], u_interpd[1][0], u_interpd[2][0]], n_interpd[0]
     
-    def Mink_dot(vec1,vec2):
+    def Mink_dot(self,vec1,vec2):
         dot = -vec1[0]*vec2[0] # time component
         for i in range(1,len(vec1)):
             dot += vec1[i]*vec2[i] # spatial components
@@ -185,23 +185,23 @@ class Base(object):
                     # guess_vx_vy = initial_guess
                     guess_vx_vy = [u[1]/u[0], u[2]/u[0]]
                     coords = [t,x,y]
-                    #sol = minimize(self.residual_ib,x0=guess_vx_vy,args=(coords,L),bounds=((-0.7,0.7),(-0.7,0.7)),tol=1e-6)#,method='CG')
-                    #vectors.append(self.get_U_mu(sol.x))
-                    #funs.append(sol.fun)
-                    #coord_list.append(coords)
+                    sol = minimize(self.residual_ib,x0=guess_vx_vy,args=(coords,L),bounds=((-0.7,0.7),(-0.7,0.7)),tol=1e-6)#,method='CG')
+                    vectors.append(self.get_U_mu(sol.x))
+                    funs.append(sol.fun)
+                    coord_list.append(coords)
                     #guess_vx_vy = [sol.x[0],sol.x[1]]
-                    try:
-                        sol = minimize(self.residual_ib,x0=guess_vx_vy,args=(coords,L),bounds=((-0.7,0.7),(-0.7,0.7)),tol=1e-6)#,method='CG')
-                        vectors.append(self.get_U_mu(sol.x))
-                        funs.append(sol.fun)
-                        coord_list.append(coords)
-                        #guess_vx_vy = [sol.x[0],sol.x[1]]
-                        if (sol.fun > 1e-5):
-                            print("Warning! Residual is large: ",sol.fun)
-                    except:
-                        print("Failed for ",coords)
-                    finally:
-                        pass
+                    #try:
+                     #   sol = minimize(self.residual_ib,x0=guess_vx_vy,args=(coords,L),bounds=((-0.7,0.7),(-0.7,0.7)),tol=1e-6)#,method='CG')
+                      #  vectors.append(self.get_U_mu(sol.x))
+                       # funs.append(sol.fun)
+                     #   coord_list.append(coords)
+                     #   #guess_vx_vy = [sol.x[0],sol.x[1]]
+                     #   if (sol.fun > 1e-5):
+                     #       print("Warning! Residual is large: ",sol.fun)
+                    #except:
+                    #    print("Failed for ",coords)
+                    #finally:
+                    #    pass
         # f_to_write.write(str(coord_list)+str(vectors)+str(funs))
         # DON'T THINK THIS WAS DOING ANYTHING??
         # with open('KH_observers.pickle', 'wb') as handle:
