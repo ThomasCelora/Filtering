@@ -43,7 +43,7 @@ class PostProcessing(object):
         # self.dt get this from files...
         self.dx = (self.xs[-1] - self.xs[0])/self.nx # actual grid-resolution
         self.dy = (self.ys[-1] - self.ys[0])/self.ny
-        self.n_obs_t = 3 # = num_files
+        self.n_obs_t = 3 # = num_files - 2
         # Number of observers calculated in x and y directions
         self.n_obs_x = 41
         self.n_obs_y = 21
@@ -59,9 +59,9 @@ class PostProcessing(object):
         self.ps = np.zeros((num_files, self.nx, self.ny))
         self.Ws = np.zeros((num_files, self.nx, self.ny))
         self.Ts = np.zeros((num_files, self.nx, self.ny))
-        self.dtut = np.zeros((self.nx,self.ny))
-        self.dtux = np.zeros((self.nx,self.ny))
-        self.dtuy = np.zeros((self.nx,self.ny))
+        self.dtut = np.zeros((self.n_obs_t, self.nx,self.ny))
+        self.dtux = np.zeros((self.n_obs_t, self.nx,self.ny))
+        self.dtuy = np.zeros((self.n_obs_t, self.nx,self.ny))
         self.Id_SETs = np.zeros((num_files, self.nx, self.ny, 3, 3))
         self.vars = {'v1': self.vxs,
                           'v2': self.vys,
@@ -73,7 +73,10 @@ class PostProcessing(object):
                           'u_x': self.uxs,
                           'u_y': self.uys,
                           'T': self.Ts,
-                          'Id_SET': self.Id_SETs}
+                          'Id_SET': self.Id_SETs,
+                          'dtut': self.dtut,
+                          'dtux': self.dtux,
+                          'dtuy': self.dtuy}
 
         self.vxs_c = []
         self.vys_c = []
@@ -204,9 +207,13 @@ class PostProcessing(object):
         
     def calc_NonId_terms(self,u,p,rho,n,point):
         # u = np.dot(W,[1,vx,vy]) # check this works...
-        dtut = self.dtuts[...]
-        dtut = self.dtuxs[]
-        dtut = self.dtuys[]
+        ut = self.values_from_hdf5(point, 'u_t')
+        T = self.values_from_hdf5(point, 'T')
+        dtut = self.values_from_hdf5(point, 'dtut')
+        dtux = self.values_from_hdf5(point, 'dtux')
+        dtuy = self.values_from_hdf5(point, 'dtuy')
+        dxut = self.calc_x_deriv('u_t',point)
+        dyut = self.calc_y_deriv('u_t',point)
         dxux = self.calc_x_deriv('u_x',point)
         dyuy = self.calc_y_deriv('u_y',point)
         dxuy = self.calc_x_deriv('u_y',point)
@@ -431,13 +438,13 @@ class PostProcessing(object):
     
 if __name__ == '__main__':
     
-    # Processor = PostProcessing()
+    Processor = PostProcessing()
 
-    # with open('Processor.pickle', 'wb') as filehandle:
-    #     pickle.dump(Processor, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
+    with open('Processor.pickle', 'wb') as filehandle:
+        pickle.dump(Processor, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
     
-    with open('Processor.pickle', 'rb') as filehandle:
-        Processor = pickle.load(filehandle)
+    # with open('Processor.pickle', 'rb') as filehandle:
+    #     Processor = pickle.load(filehandle)
 
     
     # f_obs = open("observers.txt", "r")
