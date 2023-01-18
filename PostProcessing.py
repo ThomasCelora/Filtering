@@ -16,7 +16,7 @@ from scipy.optimize import root, minimize
 #from mpl_toolkits.mplot3d import Axes3D
 from scipy.integrate import solve_ivp, quad, tplquad, nquad
 import cProfile, pstats, io
-from system.BaseFunctionality import Base
+#from system.BaseFunctionality import Base
 import math
 from multiprocessing import Process, Pool
 
@@ -43,6 +43,10 @@ class PostProcessing(object):
         # self.dt get this from files...
         self.dx = (self.xs[-1] - self.xs[0])/self.nx # actual grid-resolution
         self.dy = (self.ys[-1] - self.ys[0])/self.ny
+        self.n_obs_t = 3 # = num_files
+        # Number of observers calculated in x and y directions
+        self.n_obs_x = 41
+        self.n_obs_y = 21
 
         # Define fluid variables for both the fine and coarse data
         self.vxs = np.zeros((num_files, self.nx, self.ny))
@@ -55,6 +59,9 @@ class PostProcessing(object):
         self.ps = np.zeros((num_files, self.nx, self.ny))
         self.Ws = np.zeros((num_files, self.nx, self.ny))
         self.Ts = np.zeros((num_files, self.nx, self.ny))
+        self.dtut = np.zeros((self.nx,self.ny))
+        self.dtux = np.zeros((self.nx,self.ny))
+        self.dtuy = np.zeros((self.nx,self.ny))
         self.Id_SETs = np.zeros((num_files, self.nx, self.ny, 3, 3))
         self.vars = {'v1': self.vxs,
                           'v2': self.vys,
@@ -77,7 +84,7 @@ class PostProcessing(object):
         self.rhos_c = []
         self.ps_c = []
         self.Ws_c = []
-        self.Ts_c = []        
+        self.Ts_c = []
         self.vars_c = {'v1': self.vxs_c,
                           'v2': self.vys_c,
                           'n': self.ns_c,
@@ -127,8 +134,32 @@ class PostProcessing(object):
         self.uts_c = self.Ws_c
         self.uxs_c = np.multiply(self.uts_c,self.vxs_c)
         self.uys_c = np.multiply(self.uts_c,self.vys_c)
-    
-  
+
+        # Calculate time derivatives
+        for i in range(self.nx):
+            for j in range(self.ny):
+                for t_slice in range(int(self.n_obs_t)):
+                    # Central first
+                    self.dtut[i,j] += self.cen_FO_stencil[t_slice]*\
+                        self.uts[t_slice*self.n_obs_y*self.n_obs_x + i + j][0] / self.dt
+                    self.dtux[i,j] += self.cen_FO_stencil[t_slice]*\
+                        self.uxs[t_slice*self.n_obs_y*self.n_obs_x + i + j][1] / self.dt
+                    self.dtuy[i,j] += self.cen_FO_stencil[t_slice]*\
+                        self.uys[t_slice*self.n_obs_y*self.n_obs_x + i + j][2] / self.dt
+                        # # Then BW & FW?
+                        # self.dtut[i,j] += self.fw_FO_stencil[t_slice]*\
+                        #     self.uts[t_slice*self.n_obs_y*self.n_obs_x + i + j][0] / self.dt
+                        # self.dtux[i,j] += self.fw_FO_stencil[t_slice]*\
+                        #     self.uxs[t_slice*self.n_obs_y*self.n_obs_x + i + j][1] / self.dt
+                        # self.dtuy[i,j] += self.fw_FO_stencil[t_slice]*\
+                        #     self.uys[t_slice*self.n_obs_y*self.n_obs_x + i + j][2] / self.dt
+                        # self.dtut[i,j] += self.bw_FO_stencil[t_slice]*\
+                        #     self.uts[t_slice*self.n_obs_y*self.n_obs_x + i + j][0] / self.dt
+                        # self.dtux[i,j] += self.bw_FO_stencil[t_slice]*\
+                        #     self.uxs[t_slice*self.n_obs_y*self.n_obs_x + i + j][1] / self.dt
+                        # self.dtuy[i,j] += self.bw_FO_stencil[t_slice]*\
+                        #     self.uys[t_slice*self.n_obs_y*self.n_obs_x + i + j][2] / self.dt
+                        
         # EoS & dissipation parameters
         self.coefficients = {'gamma': 5/3,
                         'zeta': 1e-2,
@@ -141,10 +172,14 @@ class PostProcessing(object):
         self.dX = 0.01
         self.dY = 0.01
         self.cen_SO_stencil = [1/12, -2/3, 0, 2/3, -1/12]
+        self.cen_FO_stencil = [1/2, -1, 1/2]
+        self.fw_FO_stencil = [-1, 1, 0]
+        self.bw_FO_stencil = [0, -1, 1]
 
         # Strings for iterating over for filtering in calc_residual
         self.scalar_strs = ['rho', 'n', 'p']
         self.vector_strs = ['W', 'u_x', 'u_y']
+        self.tensor_strs = ['Id_SET']
         
         # Load the coordinates and observers already calculated
         with open('test_obs.pickle', 'rb') as f:
@@ -169,26 +204,32 @@ class PostProcessing(object):
         
     def calc_NonId_terms(self,u,p,rho,n,point):
         # u = np.dot(W,[1,vx,vy]) # check this works...
-        dtut = self.calc_t_deriv('u_t',point)
+        dtut = self.dtuts[...]
+        dtut = self.dtuxs[]
+        dtut = self.dtuys[]
         dxux = self.calc_x_deriv('u_x',point)
         dyuy = self.calc_y_deriv('u_y',point)
         dxuy = self.calc_x_deriv('u_y',point)
         dyux = self.calc_y_deriv('u_x',point)
+        dtT = []
         dxT = self.calc_x_deriv('T',point)
         dyT = self.calc_y_deriv('T',point)
-        Theta = dtut + dxux + dyuy
-        # a = np.array([ux*dxux+uy*dyux+uz*dzux,ux*dxuy+uy*dyuy+uz*dzuy,ux*dxuz+uy*dyuz+uz*dzuz])
+        Theta = self.dtut + dxux + dyuy
+        ux, uy = self.scalar_val_point(point, 'u_x'), self.scalar_val_point(point, 'u_y')
+        print('derivs of u')
+        print(self.dtut,dxux,dyuy)
+        a = np.array([ut*dtut + ut*dxut + uy*dyut, ut*dtux + ux*dxux + uy*dyux, ut*dtuy + ux*dxuy+uy*dyuy])#,ux*dxuz+uy*dyuz+uz*dzuz])
         Pi = -self.coefficients['zeta']*Theta
-        print(dxT.shape)
-        q = -self.coefficients['kappa']*np.array([0.0, dxT, dyT]) # FIX
-        pi = -self.coefficients['eta']*np.array([[0.0, 2*dxux - (2/3)*Theta, dxuy + dyux],\
-                                                 [dyux + dxuy,0.0,2*dyuy - (2/3)*Theta],
-                                                 [dyux + dxuy,2*dyuy - (2/3)*Theta,0.0]])
+        # print(dxT.shape)
+        q = -self.coefficients['kappa']*(np.array([dtT, dxT, dyT]) + np.multiply(T,a)) # FIX
+        pi = -self.coefficients['eta']*np.array([[2*dtut - (2/3)*Theta, dtux + dxut, dtuy + dyut],\
+                                                  [dxut + dtux, 2*dxux - (2/3)*Theta, dxuy + dyux],
+                                                  [dyut + dtuy, dyux + dxuy, 2*dyuy - (2/3)*Theta]])
         return Pi, q, pi
     
     def p_from_EoS(self,rho, n):
         p = (self.coefficients['gamma']-1)*(rho-n)
-        return p, rho, n
+        return p
     
     def calc_Id_SET(self,u,p,rho):
         Id_SET = rho*np.outer(u,u) + p*self.metric
@@ -224,11 +265,34 @@ class PostProcessing(object):
     
     def scalar_val_point(self, point, quant_str):
         return interpn(self.points,self.vars[quant_str],point)
+
+    def construct_tetrad(self, U):
+        e_x = np.array([0.0,1.0,0.0]) # 1 + 2D
+        E_x = e_x + np.multiply(self.Mink_dot(U,e_x),U)
+        E_x = E_x / np.sqrt(self.Mink_dot(E_x,E_x)) # normalization
+        e_y = np.array([0.0,0.0,1.0])
+        E_y = e_y + np.multiply(self.Mink_dot(U,e_y),U) - np.multiply(self.Mink_dot(E_x,e_y),E_x)
+        E_y = E_y / np.sqrt(self.Mink_dot(E_y,E_y))
+        return E_x, E_y
+    
+    def Mink_dot(self,vec1,vec2):
+        dot = -vec1[0]*vec2[0] # time component
+        for i in range(1,len(vec1)):
+            dot += vec1[i]*vec2[i] # spatial components
+        return dot
+    
+    def find_boundary_pts(self, E_x,E_y,P,L):
+        c1 = P + (L/2)*(E_x + E_y)
+        c2 = P + (L/2)*(E_x - E_y)
+        c3 = P + (L/2)*(-E_x - E_y)
+        c4 = P + (L/2)*(-E_x + E_y)
+        corners = [c1,c2,c3,c4]
+        return corners
     
     def filter_scalar(self, point, U, quant_str):
         # contruct tetrad...
-        E_x, E_y = Base.construct_tetrad(Base,U)
-        corners = Base.find_boundary_pts(Base,E_x,E_y,point,self.L)
+        E_x, E_y = self.construct_tetrad(U)
+        corners = self.find_boundary_pts(E_x,E_y,point,self.L)
         start, end = corners[0], corners[2]
         t, x, y = point
         # integrated_quant = nquad(self.scalar_val,t-(L/2),t+(L/2),x-(L/2),x+(L/2),y-(L/2),y+(L/2),args=quant_str)
@@ -254,6 +318,24 @@ class PostProcessing(object):
         #         for y_pos in np.linspace(y-2*self.dX,y+2*self.dY,40):
         #             integrand += self.vars[quant_str][self.find_nearest_cell(t_pos,x_pos,y_pos)]
         # return integrated_quant[0] / (self.L**3) # seems too simple!?
+
+    # def filter_scalar(self, point, U, quant_str):
+    #     # contruct tetrad...
+    #     E_x, E_y = self.construct_tetrad(U)
+    #     corners = self.find_boundary_pts(E_x,E_y,point,self.L)
+    #     start, end = corners[0], corners[2]
+    #     t, x, y = point
+    #     integrand = 0
+    #     counter = 0
+    #     start_cell, end_cell = self.find_nearest_cell([t-(self.L/2),x-(self.L/2),y-(self.L/2)]), \
+    #         self.find_nearest_cell([t+(self.L/2),x+(self.L/2),y+(self.L/2)])
+    #     for i in range(start_cell[0],end_cell[0]+1):
+    #         for j in range(start_cell[1],end_cell[1]+1):
+    #             for k in range(start_cell[2],end_cell[2]+1):
+    #                 integrand += self.vars[quant_str][i][j,k]
+    #                 counter += 1
+    #     return integrand/counter
+
 
     def project_tensor(self,vector1_wrt, vector2_wrt, to_project):
         projection = np.inner(vector1_wrt,np.inner(vector2_wrt,to_project))
@@ -299,28 +381,40 @@ class PostProcessing(object):
             u = [W, u_x, u_y]
             t = n/p
 
-            # Construct coarse Id SET         
-            coarse_Id_SET = self.calc_Id_SET(u, p, rho)
-            filtered_nId_SET = self.filter_tensor(point, U)        
+            # Construct filtered Id SET         
+            # coarse_Id_SET = self.calc_Id_SET(u, p, rho)
+            filtered_Id_SET = self.filter_scalar(point, U, self.tensor_strs[0])        
 
             # Do required projections of SET
             h_mu_nu = self.orthogonal_projector(U)
-            rho_res = self.project_tensor(U,U,filtered_nId_SET)
-            q_res = np.einsum('ij,i,jk',filtered_nId_SET,U,h_mu_nu)            
-            tau_res = np.inner(h_mu_nu,filtered_nId_SET) # tau = p + Pi+ pi
+            rho_res = self.project_tensor(U,U,filtered_Id_SET)
+            q_res = np.einsum('ij,i,jk',filtered_Id_SET,U,h_mu_nu)            
+            tau_res = np.einsum('ij,ik,jl',filtered_Id_SET,h_mu_nu,h_mu_nu) # tau = p + Pi+ pi
             
             # Calculate Pi and pi residuals
-            tau_trace = np.trace(tau_res)
+            tau_trace = np.trace(tau_res)#
+            print('tau_trace ',tau_trace)
             p_tilde = self.p_from_EoS(N, rho_res)
+            print('N, rho_res ',N, rho_res)
+            print('p_tilde ', p_tilde)
             Pi_res = tau_trace - p_tilde
-            pi_res = tau_res - (p_tilde + Pi_res)*h_mu_nu 
+            pi_res = tau_res - np.dot((p_tilde + Pi_res),h_mu_nu)
             
-
+            print('rho','Pi','q','pi','residuals')
+            print('rho_res ',rho_res)
+            print('Pi_res ',Pi_res)
+            print('q_res ',q_res)
+            print('pi_res',pi_res)
             # Calculate Non-Ideal terms
             # need to calc. derivatives here!
-            Theta, omega, sigma = self.calc_NonId_terms(T_tildes, U_tildes) # coarse dissipative pieces (without coefficients)
-            zeta, kappa, eta = -Pi_res/Theta, -q_res/omega, -pi_res/sigma
-            
+            # Theta, omega, sigma = self.calc_NonId_terms(T_tildes, U_tildes) # coarse dissipative pieces (without coefficients)
+            # zeta, kappa, eta = -Pi_res/Theta, -q_res/omega, -pi_res/sigma
+
+            # Temp hack - see PDF from Ian
+            Pi, q, pi = self.calc_NonId_terms(U,P,Rho,N,point)
+            print('Pi ', Pi)
+            print('q ',q)
+            print('pi ',pi)
             # # Construct coarse Id & Non-Id SET         
             # coarse_Id_SET = self.calc_Id_SET(u, p, rho)
             # coarse_nId_SET = self.calc_NonId_SET(u, p, rho, n, Pi, q, pi)
@@ -332,12 +426,19 @@ class PostProcessing(object):
             # print("q residual: ", q_res)
             # print("Pi residual: ", Pi_res)    
             
-            return zeta, kappa, eta
+            # return zeta, kappa, eta
     
     
 if __name__ == '__main__':
     
-    Processor = PostProcessing()
+    # Processor = PostProcessing()
+
+    # with open('Processor.pickle', 'wb') as filehandle:
+    #     pickle.dump(Processor, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
+    
+    with open('Processor.pickle', 'rb') as filehandle:
+        Processor = pickle.load(filehandle)
+
     
     # f_obs = open("observers.txt", "r")
     # observers = f_obs.read()
@@ -357,17 +458,22 @@ if __name__ == '__main__':
 
     #print(points,Us)
 
-
+    coords_test = np.loadtxt('coords998.txt')
+    obs_test = np.loadtxt('obs998.txt')
+    
+    print(coords_test[861])
+    
     args = [(coord, vector) for coord, vector in zip(Processor.coords, Processor.vectors)]
+    residuals = Processor.calc_residual(args[0][0],args[0][1])
 
-    residuals_handle = open('Residuals.pickle', 'wb')
-    start = timer()
-    with Pool(2) as p:
-        residuals = p.starmap(Processor.calc_residual, args)
-        pickle.dump(residuals, residuals_handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print(residuals)
-        # pickle.dump(p.starmap(Processor.calc_residual, args), residuals_handle, protocol=pickle.HIGHEST_PROTOCOL)
-    end = timer()
+    # residuals_handle = open('Residuals.pickle', 'wb')
+    # start = timer()
+    # with Pool(2) as p:
+    #     residuals = p.starmap(Processor.calc_residual, args)
+    #     pickle.dump(residuals, residuals_handle, protocol=pickle.HIGHEST_PROTOCOL)
+    #     # print(residuals)
+    #     # pickle.dump(p.starmap(Processor.calc_residual, args), residuals_handle, protocol=pickle.HIGHEST_PROTOCOL)
+    # end = timer()
     
     
     
