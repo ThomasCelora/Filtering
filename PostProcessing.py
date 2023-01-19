@@ -33,20 +33,29 @@ class PostProcessing(object):
           # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
         fss = [fs_f]
         self.nx, self.ny = int(200), int(200)
-        self.c_nx, self.c_ny = int(self.nx/2), int(self.ny/2) # coarse
+        # self.c_nx, self.c_ny = int(self.nx/2), int(self.ny/2) # coarse
         # self.c_nx, self.c_ny = 200, 200 # coarse
         
-        self.ts = np.linspace(0,30,11) # Need to actually get these
+        
+        self.ts = np.linspace(9.98,10.02,5) # Need to actually get these
         self.xs = np.linspace(-0.5,0.5,self.nx)
         self.ys =  np.linspace(-1.0,1.0,self.ny)
         self.points = (self.ts,self.xs,self.ys)
         # self.dt get this from files...
         self.dx = (self.xs[-1] - self.xs[0])/self.nx # actual grid-resolution
         self.dy = (self.ys[-1] - self.ys[0])/self.ny
-        self.n_obs_t = 3 # = num_files - 2
+        # Numer of observer time slices
+        self.n_obs_t = 3 # = num_files / num_files - 2 ?
         # Number of observers calculated in x and y directions
         self.n_obs_x = 41
         self.n_obs_y = 21
+        self.dt_obs = 0.01
+        self.dx_obs = 0.02
+        self.dy_obs = 0.02
+
+        # Load coords and corresponding observers
+        self.coords = np.loadtxt('coords998.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
+        self.Us = np.loadtxt('obs998.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
 
         # Define fluid variables for both the fine and coarse data
         self.vxs = np.zeros((num_files, self.nx, self.ny))
@@ -59,10 +68,8 @@ class PostProcessing(object):
         self.ps = np.zeros((num_files, self.nx, self.ny))
         self.Ws = np.zeros((num_files, self.nx, self.ny))
         self.Ts = np.zeros((num_files, self.nx, self.ny))
-        self.dtut = np.zeros((self.n_obs_t, self.nx,self.ny))
-        self.dtux = np.zeros((self.n_obs_t, self.nx,self.ny))
-        self.dtuy = np.zeros((self.n_obs_t, self.nx,self.ny))
         self.Id_SETs = np.zeros((num_files, self.nx, self.ny, 3, 3))
+
         self.vars = {'v1': self.vxs,
                           'v2': self.vys,
                           'n': self.ns,
@@ -73,34 +80,29 @@ class PostProcessing(object):
                           'u_x': self.uxs,
                           'u_y': self.uys,
                           'T': self.Ts,
-                          'Id_SET': self.Id_SETs,
-                          'dtut': self.dtut,
-                          'dtux': self.dtux,
-                          'dtuy': self.dtuy}
+                          'Id_SET': self.Id_SETs}
 
-        self.vxs_c = []
-        self.vys_c = []
-        self.uts_c = []
-        self.uxs_c = []
-        self.uys_c = []
-        self.ns_c = []
-        self.rhos_c = []
-        self.ps_c = []
-        self.Ws_c = []
-        self.Ts_c = []
-        self.vars_c = {'v1': self.vxs_c,
-                          'v2': self.vys_c,
-                          'n': self.ns_c,
-                          'rho': self.rhos_c,
-                          'p': self.ps_c,
-                          'W': self.Ws_c,
-                          'u_t': self.uts_c,
-                          'u_x': self.uxs_c,
-                          'u_y': self.uys_c,
-                          'T': self.Ts_c}  
-        
         self.prim_vars_strs = ['v1','v2','n','rho','p']
         self.aux_vars_strs= ['W','T']
+
+        # Strings for iterating over for filtering in calc_residual
+        self.scalar_strs = ['rho', 'n', 'p']
+        self.vector_strs = ['W', 'u_x', 'u_y']
+        self.tensor_strs = ['Id_SET']
+        
+        # Single slice for observers for now
+        self.Uts = np.zeros((self.nx,self.ny))
+        self.Uxs = np.zeros((self.nx,self.ny))
+        self.Uyx = np.zeros((self.nx,self.ny))
+        self.dtUts = np.zeros((self.nx,self.ny))
+        self.dtUxs = np.zeros((self.nx,self.ny))
+        self.dtUys = np.zeros((self.nx,self.ny))
+        self.dxUts = np.zeros((self.nx,self.ny))
+        self.dxUxs = np.zeros((self.nx,self.ny))
+        self.dxUys = np.zeros((self.nx,self.ny))
+        self.dyUts = np.zeros((self.nx,self.ny))
+        self.dyUxs = np.zeros((self.nx,self.ny))
+        self.dyUys = np.zeros((self.nx,self.ny))
 
         # Define Minkowski metric
         self.metric = np.zeros((3,3))
@@ -118,57 +120,15 @@ class PostProcessing(object):
                 self.vars[a_v_s][counter] = f_f['Auxiliary/'+a_v_s][:]
                 # self.vars_c[a_v_s][counter] = f_c['Primitive/'+a_v_s][:]
             # Construct Ideal SET
-            for i in range(self.c_nx):
-                for j in range(self.c_ny): # Fix with ux not  vx...
-                    self.Id_SETs[counter][i,j] = f_f['Primitive/rho'][i,j]*np.outer(f_f['Primitive/v1'][i,j],f_f['Primitive/v1'][i,j])\
+            for i in range(self.nx):
+                for j in range(self.ny): # Fix with ux not  vx... also v1???
+                    self.uts[counter][i,j] = self.Ws[counter][i,j]
+                    self.uxs[counter][i,j] = self.Ws[counter][i,j]*self.vxs[counter][i,j]
+                    self.uys[counter][i,j] = self.Ws[counter][i,j]*self.vys[counter][i,j]
+                    u_vec = np.array([self.uts[counter][i,j],self.uxs[counter][i,j],self.uys[counter][i,j]])
+                    self.Id_SETs[counter][i,j] = f_f['Primitive/rho'][i,j]*np.outer(u_vec,u_vec)\
                         + f_f['Primitive/p'][i,j]*self.metric
             
-            # Artificial coarse data
-            # vxs_fine = f_f['Primitive/v1'][:]
-            # vxs_c = np.zeros((self.c_nx,self.c_ny))
-            # for i in range(self.c_nx):
-            #     for j in range(self.c_ny):
-            #         vxs_c[i][j] = vxs_fine[i*2][j*2] + vxs_fine[i*2+1][j*2] \
-            #                            + vxs_fine[i*2][j*2+1] + vxs_fine[i*2][j*2+1]
-
-        self.uts = self.Ws
-        self.uxs = np.multiply(self.uts,self.vxs) # broken I think
-        self.uys = np.multiply(self.uts,self.vys)
-        self.uts_c = self.Ws_c
-        self.uxs_c = np.multiply(self.uts_c,self.vxs_c)
-        self.uys_c = np.multiply(self.uts_c,self.vys_c)
-
-        # Calculate time derivatives
-        for i in range(self.nx):
-            for j in range(self.ny):
-                for t_slice in range(int(self.n_obs_t)):
-                    # Central first
-                    self.dtut[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.uts[t_slice*self.n_obs_y*self.n_obs_x + i + j][0] / self.dt
-                    self.dtux[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.uxs[t_slice*self.n_obs_y*self.n_obs_x + i + j][1] / self.dt
-                    self.dtuy[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.uys[t_slice*self.n_obs_y*self.n_obs_x + i + j][2] / self.dt
-                        # # Then BW & FW?
-                        # self.dtut[i,j] += self.fw_FO_stencil[t_slice]*\
-                        #     self.uts[t_slice*self.n_obs_y*self.n_obs_x + i + j][0] / self.dt
-                        # self.dtux[i,j] += self.fw_FO_stencil[t_slice]*\
-                        #     self.uxs[t_slice*self.n_obs_y*self.n_obs_x + i + j][1] / self.dt
-                        # self.dtuy[i,j] += self.fw_FO_stencil[t_slice]*\
-                        #     self.uys[t_slice*self.n_obs_y*self.n_obs_x + i + j][2] / self.dt
-                        # self.dtut[i,j] += self.bw_FO_stencil[t_slice]*\
-                        #     self.uts[t_slice*self.n_obs_y*self.n_obs_x + i + j][0] / self.dt
-                        # self.dtux[i,j] += self.bw_FO_stencil[t_slice]*\
-                        #     self.uxs[t_slice*self.n_obs_y*self.n_obs_x + i + j][1] / self.dt
-                        # self.dtuy[i,j] += self.bw_FO_stencil[t_slice]*\
-                        #     self.uys[t_slice*self.n_obs_y*self.n_obs_x + i + j][2] / self.dt
-                        
-        # EoS & dissipation parameters
-        self.coefficients = {'gamma': 5/3,
-                        'zeta': 1e-2,
-                        'kappa': 1e-4,
-                        'eta': 1e-2}
-        
         # Size of box for spatial filtering
         self.L = 2*np.sqrt(self.dx*self.dy) # filtering size
         self.dT = 0.01 # steps to take for differential calculations
@@ -176,63 +136,78 @@ class PostProcessing(object):
         self.dY = 0.01
         self.cen_SO_stencil = [1/12, -2/3, 0, 2/3, -1/12]
         self.cen_FO_stencil = [1/2, -1, 1/2]
-        self.fw_FO_stencil = [-1, 1, 0]
-        self.bw_FO_stencil = [0, -1, 1]
-
-        # Strings for iterating over for filtering in calc_residual
-        self.scalar_strs = ['rho', 'n', 'p']
-        self.vector_strs = ['W', 'u_x', 'u_y']
-        self.tensor_strs = ['Id_SET']
+        self.fw_FO_stencil = [-1, 1]
+        self.bw_FO_stencil = [-1, 1]
         
-        # Load the coordinates and observers already calculated
-        with open('test_obs.pickle', 'rb') as f:
-            # The protocol version used is detected automatically, so we do not
-            # have to specify it.
-            inputs = pickle.load(f)
-            # print(inputs)
-            self.coords = []
-            self.vectors = []#np.zeros((len(inputs),3))
-            for counter in range(len(inputs)):
-                # print(inputs[counter][0])
-                self.coords.append(inputs[counter][0])
-                self.vectors.append(inputs[counter][1])
+        # Calculate time derivatives for central slices
+        for t_slice in range(self.n_obs_t):
+            # Central-difference                                
+            for i in range(1,self.n_obs_x-1):
+                for j in range(1,self.n_obs_y-1):
+                    self.dtUts[i,j] += self.cen_FO_stencil[t_slice]*\
+                        self.Us[t_slice][i][j][0] / self.dt_obs
+                    self.dtUxs[i,j] += self.cen_FO_stencil[t_slice]*\
+                        self.Us[t_slice][i][j][1] / self.dt_obs
+                    self.dtUys[i,j] += self.cen_FO_stencil[t_slice]*\
+                        self.Us[t_slice][i][j][2] / self.dt_obs
+                        
+                    self.dxUts[i,j] = self.cen_FO_stencil[t_slice]*\
+                        self.Us[1][i-1+t_slice][j][0] / self.dx_obs
+                    self.dxUxs[i,j] = self.cen_FO_stencil[t_slice]*\
+                        self.Us[1][i-1+t_slice][j][1] / self.dx_obs
+                    self.dxUys[i,j] = self.cen_FO_stencil[t_slice]*\
+                        self.Us[1][i-1+t_slice][j][2] / self.dx_obs
 
-                # self.coords[counter] = inputs[counter][0]
-                # self.vectors[counter] = inputs[counter][1]
-            # print(self.vectors)
-            # print(self.coords)
+                    self.dyUts[i,j] = self.cen_FO_stencil[t_slice]*\
+                        self.Us[1][i][j-1+t_slice][0] / self.dy_obs
+                    self.dyUxs[i,j] = self.cen_FO_stencil[t_slice]*\
+                        self.Us[1][i][j-1+t_slice][1] / self.dy_obs
+                    self.dyUys[i,j] = self.cen_FO_stencil[t_slice]*\
+                        self.Us[1][i][j-1+t_slice][2] / self.dy_obs
 
+        # EoS & dissipation parameters
+        self.coefficients = {'gamma': 5/3,
+                        'zeta': 1e-2,
+                        'kappa': 1e-4,
+                        'eta': 1e-2}
+        
+
+
+
+        
+        
     # def calc_4vel(W,vx,vy):
     #     return [W,W]
         
-    def calc_NonId_terms(self,u,p,rho,n,point):
+    def calc_NonId_terms(self,obs_indices,point):
         # u = np.dot(W,[1,vx,vy]) # check this works...
-        ut = self.values_from_hdf5(point, 'u_t')
-        T = self.values_from_hdf5(point, 'T')
-        dtut = self.values_from_hdf5(point, 'dtut')
-        dtux = self.values_from_hdf5(point, 'dtux')
-        dtuy = self.values_from_hdf5(point, 'dtuy')
-        dxut = self.calc_x_deriv('u_t',point)
-        dyut = self.calc_y_deriv('u_t',point)
-        dxux = self.calc_x_deriv('u_x',point)
-        dyuy = self.calc_y_deriv('u_y',point)
-        dxuy = self.calc_x_deriv('u_y',point)
-        dyux = self.calc_y_deriv('u_x',point)
-        dtT = []
+        T = self.values_from_hdf5(point, 'T') # Fix this - should be from EoS(N,p_tilde)
+        dtT = self.calc_t_deriv('T',point)
         dxT = self.calc_x_deriv('T',point)
         dyT = self.calc_y_deriv('T',point)
-        Theta = self.dtut + dxux + dyuy
-        ux, uy = self.scalar_val_point(point, 'u_x'), self.scalar_val_point(point, 'u_y')
-        print('derivs of u')
-        print(self.dtut,dxux,dyuy)
-        a = np.array([ut*dtut + ut*dxut + uy*dyut, ut*dtux + ux*dxux + uy*dyux, ut*dtuy + ux*dxuy+uy*dyuy])#,ux*dxuz+uy*dyuz+uz*dzuz])
+        Ut = self.Uts[obs_indices]
+        Ux = self.dtUts[obs_indices]
+        Uy = self.dtUts[obs_indices]
+        dtUt = self.dtUts[obs_indices]
+        dtUx = self.dtUts[obs_indices]
+        dtUy = self.dtUts[obs_indices]
+        dxUt = self.dtUts[obs_indices]
+        dxUx = self.dtUts[obs_indices]
+        dxUy = self.dtUts[obs_indices]
+        dyUt = self.dtUts[obs_indices]
+        dyUx = self.dtUts[obs_indices]
+        dyUy = self.dtUts[obs_indices]
+        
+        Theta = dtUt + dxUx + dyUy
+        a = np.array([Ut*dtUt + Ux*dxUt + Uy*dyUt, Ut*dtUx + Ux*dxUx + Uy*dyUx, Ut*dtUy + Ux*dxUy + Uy*dyUy])#,ux*dxuz+uy*dyuz+uz*dzuz])
         Pi = -self.coefficients['zeta']*Theta
         # print(dxT.shape)
         q = -self.coefficients['kappa']*(np.array([dtT, dxT, dyT]) + np.multiply(T,a)) # FIX
-        pi = -self.coefficients['eta']*np.array([[2*dtut - (2/3)*Theta, dtux + dxut, dtuy + dyut],\
-                                                  [dxut + dtux, 2*dxux - (2/3)*Theta, dxuy + dyux],
-                                                  [dyut + dtuy, dyux + dxuy, 2*dyuy - (2/3)*Theta]])
+        pi = -self.coefficients['eta']*np.array([[2*dtUt - (2/3)*Theta, dtUx + dxUt, dtUy + dyUt],\
+                                                  [dxUt + dtUx, 2*dxUx - (2/3)*Theta, dxUy + dyUx],
+                                                  [dyUt + dtUy, dyUx + dxUy, 2*dyUy - (2/3)*Theta]])
         return Pi, q, pi
+
     
     def p_from_EoS(self,rho, n):
         p = (self.coefficients['gamma']-1)*(rho-n)
@@ -242,12 +217,12 @@ class PostProcessing(object):
         Id_SET = rho*np.outer(u,u) + p*self.metric
         return Id_SET
 
-    def calc_NonId_SET(self,u,p,rho,n,Pi, q, pi):
-        #Pi, q, pi = self.calc_NonId_terms(u,p,rho,n)
-        u_mu_u_nu = np.outer(u,u)
-        h_mu_nu = self.metric + u_mu_u_nu
-        NonId_SET = rho*u_mu_u_nu + (p+Pi)*h_mu_nu + np.outer(q,u) + np.outer(u,q) + pi
-        return NonId_SET
+    # def calc_NonId_SET(self,u,p,rho,n,Pi, q, pi):
+    #     #Pi, q, pi = self.calc_NonId_terms(u,p,rho,n)
+    #     u_mu_u_nu = np.outer(u,u)
+    #     h_mu_nu = self.metric + u_mu_u_nu
+    #     NonId_SET = rho*u_mu_u_nu + (p+Pi)*h_mu_nu + np.outer(q,u) + np.outer(u,q) + pi
+    #     return NonId_SET
     
     def calc_t_deriv(self, quant_str, point):
         t, x, y = point
@@ -302,46 +277,16 @@ class PostProcessing(object):
         corners = self.find_boundary_pts(E_x,E_y,point,self.L)
         start, end = corners[0], corners[2]
         t, x, y = point
-        # integrated_quant = nquad(self.scalar_val,t-(L/2),t+(L/2),x-(L/2),x+(L/2),y-(L/2),y+(L/2),args=quant_str)
-        # print(quant_str)
-        # integrated_quant = nquad(func=self.scalar_val,ranges=[[start[0],end[0]],[start[1],end[1]],[start[2],end[2]]],args=[quant_str])
-        # integrated_quant = nquad(func=self.scalar_val_point,
-        #     ranges=[[start[0], start[1],start[2]],[end[0],end[1],end[2]]],args=quant_str)
         integrand = 0
         counter = 0
         start_cell, end_cell = self.find_nearest_cell([t-(self.L/2),x-(self.L/2),y-(self.L/2)]), \
             self.find_nearest_cell([t+(self.L/2),x+(self.L/2),y+(self.L/2)])
-        # print(start_cell, end_cell)
         for i in range(start_cell[0],end_cell[0]+1):
             for j in range(start_cell[1],end_cell[1]+1):
                 for k in range(start_cell[2],end_cell[2]+1):
                     integrand += self.vars[quant_str][i][j,k]
                     counter += 1
-        # print(counter)
-        # print(integrated_quant[0]/counter,integrand/self.L**3)
         return integrand/counter
-        # for t_s in np.linspace(t-(L/2),t+(L/2),40):
-        #     for x_pos np.linspace(x-2*self.dX,x+2*self.dX,40):
-        #         for y_pos in np.linspace(y-2*self.dX,y+2*self.dY,40):
-        #             integrand += self.vars[quant_str][self.find_nearest_cell(t_pos,x_pos,y_pos)]
-        # return integrated_quant[0] / (self.L**3) # seems too simple!?
-
-    # def filter_scalar(self, point, U, quant_str):
-    #     # contruct tetrad...
-    #     E_x, E_y = self.construct_tetrad(U)
-    #     corners = self.find_boundary_pts(E_x,E_y,point,self.L)
-    #     start, end = corners[0], corners[2]
-    #     t, x, y = point
-    #     integrand = 0
-    #     counter = 0
-    #     start_cell, end_cell = self.find_nearest_cell([t-(self.L/2),x-(self.L/2),y-(self.L/2)]), \
-    #         self.find_nearest_cell([t+(self.L/2),x+(self.L/2),y+(self.L/2)])
-    #     for i in range(start_cell[0],end_cell[0]+1):
-    #         for j in range(start_cell[1],end_cell[1]+1):
-    #             for k in range(start_cell[2],end_cell[2]+1):
-    #                 integrand += self.vars[quant_str][i][j,k]
-    #                 counter += 1
-    #     return integrand/counter
 
 
     def project_tensor(self,vector1_wrt, vector2_wrt, to_project):
@@ -355,7 +300,7 @@ class PostProcessing(object):
         t_label, x_label, y_label = self.find_nearest_cell(point)
         return self.vars[quant_str][t_label][x_label, y_label] # fix
     
-    def find_nearest(self, array,value):
+    def find_nearest(self, array, value):
         idx = np.searchsorted(array, value, side="left")
         if idx > 0 and (idx == len(array) or math.fabs(value - array[idx-1]) < math.fabs(value - array[idx])):
             return array[idx-1]
@@ -368,9 +313,9 @@ class PostProcessing(object):
         y_pos = self.find_nearest(self.ys,point[2])
         return [np.where(self.ts==t_pos)[0][0], np.where(self.xs==x_pos)[0][0], np.where(self.ys==y_pos)[0][0]]
     
-    def calc_residual(self, point, U):
+    def calc_residual(self, point, U, obs_indices):
             # point, U = point_and_vel
-            
+            h, i, j = obs_indices
             # Filter the scalar fields
             N = self.filter_scalar(point, U, self.scalar_strs[0])
             Rho = self.filter_scalar(point, U, self.scalar_strs[1])
@@ -414,11 +359,12 @@ class PostProcessing(object):
             print('pi_res',pi_res)
             # Calculate Non-Ideal terms
             # need to calc. derivatives here!
+            T_tilde = p_tilde/N
             # Theta, omega, sigma = self.calc_NonId_terms(T_tildes, U_tildes) # coarse dissipative pieces (without coefficients)
             # zeta, kappa, eta = -Pi_res/Theta, -q_res/omega, -pi_res/sigma
 
             # Temp hack - see PDF from Ian
-            Pi, q, pi = self.calc_NonId_terms(U,P,Rho,N,point)
+            Pi, q, pi = self.calc_NonId_terms(obs_indices,point)
             print('Pi ', Pi)
             print('q ',q)
             print('pi ',pi)
@@ -465,13 +411,17 @@ if __name__ == '__main__':
 
     #print(points,Us)
 
-    coords_test = np.loadtxt('coords998.txt')
-    obs_test = np.loadtxt('obs998.txt')
+    # coords_test = np.loadtxt('coords998.txt')
+    # obs_test = np.loadtxt('obs998.txt')
     
-    print(coords_test[861])
-    
-    args = [(coord, vector) for coord, vector in zip(Processor.coords, Processor.vectors)]
-    residuals = Processor.calc_residual(args[0][0],args[0][1])
+    # args = [(coord, vector) for coord, vector in zip(Processor.coords, Processor.Us)]
+    # for h in range(Processor.n_obs_t):
+    #     for i in range(Processor.n_obs_x):
+    #         for j in range(Processor.n_obs_y):
+    for h in range(1):
+        for i in range(2):
+            for j in range(2):
+                residuals = Processor.calc_residual(Processor.coords[h,i,j],Processor.Us[h,i,j],[h,i,j])
 
     # residuals_handle = open('Residuals.pickle', 'wb')
     # start = timer()
