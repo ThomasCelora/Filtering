@@ -127,7 +127,7 @@ class PostProcessing(object):
                     self.uys[counter][i,j] = self.Ws[counter][i,j]*self.vys[counter][i,j]
                     u_vec = np.array([self.uts[counter][i,j],self.uxs[counter][i,j],self.uys[counter][i,j]])
                     self.Id_SETs[counter][i,j] = f_f['Primitive/rho'][i,j]*np.outer(u_vec,u_vec)\
-                        + f_f['Primitive/p'][i,j]*self.metric
+                        + f_f['Primitive/p'][i,j]*(self.metric + np.outer(u_vec,u_vec))
             
         # Size of box for spatial filtering
         self.L = 2*np.sqrt(self.dx*self.dy) # filtering size
@@ -135,7 +135,7 @@ class PostProcessing(object):
         self.dX = 0.01
         self.dY = 0.01
         self.cen_SO_stencil = [1/12, -2/3, 0, 2/3, -1/12]
-        self.cen_FO_stencil = [1/2, -1, 1/2]
+        self.cen_FO_stencil = [-1/2, 0, 1/2]
         self.fw_FO_stencil = [-1, 1]
         self.bw_FO_stencil = [-1, 1]
         
@@ -200,22 +200,22 @@ class PostProcessing(object):
         
         Theta = dtUt + dxUx + dyUy
         a = np.array([Ut*dtUt + Ux*dxUt + Uy*dyUt, Ut*dtUx + Ux*dxUx + Uy*dyUx, Ut*dtUy + Ux*dxUy + Uy*dyUy])#,ux*dxuz+uy*dyuz+uz*dzuz])
-        Pi = -self.coefficients['zeta']*Theta
+        # Pi = -self.coefficients['zeta']*Theta
         # print(dxT.shape)
-        q = -self.coefficients['kappa']*(np.array([dtT, dxT, dyT]) + np.multiply(T,a)) # FIX
-        pi = -self.coefficients['eta']*np.array([[2*dtUt - (2/3)*Theta, dtUx + dxUt, dtUy + dyUt],\
+        omega = np.array([dtT, dxT, dyT]) + np.multiply(T,a) # FIX
+        sigma = np.array([[2*dtUt - (2/3)*Theta, dtUx + dxUt, dtUy + dyUt],\
                                                   [dxUt + dtUx, 2*dxUx - (2/3)*Theta, dxUy + dyUx],
                                                   [dyUt + dtUy, dyUx + dxUy, 2*dyUy - (2/3)*Theta]])
-        return Pi, q, pi
+        return Theta, omega, sigma
 
     
     def p_from_EoS(self,rho, n):
         p = (self.coefficients['gamma']-1)*(rho-n)
         return p
     
-    def calc_Id_SET(self,u,p,rho):
-        Id_SET = rho*np.outer(u,u) + p*self.metric
-        return Id_SET
+    # def calc_Id_SET(self,u,p,rho):
+    #     Id_SET = rho*np.outer(u,u) + p*(self.metric + np.outer(u,u))
+    #     return Id_SET
 
     # def calc_NonId_SET(self,u,p,rho,n,Pi, q, pi):
     #     #Pi, q, pi = self.calc_NonId_terms(u,p,rho,n)
