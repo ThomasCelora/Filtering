@@ -226,21 +226,27 @@ class PostProcessing(object):
     
     def calc_t_deriv(self, quant_str, point):
         t, x, y = point
-        print(t,x,y)
-        values = [self.scalar_val(T,x,y,quant_str) for T in np.linspace(t-2*self.dT,t+2*self.dT,5)]
-        dt_quant = np.dot(self.cen_SO_stencil, values) / self.dT
+        # print(t,x,y)
+        # values = [self.scalar_val(T,x,y,quant_str) for T in np.linspace(t-2*self.dT,t+2*self.dT,5)]
+        values = [self.scalar_val(T,x,y,quant_str) for T in np.linspace(t-1*self.dT,t+1*self.dT,3)]
+        # dt_quant = np.dot(self.cen_SO_stencil, values) / self.dT
+        dt_quant = np.dot(self.cen_FO_stencil, values) / self.dT
         return dt_quant
     
     def calc_x_deriv(self, quant_str, point):
         t, x, y = point
-        values = [self.scalar_val(t,X,y,quant_str) for X in np.linspace(x-2*self.dX,x+2*self.dX,5)]
-        dX_quant = np.dot(self.cen_SO_stencil, values) / self.dX
+        # values = [self.scalar_val(t,X,y,quant_str) for X in np.linspace(x-2*self.dX,x+2*self.dX,5)]
+        values = [self.scalar_val(t,X,y,quant_str) for X in np.linspace(x-1*self.dX,x+1*self.dX,3)]
+        # dX_quant = np.dot(self.cen_SO_stencil, values) / self.dX
+        dX_quant = np.dot(self.cen_FO_stencil, values) / self.dX
         return dX_quant
 
     def calc_y_deriv(self, quant_str, point):
         t, x, y = point
-        values = [self.scalar_val(t,x,Y,quant_str) for Y in np.linspace(y-2*self.dX,y+2*self.dY,5)]
-        dY_quant = np.dot(self.cen_SO_stencil, values) / self.dY
+        # values = [self.scalar_val(t,x,Y,quant_str) for Y in np.linspace(y-2*self.dX,y+2*self.dY,5)]
+        values = [self.scalar_val(t,x,Y,quant_str) for Y in np.linspace(y-1*self.dY,y+1*self.dY,3)]
+        # dY_quant = np.dot(self.cen_SO_stencil, values) / self.dY
+        dY_quant = np.dot(self.cen_FO_stencil, values) / self.dY
         return dY_quant
     
     def scalar_val(self, t, x, y, quant_str):
