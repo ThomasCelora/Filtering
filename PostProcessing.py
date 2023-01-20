@@ -93,7 +93,7 @@ class PostProcessing(object):
         # Single slice for observers for now
         self.Uts = np.zeros((self.nx,self.ny))
         self.Uxs = np.zeros((self.nx,self.ny))
-        self.Uyx = np.zeros((self.nx,self.ny))
+        self.Uys = np.zeros((self.nx,self.ny))
         self.dtUts = np.zeros((self.nx,self.ny))
         self.dtUxs = np.zeros((self.nx,self.ny))
         self.dtUys = np.zeros((self.nx,self.ny))
