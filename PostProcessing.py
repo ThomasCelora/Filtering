@@ -37,7 +37,7 @@ class PostProcessing(object):
         # self.c_nx, self.c_ny = 200, 200 # coarse
         
         
-        self.ts = np.linspace(9.98,10.02,5) # Need to actually get these
+        self.ts = np.linspace(9.98,10.02,num_files) # Need to actually get these
         self.xs = np.linspace(-0.5,0.5,self.nx)
         self.ys =  np.linspace(-1.0,1.0,self.ny)
         self.points = (self.ts,self.xs,self.ys)
@@ -226,6 +226,7 @@ class PostProcessing(object):
     
     def calc_t_deriv(self, quant_str, point):
         t, x, y = point
+        print(t,x,y)
         values = [self.scalar_val(T,x,y,quant_str) for T in np.linspace(t-2*self.dT,t+2*self.dT,5)]
         dt_quant = np.dot(self.cen_SO_stencil, values) / self.dT
         return dt_quant
@@ -239,8 +240,8 @@ class PostProcessing(object):
     def calc_y_deriv(self, quant_str, point):
         t, x, y = point
         values = [self.scalar_val(t,x,Y,quant_str) for Y in np.linspace(y-2*self.dX,y+2*self.dY,5)]
-        dX_quant = np.dot(self.cen_SO_stencil, values) / self.dY
-        return dX_quant
+        dY_quant = np.dot(self.cen_SO_stencil, values) / self.dY
+        return dY_quant
     
     def scalar_val(self, t, x, y, quant_str):
         return interpn(self.points,self.vars[quant_str],[t,x,y])
