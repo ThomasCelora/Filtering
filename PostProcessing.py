@@ -366,15 +366,18 @@ class PostProcessing(object):
             print('pi_res',pi_res)
             # Calculate Non-Ideal terms
             # need to calc. derivatives here!
-            T_tilde = p_tilde/N
+            # T_tilde = p_tilde/N
             # Theta, omega, sigma = self.calc_NonId_terms(T_tildes, U_tildes) # coarse dissipative pieces (without coefficients)
             # zeta, kappa, eta = -Pi_res/Theta, -q_res/omega, -pi_res/sigma
 
             # Temp hack - see PDF from Ian
-            Pi, q, pi = self.calc_NonId_terms(obs_indices,point)
-            print('Pi ', Pi)
-            print('q ',q)
-            print('pi ',pi)
+            Theta, omega, sigma = self.calc_NonId_terms(obs_indices,point)
+            zeta = -Pi_res/Theta
+            kappa = -q_res/omega
+            eta = -pi_res/(2*sigma)
+            print('zeta ', zeta)
+            print('kappa ',kappa)
+            print('eta ',eta)
             # # Construct coarse Id & Non-Id SET         
             # coarse_Id_SET = self.calc_Id_SET(u, p, rho)
             # coarse_nId_SET = self.calc_NonId_SET(u, p, rho, n, Pi, q, pi)
