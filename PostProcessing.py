@@ -25,14 +25,14 @@ class PostProcessing(object):
     def __init__(self):
         fs_f = [] # fine
         fs_c = [] # coarse
-        num_files = 11
+        num_files = 5
         for n in range(num_files):
           # fs_f.append(h5py.File('./Data/KH/Ideal/dp_400x400x0_'+str(n)+'.hdf5','r'))
           # fs_1f.append(h5py.File('./Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
-          fs_f.append(h5py.File('./Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
-          # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
+          #fs_f.append(h5py.File('./Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
+          fs_f.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
         fss = [fs_f]
-        self.nx, self.ny = int(200), int(200)
+        self.nx, self.ny = int(400), int(800)
         # self.c_nx, self.c_ny = int(self.nx/2), int(self.ny/2) # coarse
         # self.c_nx, self.c_ny = 200, 200 # coarse
         

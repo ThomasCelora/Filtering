@@ -46,7 +46,7 @@ if __name__ == '__main__':
 #     print("root-found: ",get_U_mu(sol.x))
 #     print("blabla")
 
-    t_range = [9.98,10.02]
+    t_range = [19.99,20.01]
     x_range = [-0.4,0.4]
     y_range = [-0.2,0.2]
     initial_guess = [0.0,0.0] # not used... should remove...
@@ -54,17 +54,17 @@ if __name__ == '__main__':
     f_rts = open("runtimes.txt", "a")
     f_obs = open("observers.txt", "a")
     # args = [([tr, tr], [xr, xr], [yr, yr], L, 1, 1, 1, initial_guess) \
-    #         for tr in np.linspace(t_range[0], t_range[1], 5)\
+    #         for tr in np.linspace(t_range[0], t_range[1], 3)\
     #         for xr in np.linspace(x_range[0], x_range[1], 41)\
     #         for yr in np.linspace(y_range[0], y_range[1], 21)]
     # args = [([tr, tr], [xr, xr], [yr, yr], L, 1, 1, 1, initial_guess) for tr in np.linspace(6.0, 6.0, 1) for xr in np.linspace(0.0, 0.0, 1) for yr in np.linspace(0.0, 0.0, 1)]
-    KH_observers = system.find_observers(t_range,x_range,y_range,L,1,2,1,initial_guess)
+    KH_observers = system.find_observers(t_range,x_range,y_range,L,3,41,21,initial_guess)
     # print(KH_observers)
-    with open('KH_observers.pickle', 'wb') as handle:
+    with open('KH_observers_1998_tef.pickle', 'wb') as handle:
         pickle.dump(KH_observers, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    np.savetxt('coords_test.txt',KH_observers[0])
-    np.savetxt('obs_test.txt',KH_observers[1])
+    np.savetxt('coords1998_tef.txt',KH_observers[0])
+    np.savetxt('obs1998_tef.txt',KH_observers[1])
 
     # handle = open('KH_observers.pickle', 'wb')
     # start = timer()
