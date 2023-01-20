@@ -12,9 +12,9 @@ import pickle
 from timeit import default_timer as timer
 import h5py
 from scipy.interpolate import interpn
-from scipy.optimize import root, minimize
+# from scipy.optimize import root, minimize
 #from mpl_toolkits.mplot3d import Axes3D
-from scipy.integrate import solve_ivp, quad, tplquad, nquad
+# from scipy.integrate import solve_ivp, quad, tplquad, nquad
 import cProfile, pstats, io
 #from system.BaseFunctionality import Base
 import math
@@ -151,18 +151,18 @@ class PostProcessing(object):
                     self.dtUys[i,j] += self.cen_FO_stencil[t_slice]*\
                         self.Us[t_slice][i][j][2] / self.dt_obs
                         
-                    self.dxUts[i,j] = self.cen_FO_stencil[t_slice]*\
+                    self.dxUts[i,j] += self.cen_FO_stencil[t_slice]*\
                         self.Us[1][i-1+t_slice][j][0] / self.dx_obs
-                    self.dxUxs[i,j] = self.cen_FO_stencil[t_slice]*\
+                    self.dxUxs[i,j] += self.cen_FO_stencil[t_slice]*\
                         self.Us[1][i-1+t_slice][j][1] / self.dx_obs
-                    self.dxUys[i,j] = self.cen_FO_stencil[t_slice]*\
+                    self.dxUys[i,j] += self.cen_FO_stencil[t_slice]*\
                         self.Us[1][i-1+t_slice][j][2] / self.dx_obs
 
-                    self.dyUts[i,j] = self.cen_FO_stencil[t_slice]*\
+                    self.dyUts[i,j] += self.cen_FO_stencil[t_slice]*\
                         self.Us[1][i][j-1+t_slice][0] / self.dy_obs
-                    self.dyUxs[i,j] = self.cen_FO_stencil[t_slice]*\
+                    self.dyUxs[i,j] += self.cen_FO_stencil[t_slice]*\
                         self.Us[1][i][j-1+t_slice][1] / self.dy_obs
-                    self.dyUys[i,j] = self.cen_FO_stencil[t_slice]*\
+                    self.dyUys[i,j] += self.cen_FO_stencil[t_slice]*\
                         self.Us[1][i][j-1+t_slice][2] / self.dy_obs
 
         # EoS & dissipation parameters
@@ -186,17 +186,17 @@ class PostProcessing(object):
         dxT = self.calc_x_deriv('T',point)
         dyT = self.calc_y_deriv('T',point)
         Ut = self.Uts[obs_indices]
-        Ux = self.dtUts[obs_indices]
-        Uy = self.dtUts[obs_indices]
+        Ux = self.Uxs[obs_indices]
+        Uy = self.Uys[obs_indices]
         dtUt = self.dtUts[obs_indices]
-        dtUx = self.dtUts[obs_indices]
-        dtUy = self.dtUts[obs_indices]
-        dxUt = self.dtUts[obs_indices]
-        dxUx = self.dtUts[obs_indices]
-        dxUy = self.dtUts[obs_indices]
-        dyUt = self.dtUts[obs_indices]
-        dyUx = self.dtUts[obs_indices]
-        dyUy = self.dtUts[obs_indices]
+        dtUx = self.dtUxs[obs_indices]
+        dtUy = self.dtUys[obs_indices]
+        dxUt = self.dxUts[obs_indices]
+        dxUx = self.dxUxs[obs_indices]
+        dxUy = self.dxUys[obs_indices]
+        dyUt = self.dyUts[obs_indices]
+        dyUx = self.dyUxs[obs_indices]
+        dyUy = self.dyUys[obs_indices]
         
         Theta = dtUt + dxUx + dyUy
         a = np.array([Ut*dtUt + Ux*dxUt + Uy*dyUt, Ut*dtUx + Ux*dxUx + Uy*dyUx, Ut*dtUy + Ux*dxUy + Uy*dyUy])#,ux*dxuz+uy*dyuz+uz*dzuz])
@@ -206,6 +206,8 @@ class PostProcessing(object):
         sigma = np.array([[2*dtUt - (2/3)*Theta, dtUx + dxUt, dtUy + dyUt],\
                                                   [dxUt + dtUx, 2*dxUx - (2/3)*Theta, dxUy + dyUx],
                                                   [dyUt + dtUy, dyUx + dxUy, 2*dyUy - (2/3)*Theta]])
+
+        # return -self.coefficients['zeta']*Theta, -self.coefficients['kappa']*omega, -self.coefficients['eta']*sigma
         return Theta, omega, sigma
 
     
@@ -372,12 +374,15 @@ class PostProcessing(object):
 
             # Temp hack - see PDF from Ian
             Theta, omega, sigma = self.calc_NonId_terms(obs_indices,point)
-            zeta = -Pi_res/Theta
-            kappa = -q_res/omega
-            eta = -pi_res/(2*sigma)
-            print('zeta ', zeta)
-            print('kappa ',kappa)
-            print('eta ',eta)
+            # zeta = -Pi_res/Theta
+            # kappa = -q_res/omega
+            # eta = -pi_res/(2*sigma)
+            print('Theta ', Theta)
+            print('omega ',omega)
+            print('sigma ',sigma)
+            # print('zeta ', zeta)
+            # print('kappa ',kappa)
+            # print('eta ',eta)
             # # Construct coarse Id & Non-Id SET         
             # coarse_Id_SET = self.calc_Id_SET(u, p, rho)
             # coarse_nId_SET = self.calc_NonId_SET(u, p, rho, n, Pi, q, pi)
