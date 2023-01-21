@@ -213,6 +213,8 @@ class PostProcessing(object):
     
     def p_from_EoS(self,rho, n):
         p = (self.coefficients['gamma']-1)*(rho-n)
+        print('EoS terms')
+        print(rho,n,p)
         return p
     
     # def calc_Id_SET(self,u,p,rho):
