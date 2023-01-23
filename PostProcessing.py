@@ -91,18 +91,18 @@ class PostProcessing(object):
         self.tensor_strs = ['Id_SET']
         
         # Single slice for observers for now
-        self.Uts = np.zeros((self.nx,self.ny))
-        self.Uxs = np.zeros((self.nx,self.ny))
-        self.Uys = np.zeros((self.nx,self.ny))
-        self.dtUts = np.zeros((self.nx,self.ny))
-        self.dtUxs = np.zeros((self.nx,self.ny))
-        self.dtUys = np.zeros((self.nx,self.ny))
-        self.dxUts = np.zeros((self.nx,self.ny))
-        self.dxUxs = np.zeros((self.nx,self.ny))
-        self.dxUys = np.zeros((self.nx,self.ny))
-        self.dyUts = np.zeros((self.nx,self.ny))
-        self.dyUxs = np.zeros((self.nx,self.ny))
-        self.dyUys = np.zeros((self.nx,self.ny))
+        self.Uts = self.Us[:,:,:,0] # 3 slices for now 
+        self.Uxs = self.Us[:,:,:,1]
+        self.Uys = self.Us[:,:,:,2]
+        self.dtUts = np.zeros((self.n_obs_x,self.n_obs_y)) # single slice for now
+        self.dtUxs = np.zeros((self.n_obs_x,self.n_obs_y))
+        self.dtUys = np.zeros((self.n_obs_x,self.n_obs_y))
+        self.dxUts = np.zeros((self.n_obs_x,self.n_obs_y))
+        self.dxUxs = np.zeros((self.n_obs_x,self.n_obs_y))
+        self.dxUys = np.zeros((self.n_obs_x,self.n_obs_y))
+        self.dyUts = np.zeros((self.n_obs_x,self.n_obs_y))
+        self.dyUxs = np.zeros((self.n_obs_x,self.n_obs_y))
+        self.dyUys = np.zeros((self.n_obs_x,self.n_obs_y))
 
         # Define Minkowski metric
         self.metric = np.zeros((3,3))
@@ -145,25 +145,27 @@ class PostProcessing(object):
             for i in range(1,self.n_obs_x-1):
                 for j in range(1,self.n_obs_y-1):
                     self.dtUts[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Us[t_slice][i][j][0] / self.dt_obs
+                        self.Uts[t_slice][i][j] / self.dt_obs
                     self.dtUxs[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Us[t_slice][i][j][1] / self.dt_obs
+                        self.Uxs[t_slice][i][j] / self.dt_obs
                     self.dtUys[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Us[t_slice][i][j][2] / self.dt_obs
-                        
+                        self.Uys[t_slice][i][j] / self.dt_obs
+                    # pick out central slice with first [1]    
                     self.dxUts[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Us[1][i-1+t_slice][j][0] / self.dx_obs
+                        self.Uts[1][i-1+t_slice][j] / self.dx_obs
                     self.dxUxs[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Us[1][i-1+t_slice][j][1] / self.dx_obs
+                        self.Uxs[1][i-1+t_slice][j] / self.dx_obs
                     self.dxUys[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Us[1][i-1+t_slice][j][2] / self.dx_obs
+                        self.Uys[1][i-1+t_slice][j] / self.dx_obs
 
                     self.dyUts[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Us[1][i][j-1+t_slice][0] / self.dy_obs
+                        self.Uts[1][i][j-1+t_slice] / self.dy_obs
                     self.dyUxs[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Us[1][i][j-1+t_slice][1] / self.dy_obs
+                        self.Uxs[1][i][j-1+t_slice] / self.dy_obs
                     self.dyUys[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Us[1][i][j-1+t_slice][2] / self.dy_obs
+                        self.Uys[1][i][j-1+t_slice] / self.dy_obs
+                        
+                    # Need some BCs to e.g. copy to edges that are missed here...
 
         # EoS & dissipation parameters
         self.coefficients = {'gamma': 5/3,
@@ -181,6 +183,7 @@ class PostProcessing(object):
         
     def calc_NonId_terms(self,obs_indices,point):
         # u = np.dot(W,[1,vx,vy]) # check this works...
+        h, i, j = obs_indices
         T = self.values_from_hdf5(point, 'T') # Fix this - should be from EoS(N,p_tilde)
         dtT = self.calc_t_deriv('T',point)
         dxT = self.calc_x_deriv('T',point)
@@ -188,18 +191,22 @@ class PostProcessing(object):
         Ut = self.Uts[obs_indices]
         Ux = self.Uxs[obs_indices]
         Uy = self.Uys[obs_indices]
-        dtUt = self.dtUts[obs_indices]
-        dtUx = self.dtUxs[obs_indices]
-        dtUy = self.dtUys[obs_indices]
-        dxUt = self.dxUts[obs_indices]
-        dxUx = self.dxUxs[obs_indices]
-        dxUy = self.dxUys[obs_indices]
-        dyUt = self.dyUts[obs_indices]
-        dyUx = self.dyUxs[obs_indices]
-        dyUy = self.dyUys[obs_indices]
-        
+        dtUt = self.dtUts[i,j]
+        dtUx = self.dtUxs[i,j]
+        dtUy = self.dtUys[i,j]
+        dxUt = self.dxUts[i,j]
+        dxUx = self.dxUxs[i,j]
+        dxUy = self.dxUys[i,j]
+        dyUt = self.dyUts[i,j]
+        dyUx = self.dyUxs[i,j]
+        dyUy = self.dyUys[i,j]
+        print(Ut.shape,Ux.shape,Uy.shape )
+        print(dtUt.shape,dxUx.shape,dyUy.shape )
+       
         Theta = dtUt + dxUx + dyUy
         a = np.array([Ut*dtUt + Ux*dxUt + Uy*dyUt, Ut*dtUx + Ux*dxUx + Uy*dyUx, Ut*dtUy + Ux*dxUy + Uy*dyUy])#,ux*dxuz+uy*dyuz+uz*dzuz])
+        print(Theta.shape,a.shape)
+
         # Pi = -self.coefficients['zeta']*Theta
         # print(dxT.shape)
         omega = np.array([dtT, dxT, dyT]) + np.multiply(T,a) # FIX
@@ -213,8 +220,6 @@ class PostProcessing(object):
     
     def p_from_EoS(self,rho, n):
         p = (self.coefficients['gamma']-1)*(rho-n)
-        print('EoS terms')
-        print(rho,n,p)
         return p
     
     # def calc_Id_SET(self,u,p,rho):
@@ -401,13 +406,13 @@ class PostProcessing(object):
     
 if __name__ == '__main__':
     
-    Processor = PostProcessing()
+    # Processor = PostProcessing()
 
-    with open('Processor.pickle', 'wb') as filehandle:
-        pickle.dump(Processor, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
+    # with open('Processor.pickle', 'wb') as filehandle:
+    #     pickle.dump(Processor, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
     
-    # with open('Processor.pickle', 'rb') as filehandle:
-    #     Processor = pickle.load(filehandle)
+    with open('Processor.pickle', 'rb') as filehandle:
+        Processor = pickle.load(filehandle)
 
     
     # f_obs = open("observers.txt", "r")
