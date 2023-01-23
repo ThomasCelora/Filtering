@@ -357,7 +357,7 @@ class PostProcessing(object):
             # Calculate Pi and pi residuals
             tau_trace = np.trace(tau_res)#
             print('tau_trace ',tau_trace)
-            p_tilde = self.p_from_EoS(N, rho_res)
+            p_tilde = self.p_from_EoS(rho_res, N)
             print('N, rho_res ',N, rho_res)
             print('p_tilde ', p_tilde)
             Pi_res = tau_trace - p_tilde
