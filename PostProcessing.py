@@ -30,14 +30,15 @@ class PostProcessing(object):
           # fs_f.append(h5py.File('./Data/KH/Ideal/dp_400x400x0_'+str(n)+'.hdf5','r'))
           # fs_1f.append(h5py.File('./Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
           #fs_f.append(h5py.File('./Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
-          fs_f.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
+          # fs_f.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
+          fs_f.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_1998_2002/dp_400x800x0_'+str(n)+'.hdf5','r'))
         fss = [fs_f]
         self.nx, self.ny = int(400), int(800)
         # self.c_nx, self.c_ny = int(self.nx/2), int(self.ny/2) # coarse
         # self.c_nx, self.c_ny = 200, 200 # coarse
         
         
-        self.ts = np.linspace(9.98,10.02,num_files) # Need to actually get these
+        self.ts = np.linspace(19.98,20.02,num_files) # Need to actually get these
         self.xs = np.linspace(-0.5,0.5,self.nx)
         self.ys =  np.linspace(-1.0,1.0,self.ny)
         self.points = (self.ts,self.xs,self.ys)
@@ -47,18 +48,18 @@ class PostProcessing(object):
         # Numer of observer time slices
         self.n_obs_t = 3 # = num_files / num_files - 2 ?
         # Number of observers calculated in x and y directions
-        self.n_obs_x = 41
-        self.n_obs_y = 21
+        self.n_obs_x = 3
+        self.n_obs_y = 17
         self.dt_obs = 0.01
-        self.dx_obs = 0.02
-        self.dy_obs = 0.02
+        self.dx_obs = 0.1
+        self.dy_obs = 0.1
         self.n_t_slices = self.n_obs_t - 2 # number of time slices for which to calculate residuals
         self.n_x_pts = self.n_obs_x - 2 # to avoid edges
         self.n_y_pts = self.n_obs_y - 2
         
         # Load coords and corresponding observers
-        self.coords = np.loadtxt('coords998.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
-        self.Us = np.loadtxt('obs998.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
+        self.coords = np.loadtxt('coords1998_tef2.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
+        self.Us = np.loadtxt('obs1998_tef2.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
 
         # Define fluid variables for both the fine and coarse data
         self.vxs = np.zeros((num_files, self.nx, self.ny))
@@ -404,13 +405,13 @@ class PostProcessing(object):
     
 if __name__ == '__main__':
     
-    # Processor = PostProcessing()
+    Processor = PostProcessing()
 
-    # with open('Processor.pickle', 'wb') as filehandle:
-    #     pickle.dump(Processor, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
+    with open('Processor.pickle', 'wb') as filehandle:
+        pickle.dump(Processor, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
     
-    with open('Processor.pickle', 'rb') as filehandle:
-        Processor = pickle.load(filehandle)
+    # with open('Processor.pickle', 'rb') as filehandle:
+    #     Processor = pickle.load(filehandle)
    
     # args = [(coord, vector) for coord, vector in zip(Processor.coords, Processor.Us)]
     # for h in range(Processor.n_obs_t):
