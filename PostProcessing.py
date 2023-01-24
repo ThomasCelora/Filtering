@@ -94,7 +94,7 @@ class PostProcessing(object):
         self.Uts = self.Us[:,:,:,0] # 3 slices for now 
         self.Uxs = self.Us[:,:,:,1]
         self.Uys = self.Us[:,:,:,2]
-        print(self.Uxs.shape)
+        # print(self.Uxs.shape)
         self.dtUts = np.zeros((self.n_obs_x,self.n_obs_y)) # single slice for now
         self.dtUxs = np.zeros((self.n_obs_x,self.n_obs_y))
         self.dtUys = np.zeros((self.n_obs_x,self.n_obs_y))
@@ -190,8 +190,7 @@ class PostProcessing(object):
         dtT = self.calc_t_deriv('T',point)
         dxT = self.calc_x_deriv('T',point)
         dyT = self.calc_y_deriv('T',point)
-        print(dtT.shape,dxT.shape)
-        print(self.Uts.shape)
+        print(T.shape,dxT.shape)
         Ut = self.Uts[h,i,j]
         Ux = self.Uxs[h,i,j]
         Uy = self.Uys[h,i,j]
@@ -204,16 +203,15 @@ class PostProcessing(object):
         dyUt = self.dyUts[i,j]
         dyUx = self.dyUxs[i,j]
         dyUy = self.dyUys[i,j]
-        print(Ut.shape,Ux.shape,Uy.shape )
-        print(dtUt.shape,dxUx.shape,dyUy.shape )
-       
+   
         Theta = dtUt + dxUx + dyUy
         a = np.array([Ut*dtUt + Ux*dxUt + Uy*dyUt, Ut*dtUx + Ux*dxUx + Uy*dyUx, Ut*dtUy + Ux*dxUy + Uy*dyUy])#,ux*dxuz+uy*dyuz+uz*dzuz])
         print(Theta.shape,a.shape)
 
-        # Pi = -self.coefficients['zeta']*Theta
-        # print(dxT.shape)
         omega = np.array([dtT, dxT, dyT]) + np.multiply(T,a) # FIX
+        print(np.array([dtT, dxT, dyT]).shape)
+        print(np.multiply(T,a).shape)
+        print(omega.shape)
         sigma = np.array([[2*dtUt - (2/3)*Theta, dtUx + dxUt, dtUy + dyUt],\
                                                   [dxUt + dtUx, 2*dxUx - (2/3)*Theta, dxUy + dyUx],
                                                   [dyUt + dtUy, dyUx + dxUy, 2*dyUy - (2/3)*Theta]])
@@ -365,14 +363,14 @@ class PostProcessing(object):
             
             # Calculate Pi and pi residuals
             tau_trace = np.trace(tau_res)#
-            print('tau_trace ',tau_trace)
+            # print('tau_trace ',tau_trace)
             p_tilde = self.p_from_EoS(rho_res, N)
-            print('N, rho_res ',N, rho_res)
-            print('p_tilde ', p_tilde)
+            # print('N, rho_res ',N, rho_res)
+            # print('p_tilde ', p_tilde)
             Pi_res = tau_trace - p_tilde
             pi_res = tau_res - np.dot((p_tilde + Pi_res),h_mu_nu)
             
-            print('rho','Pi','q','pi','residuals')
+            # print('rho','Pi','q','pi','residuals')
             print('rho_res ',rho_res)
             print('Pi_res ',Pi_res)
             print('q_res ',q_res)
@@ -391,9 +389,9 @@ class PostProcessing(object):
             print('Theta ', Theta)
             print('omega ',omega)
             print('sigma ',sigma)
-            # print('zeta ', zeta)
-            # print('kappa ',kappa)
-            # print('eta ',eta)
+            print('zeta ', zeta)
+            print('kappa ',kappa)
+            print('eta ',eta)
             # # Construct coarse Id & Non-Id SET         
             # coarse_Id_SET = self.calc_Id_SET(u, p, rho)
             # coarse_nId_SET = self.calc_NonId_SET(u, p, rho, n, Pi, q, pi)
