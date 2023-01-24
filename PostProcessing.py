@@ -134,7 +134,7 @@ class PostProcessing(object):
                         + f_f['Primitive/p'][i,j]*(self.metric + np.outer(u_vec,u_vec))
             
         # Size of box for spatial filtering
-        self.L = 2*np.sqrt(self.dx*self.dy) # filtering size
+        self.L = 10*np.sqrt(self.dx*self.dy) # filtering size - coefficient ~ determines #cells along side of filtering box
         self.dT = 0.01 # steps to take for differential calculations
         self.dX = 0.01
         self.dY = 0.01
@@ -173,10 +173,16 @@ class PostProcessing(object):
 
         # EoS & dissipation parameters
         self.coefficients = {'gamma': 5/3,
-                        'zeta': 1e-2,
+                        'zeta': 1e-3,
                         'kappa': 1e-4,
                         'eta': 1e-2}
+       
         self.calculated_coefficients = np.zeros((self.n_t_slices,self.n_x_pts,self.n_y_pts,3))
+
+
+        # self.zetas = np.zeros((self.n_t_slices,self.n_x_pts,self.n_y_pts))
+        # self.kappas = np.zeros((self.n_t_slices,self.n_x_pts,self.n_y_pts))
+        # self.etas = np.zeros((self.n_t_slices,self.n_x_pts,self.n_y_pts))
         
         
     # def calc_4vel(W,vx,vy):
@@ -415,8 +421,10 @@ if __name__ == '__main__':
             for j in range(Processor.n_y_pts):
                 Processor.calculated_coefficients[h,i,j] = Processor.calc_coeffs(Processor.coords[h,i,j],Processor.Us[h,i,j],[h,i,j])
 
-    np.savetxt('cald_coeffs.txt', Processor.calculated_coefficients)
-
+    # np.savetxt('cald_coeffs.txt', Processor.calculated_coefficients)
+    with open('Coeffs.pickle', 'wb') as filehandle:
+        pickle.dump(Processor.calculated_coefficients, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
+        
     # residuals_handle = open('Residuals.pickle', 'wb')
     # start = timer()
     # with Pool(2) as p:
