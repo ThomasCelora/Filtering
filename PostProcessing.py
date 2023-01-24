@@ -52,7 +52,10 @@ class PostProcessing(object):
         self.dt_obs = 0.01
         self.dx_obs = 0.02
         self.dy_obs = 0.02
-
+        self.n_t_slices = self.n_obs_t - 2 # number of time slices for which to calculate residuals
+        self.n_x_pts = self.n_obs_x - 2 # to avoid edges
+        self.n_y_pts = self.n_obs_y - 2
+        
         # Load coords and corresponding observers
         self.coords = np.loadtxt('coords998.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
         self.Us = np.loadtxt('obs998.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
@@ -144,7 +147,7 @@ class PostProcessing(object):
         for t_slice in range(self.n_obs_t):
             # Central-difference                                
             for i in range(1,self.n_obs_x-1):
-                for j in range(1,self.n_obs_y-1):
+                for j in range(1,self.n_obs_y-1): # fix these to use self.n_x_pts etc.
                     self.dtUts[i,j] += self.cen_FO_stencil[t_slice]*\
                         self.Uts[t_slice][i][j] / self.dt_obs
                     self.dtUxs[i,j] += self.cen_FO_stencil[t_slice]*\
@@ -173,10 +176,7 @@ class PostProcessing(object):
                         'zeta': 1e-2,
                         'kappa': 1e-4,
                         'eta': 1e-2}
-        
-
-
-
+        self.calculated_coefficients = np.zeros((self.n_t_slices,self.n_x_pts,self.n_y_pts))
         
         
     # def calc_4vel(W,vx,vy):
@@ -187,9 +187,9 @@ class PostProcessing(object):
         h, i, j = obs_indices
         print(obs_indices)
         T = self.values_from_hdf5(point, 'T') # Fix this - should be from EoS(N,p_tilde)
-        dtT = self.calc_t_deriv('T',point)
-        dxT = self.calc_x_deriv('T',point)
-        dyT = self.calc_y_deriv('T',point)
+        dtT = self.calc_t_deriv('T',point)[0]
+        dxT = self.calc_x_deriv('T',point)[0]
+        dyT = self.calc_y_deriv('T',point)[0]
         print(T.shape,dxT.shape)
         Ut = self.Uts[h,i,j]
         Ux = self.Uxs[h,i,j]
@@ -292,8 +292,8 @@ class PostProcessing(object):
     def filter_scalar(self, point, U, quant_str):
         # contruct tetrad...
         E_x, E_y = self.construct_tetrad(U)
-        corners = self.find_boundary_pts(E_x,E_y,point,self.L)
-        start, end = corners[0], corners[2]
+        # corners = self.find_boundary_pts(E_x,E_y,point,self.L)
+        # start, end = corners[0], corners[2]
         t, x, y = point
         integrand = 0
         counter = 0
@@ -331,25 +331,25 @@ class PostProcessing(object):
         y_pos = self.find_nearest(self.ys,point[2])
         return [np.where(self.ts==t_pos)[0][0], np.where(self.xs==x_pos)[0][0], np.where(self.ys==y_pos)[0][0]]
     
-    def calc_residual(self, point, U, obs_indices):
+    def calc_coeffs(self, point, U, obs_indices):
             # point, U = point_and_vel
             h, i, j = obs_indices
             # Filter the scalar fields
             N = self.filter_scalar(point, U, self.scalar_strs[0])
-            Rho = self.filter_scalar(point, U, self.scalar_strs[1])
-            P = self.filter_scalar(point, U, self.scalar_strs[2])
-            T = P/N
-            U_t = self.filter_scalar(point, U, self.vector_strs[0])
-            U_x = self.filter_scalar(point, U, self.vector_strs[1])
-            U_y = self.filter_scalar(point, U, self.vector_strs[2])
+            # Rho = self.filter_scalar(point, U, self.scalar_strs[1])
+            # P = self.filter_scalar(point, U, self.scalar_strs[2])
+            # T = P/N
+            # U_t = self.filter_scalar(point, U, self.vector_strs[0])
+            # U_x = self.filter_scalar(point, U, self.vector_strs[1])
+            # U_y = self.filter_scalar(point, U, self.vector_strs[2])
           
             # Obtain coarse values
-            n, rho, p = self.values_from_hdf5(point, self.scalar_strs[0]),\
-                self.values_from_hdf5(point, self.scalar_strs[1]), self.values_from_hdf5(point, self.scalar_strs[2])
-            W, u_x, u_y = self.values_from_hdf5(point, self.vector_strs[0]),\
-                self.values_from_hdf5(point, self.vector_strs[1]), self.values_from_hdf5(point, self.vector_strs[2])
-            u = [W, u_x, u_y]
-            t = n/p
+            # n, rho, p = self.values_from_hdf5(point, self.scalar_strs[0]),\
+            #     self.values_from_hdf5(point, self.scalar_strs[1]), self.values_from_hdf5(point, self.scalar_strs[2])
+            # W, u_x, u_y = self.values_from_hdf5(point, self.vector_strs[0]),\
+            #     self.values_from_hdf5(point, self.vector_strs[1]), self.values_from_hdf5(point, self.vector_strs[2])
+            # u = [W, u_x, u_y]
+            # t = n/p
 
             # Construct filtered Id SET         
             # coarse_Id_SET = self.calc_Id_SET(u, p, rho)
@@ -379,73 +379,43 @@ class PostProcessing(object):
             # need to calc. derivatives here!
             # T_tilde = p_tilde/N
             # Theta, omega, sigma = self.calc_NonId_terms(T_tildes, U_tildes) # coarse dissipative pieces (without coefficients)
-            # zeta, kappa, eta = -Pi_res/Theta, -q_res/omega, -pi_res/sigma
 
             # Temp hack - see PDF from Ian
             Theta, omega, sigma = self.calc_NonId_terms(obs_indices,point)
             zeta = -Pi_res/Theta
             kappa = np.average(-q_res/omega)
             eta = np.average(-pi_res/(2*sigma))
-            print('Theta ', Theta)
-            print('omega ',omega)
-            print('sigma ',sigma)
+            # print('Theta ', Theta)
+            # print('omega ',omega)
+            # print('sigma ',sigma)
             print('zeta ', zeta)
             print('kappa ',kappa)
             print('eta ',eta)
-            # # Construct coarse Id & Non-Id SET         
-            # coarse_Id_SET = self.calc_Id_SET(u, p, rho)
-            # coarse_nId_SET = self.calc_NonId_SET(u, p, rho, n, Pi, q, pi)
-            # # Construct filtered Id & Non-Id SET
-            # filtered_Id_SET = self.calc_Id_SET(U, P, Rho)
-            # filtered_nId_SET = self.calc_NonId_SET(U, P, Rho, N, Pi, q, pi)           
-
-            # print("Rho residual: ", rho_res)
-            # print("q residual: ", q_res)
-            # print("Pi residual: ", Pi_res)    
-            
-            # return zeta, kappa, eta
+            return zeta, kappa, eta
+    
+           
     
     
 if __name__ == '__main__':
     
-    Processor = PostProcessing()
+    # Processor = PostProcessing()
 
-    with open('Processor.pickle', 'wb') as filehandle:
-        pickle.dump(Processor, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
+    # with open('Processor.pickle', 'wb') as filehandle:
+    #     pickle.dump(Processor, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
     
-    # with open('Processor.pickle', 'rb') as filehandle:
-    #     Processor = pickle.load(filehandle)
-
-    
-    # f_obs = open("observers.txt", "r")
-    # observers = f_obs.read()
-    # print(observers)
-    # print(observers[2:-1:1])
-    #print(observers.split("]],"))
-    # with open('test_obs.pickle', 'rb') as filehandle:
-    #     # Read the data as a binary data stream
-    #     test_obs = pickle.load(filehandle)
-    # print(test_obs)
-    
-    # points = []
-    # Us = [] # Filtered
-    # for i in range(len(test_obs)): #awful
-    #     points.append(test_obs[i][0])
-    #     Us.append(test_obs[i][1])
-
-    #print(points,Us)
-
-    # coords_test = np.loadtxt('coords998.txt')
-    # obs_test = np.loadtxt('obs998.txt')
-    
+    with open('Processor.pickle', 'rb') as filehandle:
+        Processor = pickle.load(filehandle)
+   
     # args = [(coord, vector) for coord, vector in zip(Processor.coords, Processor.Us)]
     # for h in range(Processor.n_obs_t):
     #     for i in range(Processor.n_obs_x):
     #         for j in range(Processor.n_obs_y):
-    for h in range(1):
-        for i in range(1):
-            for j in range(1):
-                residuals = Processor.calc_residual(Processor.coords[h,i,j],Processor.Us[h,i,j],[h,i,j])
+    for h in range(Processor.n_t_slices):
+        for i in range(Processor.n_x_pts):
+            for j in range(Processor.n_y_pts):
+                Processor.calculated_coefficients[h,i,j] = Processor.calc_coeffs(Processor.coords[h,i,j],Processor.Us[h,i,j],[h,i,j])
+
+    np.savetxt('cald_coeff.txt', Processor.calculated_coefficients)
 
     # residuals_handle = open('Residuals.pickle', 'wb')
     # start = timer()
