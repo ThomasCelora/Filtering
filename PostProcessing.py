@@ -206,11 +206,11 @@ class PostProcessing(object):
    
         Theta = dtUt + dxUx + dyUy
         a = np.array([Ut*dtUt + Ux*dxUt + Uy*dyUt, Ut*dtUx + Ux*dxUx + Uy*dyUx, Ut*dtUy + Ux*dxUy + Uy*dyUy])#,ux*dxuz+uy*dyuz+uz*dzuz])
-        print(Theta.shape,a.shape)
+        print(Theta,a)
 
         omega = np.array([dtT, dxT, dyT]) + np.multiply(T,a) # FIX
-        print(np.array([dtT, dxT, dyT]).shape)
-        print(np.multiply(T,a).shape)
+        print(np.array([dtT, dxT, dyT]))
+        print(np.multiply(T,a))
         print(omega.shape)
         sigma = np.array([[2*dtUt - (2/3)*Theta, dtUx + dxUt, dtUy + dyUt],\
                                                   [dxUt + dtUx, 2*dxUx - (2/3)*Theta, dxUy + dyUx],
@@ -443,8 +443,8 @@ if __name__ == '__main__':
     #     for i in range(Processor.n_obs_x):
     #         for j in range(Processor.n_obs_y):
     for h in range(1):
-        for i in range(2):
-            for j in range(2):
+        for i in range(1):
+            for j in range(1):
                 residuals = Processor.calc_residual(Processor.coords[h,i,j],Processor.Us[h,i,j],[h,i,j])
 
     # residuals_handle = open('Residuals.pickle', 'wb')
