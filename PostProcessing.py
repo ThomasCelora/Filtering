@@ -404,13 +404,13 @@ class PostProcessing(object):
     
 if __name__ == '__main__':
     
-    Processor = PostProcessing()
+    # Processor = PostProcessing()
 
-    with open('Processor.pickle', 'wb') as filehandle:
-        pickle.dump(Processor, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
+    # with open('Processor.pickle', 'wb') as filehandle:
+    #     pickle.dump(Processor, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
     
-    # with open('Processor.pickle', 'rb') as filehandle:
-    #     Processor = pickle.load(filehandle)
+    with open('Processor.pickle', 'rb') as filehandle:
+        Processor = pickle.load(filehandle)
    
     # args = [(coord, vector) for coord, vector in zip(Processor.coords, Processor.Us)]
     # for h in range(Processor.n_obs_t):
