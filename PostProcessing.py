@@ -192,9 +192,9 @@ class PostProcessing(object):
         dyT = self.calc_y_deriv('T',point)
         print(dtT.shape,dxT.shape)
         print(self.Uts.shape)
-        Ut = self.Uts[i,j]
-        Ux = self.Uxs[i,j]
-        Uy = self.Uys[i,j]
+        Ut = self.Uts[h,i,j]
+        Ux = self.Uxs[h,i,j]
+        Uy = self.Uys[h,i,j]
         dtUt = self.dtUts[i,j]
         dtUx = self.dtUxs[i,j]
         dtUy = self.dtUys[i,j]
