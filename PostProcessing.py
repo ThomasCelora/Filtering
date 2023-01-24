@@ -192,9 +192,9 @@ class PostProcessing(object):
         dyT = self.calc_y_deriv('T',point)
         print(dtT.shape,dxT.shape)
         print(self.Uts.shape)
-        Ut = self.Uts[h,i,j]
-        Ux = self.Uxs[h,i,j]
-        Uy = self.Uys[h,i,j]
+        Ut = self.Uts[i,j]
+        Ux = self.Uxs[i,j]
+        Uy = self.Uys[i,j]
         dtUt = self.dtUts[i,j]
         dtUx = self.dtUxs[i,j]
         dtUy = self.dtUys[i,j]
@@ -410,13 +410,13 @@ class PostProcessing(object):
     
 if __name__ == '__main__':
     
-    # Processor = PostProcessing()
+    Processor = PostProcessing()
 
-    # with open('Processor.pickle', 'wb') as filehandle:
-    #     pickle.dump(Processor, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
+    with open('Processor.pickle', 'wb') as filehandle:
+        pickle.dump(Processor, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
     
-    with open('Processor.pickle', 'rb') as filehandle:
-        Processor = pickle.load(filehandle)
+    # with open('Processor.pickle', 'rb') as filehandle:
+    #     Processor = pickle.load(filehandle)
 
     
     # f_obs = open("observers.txt", "r")
