@@ -185,14 +185,16 @@ class PostProcessing(object):
     def calc_NonId_terms(self,obs_indices,point):
         # u = np.dot(W,[1,vx,vy]) # check this works...
         h, i, j = obs_indices
+        print(obs_indices)
         T = self.values_from_hdf5(point, 'T') # Fix this - should be from EoS(N,p_tilde)
         dtT = self.calc_t_deriv('T',point)
         dxT = self.calc_x_deriv('T',point)
         dyT = self.calc_y_deriv('T',point)
+        print(dtT.shape,dxT.shape)
         print(self.Uts.shape)
-        Ut = self.Uts[obs_indices]
-        Ux = self.Uxs[obs_indices]
-        Uy = self.Uys[obs_indices]
+        Ut = self.Uts[h,i,j]
+        Ux = self.Uxs[h,i,j]
+        Uy = self.Uys[h,i,j]
         dtUt = self.dtUts[i,j]
         dtUx = self.dtUxs[i,j]
         dtUy = self.dtUys[i,j]
