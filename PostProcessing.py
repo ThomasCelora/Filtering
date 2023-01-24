@@ -176,7 +176,7 @@ class PostProcessing(object):
                         'zeta': 1e-2,
                         'kappa': 1e-4,
                         'eta': 1e-2}
-        self.calculated_coefficients = np.zeros((self.n_t_slices,self.n_x_pts,self.n_y_pts))
+        self.calculated_coefficients = np.zeros((self.n_t_slices,self.n_x_pts,self.n_y_pts,3))
         
         
     # def calc_4vel(W,vx,vy):
@@ -185,12 +185,12 @@ class PostProcessing(object):
     def calc_NonId_terms(self,obs_indices,point):
         # u = np.dot(W,[1,vx,vy]) # check this works...
         h, i, j = obs_indices
-        print(obs_indices)
+        # print(obs_indices)
         T = self.values_from_hdf5(point, 'T') # Fix this - should be from EoS(N,p_tilde)
         dtT = self.calc_t_deriv('T',point)[0]
         dxT = self.calc_x_deriv('T',point)[0]
         dyT = self.calc_y_deriv('T',point)[0]
-        print(T.shape,dxT.shape)
+        # print(T.shape,dxT.shape)
         Ut = self.Uts[h,i,j]
         Ux = self.Uxs[h,i,j]
         Uy = self.Uys[h,i,j]
@@ -206,12 +206,12 @@ class PostProcessing(object):
    
         Theta = dtUt + dxUx + dyUy
         a = np.array([Ut*dtUt + Ux*dxUt + Uy*dyUt, Ut*dtUx + Ux*dxUx + Uy*dyUx, Ut*dtUy + Ux*dxUy + Uy*dyUy])#,ux*dxuz+uy*dyuz+uz*dzuz])
-        print(Theta,a)
+        # print(Theta,a)
 
         omega = np.array([dtT, dxT, dyT]) + np.multiply(T,a) # FIX
-        print(np.array([dtT, dxT, dyT]))
-        print(np.multiply(T,a))
-        print(omega.shape)
+        # print(np.array([dtT, dxT, dyT]))
+        # print(np.multiply(T,a))
+        # print(omega.shape)
         sigma = np.array([[2*dtUt - (2/3)*Theta, dtUx + dxUt, dtUy + dyUt],\
                                                   [dxUt + dtUx, 2*dxUx - (2/3)*Theta, dxUy + dyUx],
                                                   [dyUt + dtUy, dyUx + dxUy, 2*dyUy - (2/3)*Theta]])
@@ -391,7 +391,7 @@ class PostProcessing(object):
             print('zeta ', zeta)
             print('kappa ',kappa)
             print('eta ',eta)
-            return zeta, kappa, eta
+            return [zeta, kappa, eta]
     
            
     
@@ -415,7 +415,7 @@ if __name__ == '__main__':
             for j in range(Processor.n_y_pts):
                 Processor.calculated_coefficients[h,i,j] = Processor.calc_coeffs(Processor.coords[h,i,j],Processor.Us[h,i,j],[h,i,j])
 
-    np.savetxt('cald_coeff.txt', Processor.calculated_coefficients)
+    np.savetxt('cald_coeffs.txt', Processor.calculated_coefficients)
 
     # residuals_handle = open('Residuals.pickle', 'wb')
     # start = timer()
