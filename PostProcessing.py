@@ -94,6 +94,7 @@ class PostProcessing(object):
         self.Uts = self.Us[:,:,:,0] # 3 slices for now 
         self.Uxs = self.Us[:,:,:,1]
         self.Uys = self.Us[:,:,:,2]
+        print(self.Uxs.shape)
         self.dtUts = np.zeros((self.n_obs_x,self.n_obs_y)) # single slice for now
         self.dtUxs = np.zeros((self.n_obs_x,self.n_obs_y))
         self.dtUys = np.zeros((self.n_obs_x,self.n_obs_y))
@@ -188,6 +189,7 @@ class PostProcessing(object):
         dtT = self.calc_t_deriv('T',point)
         dxT = self.calc_x_deriv('T',point)
         dyT = self.calc_y_deriv('T',point)
+        print(self.Uts.shape)
         Ut = self.Uts[obs_indices]
         Ux = self.Uxs[obs_indices]
         Uy = self.Uys[obs_indices]
@@ -381,9 +383,9 @@ class PostProcessing(object):
 
             # Temp hack - see PDF from Ian
             Theta, omega, sigma = self.calc_NonId_terms(obs_indices,point)
-            # zeta = -Pi_res/Theta
-            # kappa = -q_res/omega
-            # eta = -pi_res/(2*sigma)
+            zeta = -Pi_res/Theta
+            kappa = np.average(-q_res/omega)
+            eta = np.average(-pi_res/(2*sigma))
             print('Theta ', Theta)
             print('omega ',omega)
             print('sigma ',sigma)
