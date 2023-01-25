@@ -46,7 +46,7 @@ if __name__ == '__main__':
 #     print("root-found: ",get_U_mu(sol.x))
 #     print("blabla")
 
-    t_range = [29.99,30.01]
+    t_range = [9.99,10.01]
     x_range = [-0.45,0.45]
     y_range = [-0.9,0.9]
     initial_guess = [0.0,0.0] # not used... should remove...
@@ -60,11 +60,11 @@ if __name__ == '__main__':
     # args = [([tr, tr], [xr, xr], [yr, yr], L, 1, 1, 1, initial_guess) for tr in np.linspace(6.0, 6.0, 1) for xr in np.linspace(0.0, 0.0, 1) for yr in np.linspace(0.0, 0.0, 1)]
     KH_observers = system.find_observers(t_range,x_range,y_range,L,3,19,19,initial_guess)
     # print(KH_observers)
-    with open('KH_observers_2998_tef2.pickle', 'wb') as handle:
+    with open('KH_observers_998_31919.pickle', 'wb') as handle:
         pickle.dump(KH_observers, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    np.savetxt('coords2998_tef2.txt',KH_observers[0])
-    np.savetxt('obs2998_tef2.txt',KH_observers[1])
+    np.savetxt('coords998_31919.txt',KH_observers[0])
+    np.savetxt('obs998_31919.txt',KH_observers[1])
 
     # handle = open('KH_observers.pickle', 'wb')
     # start = timer()

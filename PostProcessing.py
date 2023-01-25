@@ -423,7 +423,7 @@ if __name__ == '__main__':
                 Processor.calculated_coefficients[h,i,j] = Processor.calc_coeffs(Processor.coords[h,i,j],Processor.Us[h,i,j],[h,i,j])
 
     # np.savetxt('cald_coeffs.txt', Processor.calculated_coefficients)
-    with open('Coeffs.pickle', 'wb') as filehandle:
+    with open('Coeffs_1998_3317.pickle', 'wb') as filehandle:
         pickle.dump(Processor.calculated_coefficients, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
         
     # residuals_handle = open('Residuals.pickle', 'wb')
