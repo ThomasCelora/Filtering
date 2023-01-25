@@ -136,7 +136,7 @@ class PostProcessing(object):
                         + f_f['Primitive/p'][i,j]*(self.metric + np.outer(u_vec,u_vec))
             
         # Size of box for spatial filtering
-        self.L = 2*np.sqrt(self.dx*self.dy) # filtering size - coefficient ~ determines #cells along side of filtering box
+        self.L = 4*np.sqrt(self.dx*self.dy) # filtering size - coefficient ~ determines #cells along side of filtering box
         self.dT = 0.01 # steps to take for differential calculations
         self.dX = 0.01
         self.dY = 0.01
@@ -194,12 +194,13 @@ class PostProcessing(object):
         # u = np.dot(W,[1,vx,vy]) # check this works...
         h, i, j = obs_indices
         print(obs_indices)
+        print(point)
         T = self.values_from_hdf5(point, 'T') # Fix this - should be from EoS(N,p_tilde)
-        print(T)
+        # print(T)
         dtT = self.calc_t_deriv('T',point)[0]
         dxT = self.calc_x_deriv('T',point)[0]
         dyT = self.calc_y_deriv('T',point)[0]
-        print(T.shape,dxT.shape)
+        # print(T.shape,dxT.shape)
         Ut = self.Uts[h,i,j]
         Ux = self.Uxs[h,i,j]
         Uy = self.Uys[h,i,j]
@@ -419,7 +420,7 @@ if __name__ == '__main__':
     # for h in range(Processor.n_obs_t):
     #     for i in range(Processor.n_obs_x):
     #         for j in range(Processor.n_obs_y):
-    for h in range(Processor.n_t_slices):
+    for h in range(1,1+Processor.n_t_slices):
         for i in range(Processor.n_x_pts):
             for j in range(Processor.n_y_pts):
                 Processor.calculated_coefficients[h,i,j] = Processor.calc_coeffs(Processor.coords[h,i,j],Processor.Us[h,i,j],[h,i,j])
