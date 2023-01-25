@@ -39,6 +39,8 @@ Uys = obs[1,:,:,2]
 Xs = np.linspace(-0.45,0.45,19)
 Ys = np.linspace(-0.9,0.9,19)
 Extent = (Xs[0],Xs[-1],Ys[0],Ys[-1])
+# ts = np.linspace(9.98,10.02,n_files) # Need to actually get these
+# ts = np.linspace(19.98,20.02,n_files) # Need to actually get these
 ts = np.linspace(9.98,10.02,n_files) # Need to actually get these
 xs = np.linspace(-0.5,0.5,nx)
 ys =  np.linspace(-1.0,1.0,ny)
@@ -71,7 +73,8 @@ print(np.min(Uxs),np.max(Uxs))
 print(np.min(vxs[2]),np.max(vxs[2]))
 
 # fig, axes = plt.subplots(4,2,figsize=(2,25))
-fig, axes = plt.subplots(4,2,figsize=(12,12))
+# fig, axes = plt.subplots(4,2,figsize=(2,12))
+fig, axes = plt.subplots(4,2,figsize=(12,24))
 axes[0,0].imshow(np.transpose(Ws[2]),extent=extent,vmin=np.min(UWs),vmax=np.max(UWs))
 axes[0,1].imshow(np.transpose(UWs[:]),extent=Extent,vmin=np.min(UWs),vmax=np.max(UWs))
 axes[1,0].imshow(np.transpose(vxs[2]),extent=extent,vmin=np.min(Uxs),vmax=np.max(Uxs))
