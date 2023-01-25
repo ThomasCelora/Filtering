@@ -31,9 +31,9 @@ class Base(object):
           # fs1.append(h5py.File('./Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
            # self.fs1.append(h5py.File('../Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
           # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/dp_400x800x0_'+str(n)+'.hdf5','r'))
-          #  self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
+            self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
             # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_1998_2002/dp_400x800x0_'+str(n)+'.hdf5','r'))
-            self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_2998_3002/dp_400x800x0_'+str(n)+'.hdf5','r'))
+            # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_2998_3002/dp_400x800x0_'+str(n)+'.hdf5','r'))
           # fs1.append(h5py.File('./Data/KH/Shear/dp_400x800x0_'+str(n)+'.hdf5','r'))
         #   fs2.append(h5py.File('../Git/Plotting/BDNK/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
         #   fs2.append(h5py.File('../Git/Plotting/ISCE/KH/Ideal/dp_400x400x0_'+str(n)+'.hdf5','r'))
@@ -53,7 +53,7 @@ class Base(object):
         # nx = ny = 200
         nx, ny = 400, 800
         nts = num_files
-        ts = np.linspace(29.98,30.02,nts) # Need to actually get these
+        ts = np.linspace(9.98,10.02,nts) # Need to actually get these
         xs = np.linspace(-0.5,0.5,nx) # These too...
         ys =  np.linspace(-1.0,1.0,ny)
         # X, Y = np.meshgrid(xs,ys)
