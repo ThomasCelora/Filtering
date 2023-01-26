@@ -10,17 +10,17 @@ import numpy as np
 import h5py
 import pickle
 
-with open('Coeffs_3317.pickle', 'rb') as filehandle:
+with open('Coeffs_2998_31919.pickle', 'rb') as filehandle:
     Coeffs = pickle.load(filehandle)[0]
 print(Coeffs.shape)
 
 zetas, kappas, etas = Coeffs[:,:,0],Coeffs[:,:,1],Coeffs[:,:,2]
 # print(kappas)
-# plt.imshow(np.transpose(zetas),vmin=1e-3,vmax=1e1,label='Zeta')
-# plt.colorbar()
-# plt.title('Zeta')
-# plt.legend()
-# plt.show()
+plt.imshow(np.transpose(zetas),vmin=1e-3,vmax=1e1,label='Zeta')
+plt.colorbar()
+plt.title('Zeta')
+plt.legend()
+plt.show()
 plt.imshow(np.abs(np.transpose(kappas)),vmin=0,vmax=1e1)
 plt.colorbar()
 plt.show()

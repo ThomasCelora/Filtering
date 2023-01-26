@@ -30,9 +30,10 @@ class PostProcessing(object):
           # fs_f.append(h5py.File('./Data/KH/Ideal/dp_400x400x0_'+str(n)+'.hdf5','r'))
           # fs_1f.append(h5py.File('./Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
           #fs_f.append(h5py.File('./Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
+          fs_f.append(h5py.File('./Data/KH/Ideal/t_2998_3002/dp_400x800x0_'+str(n)+'.hdf5','r'))
           # fs_f.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
           # fs_f.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_1998_2002/dp_400x800x0_'+str(n)+'.hdf5','r'))
-          fs_f.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_2998_3002/dp_400x800x0_'+str(n)+'.hdf5','r'))
+          # fs_f.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_2998_3002/dp_400x800x0_'+str(n)+'.hdf5','r'))
         fss = [fs_f]
         self.nx, self.ny = int(400), int(800)
         # self.c_nx, self.c_ny = int(self.nx/2), int(self.ny/2) # coarse
@@ -51,7 +52,7 @@ class PostProcessing(object):
         # Number of observers calculated in x and y directions
         self.n_obs_x = 19
         self.n_obs_y = 19
-        self.dt_obs = 0.01
+        self.dt_obs = 0.1
         self.dx_obs = 0.1
         self.dy_obs = 0.1
         self.n_t_slices = self.n_obs_t - 2 # number of time slices for which to calculate residuals
@@ -190,16 +191,16 @@ class PostProcessing(object):
     # def calc_4vel(W,vx,vy):
     #     return [W,W]
         
-    def calc_NonId_terms(self,obs_indices,point):
+    def calc_NonId_terms(self,obs_indices,coord):
         # u = np.dot(W,[1,vx,vy]) # check this works...
         h, i, j = obs_indices
         print(obs_indices)
-        print(point)
-        T = self.values_from_hdf5(point, 'T') # Fix this - should be from EoS(N,p_tilde)
+        print(coord)
+        T = self.values_from_hdf5(coord, 'T') # Fix this - should be from EoS(N,p_tilde)
         # print(T)
-        dtT = self.calc_t_deriv('T',point)[0]
-        dxT = self.calc_x_deriv('T',point)[0]
-        dyT = self.calc_y_deriv('T',point)[0]
+        dtT = self.calc_t_deriv('T',coord)[0]
+        dxT = self.calc_x_deriv('T',coord)[0]
+        dyT = self.calc_y_deriv('T',coord)[0]
         # print(T.shape,dxT.shape)
         Ut = self.Uts[h,i,j]
         Ux = self.Uxs[h,i,j]
@@ -341,11 +342,11 @@ class PostProcessing(object):
         y_pos = self.find_nearest(self.ys,point[2])
         return [np.where(self.ts==t_pos)[0][0], np.where(self.xs==x_pos)[0][0], np.where(self.ys==y_pos)[0][0]]
     
-    def calc_coeffs(self, point, U, obs_indices):
+    def calc_coeffs(self, coord, U, obs_indices):
             # point, U = point_and_vel
             h, i, j = obs_indices
             # Filter the scalar fields
-            N = self.filter_scalar(point, U, self.scalar_strs[0])
+            N = self.filter_scalar(coord, U, self.scalar_strs[0])
             # Rho = self.filter_scalar(point, U, self.scalar_strs[1])
             # P = self.filter_scalar(point, U, self.scalar_strs[2])
             # T = P/N
@@ -363,7 +364,7 @@ class PostProcessing(object):
 
             # Construct filtered Id SET         
             # coarse_Id_SET = self.calc_Id_SET(u, p, rho)
-            filtered_Id_SET = self.filter_scalar(point, U, self.tensor_strs[0])        
+            filtered_Id_SET = self.filter_scalar(coord, U, self.tensor_strs[0])        
 
             # Do required projections of SET
             h_mu_nu = self.orthogonal_projector(U)
@@ -391,7 +392,7 @@ class PostProcessing(object):
             # Theta, omega, sigma = self.calc_NonId_terms(T_tildes, U_tildes) # coarse dissipative pieces (without coefficients)
 
             # Temp hack - see PDF from Ian
-            Theta, omega, sigma = self.calc_NonId_terms(obs_indices,point)
+            Theta, omega, sigma = self.calc_NonId_terms(obs_indices,coord)
             zeta = -Pi_res/Theta
             kappa = np.average(-q_res/omega)
             eta = np.average(-pi_res/(2*sigma))
@@ -408,13 +409,13 @@ class PostProcessing(object):
     
 if __name__ == '__main__':
     
-    Processor = PostProcessing()
+    # Processor = PostProcessing()
 
-    with open('Processor.pickle', 'wb') as filehandle:
-        pickle.dump(Processor, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
+    # with open('Processor.pickle', 'wb') as filehandle:
+    #     pickle.dump(Processor, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
     
-    # with open('Processor.pickle', 'rb') as filehandle:
-    #     Processor = pickle.load(filehandle)
+    with open('Processor.pickle', 'rb') as filehandle:
+        Processor = pickle.load(filehandle)
    
     # args = [(coord, vector) for coord, vector in zip(Processor.coords, Processor.Us)]
     # for h in range(Processor.n_obs_t):
@@ -423,7 +424,7 @@ if __name__ == '__main__':
     for h in range(1,1+Processor.n_t_slices):
         for i in range(Processor.n_x_pts):
             for j in range(Processor.n_y_pts):
-                Processor.calculated_coefficients[h,i,j] = Processor.calc_coeffs(Processor.coords[h,i,j],Processor.Us[h,i,j],[h,i,j])
+                Processor.calculated_coefficients[0,i,j] = Processor.calc_coeffs(Processor.coords[h,i,j],Processor.Us[h,i,j],[h,i,j])
 
     # np.savetxt('cald_coeffs.txt', Processor.calculated_coefficients)
     with open('Coeffs_2998_31919.pickle', 'wb') as filehandle:
