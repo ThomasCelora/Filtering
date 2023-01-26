@@ -74,7 +74,7 @@ print(np.min(vxs[2]),np.max(vxs[2]))
 
 # fig, axes = plt.subplots(4,2,figsize=(2,25))
 # fig, axes = plt.subplots(4,2,figsize=(2,12))
-fig, axes = plt.subplots(4,2,figsize=(12,24))
+fig, axes = plt.subplots(4,2,figsize=(8,16))
 axes[0,0].imshow(np.transpose(Ws[2]),extent=extent,vmin=np.min(UWs),vmax=np.max(UWs))
 axes[0,1].imshow(np.transpose(UWs[:]),extent=Extent,vmin=np.min(UWs),vmax=np.max(UWs))
 axes[1,0].imshow(np.transpose(vxs[2]),extent=extent,vmin=np.min(Uxs),vmax=np.max(Uxs))
