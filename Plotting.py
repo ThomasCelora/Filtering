@@ -56,12 +56,14 @@ Ws = np.zeros((n_files, nx, ny))
 vxs = np.zeros((n_files, nx, ny))
 vys = np.zeros((n_files, nx, ny))
 ns = np.zeros((n_files, nx, ny))
+Ts = np.zeros((n_files, nx, ny))
 
 for f, counter in zip(fs, range(n_files)):
     Ws[counter] = f['Auxiliary/W'][:]
     vxs[counter] = f['Primitive/v1'][:]
     vys[counter] = f['Primitive/v2'][:]
     ns[counter] = f['Primitive/n'][:]
+    Ts[counter] = f['Auxiliary/T'][:]
 
 
 # fig, axes = plt.subplots(2,3)
@@ -74,29 +76,53 @@ print(np.min(vxs[2]),np.max(vxs[2]))
 
 # fig, axes = plt.subplots(4,2,figsize=(2,25))
 # fig, axes = plt.subplots(4,2,figsize=(2,12))
-fig, axes = plt.subplots(4,2,figsize=(8,16))
-axes[0,0].imshow(np.transpose(Ws[2]),extent=extent,vmin=np.min(UWs),vmax=np.max(UWs))
-axes[0,1].imshow(np.transpose(UWs[:]),extent=Extent,vmin=np.min(UWs),vmax=np.max(UWs))
-axes[1,0].imshow(np.transpose(vxs[2]),extent=extent,vmin=np.min(Uxs),vmax=np.max(Uxs))
-axes[1,1].imshow(np.transpose(Uxs[:]),extent=Extent,vmin=np.min(Uxs),vmax=np.max(Uxs))
-axes[2,0].imshow(np.transpose(vys[2]),extent=extent,vmin=np.min(Uys),vmax=np.max(Uys))
-axes[2,1].imshow(np.transpose(Uys[:]),extent=Extent,vmin=np.min(Uys),vmax=np.max(Uys))
-# axes[0].imshow(vxs[2],extent=extent)
-# axes[1].imshow(Uxs[:],extent=Extent)
-# axes[0].imshow(vxs[2],vmin=np.min(Uxs),vmax=np.max(Uxs),extent=extent)
-# axes[1].imshow(Uxs[:],vmin=np.min(Uxs),vmax=np.max(Uxs),extent=Extent)
-axes[0,0].set_ylabel('Ws')
-axes[1,0].set_ylabel('Vxs')
-axes[2,0].set_ylabel('Vys')
-axes[3,0].set_ylabel('ns')
-axes[3,0].imshow(np.transpose(ns[2][:]),extent=extent)
-axes[3,1].imshow(np.transpose(UWs[:]),extent=Extent,vmin=np.min(UWs),vmax=np.max(UWs))
 
-for i in range(4):
-    axes[i,0].set_xlim(*Extent[0:2])
-    axes[i,0].set_ylim(*Extent[2:])
+fig, axes = plt.subplots(1,2,figsize=(8,16))
+axes[0].imshow(np.transpose(Ws[2]),extent=extent,vmin=np.min(UWs),vmax=np.max(UWs))
+axes[1].imshow(np.transpose(UWs[:]),extent=Extent,vmin=np.min(UWs),vmax=np.max(UWs))
+axes[0].set_title('Ws')
+for i in range(1):
+    axes[0].set_xlim(*Extent[0:2])
+    axes[1].set_ylim(*Extent[2:])
 fig.tight_layout()
 plt.show()
+
+fig, axes = plt.subplots(1,2,figsize=(8,16))
+axes[0].imshow(np.transpose(vxs[2]),extent=extent,vmin=np.min(Uxs),vmax=np.max(Uxs))
+axes[1].imshow(np.transpose(Uxs[:]),extent=Extent,vmin=np.min(Uxs),vmax=np.max(Uxs))
+axes[0].set_title('Vxs')
+for i in range(1):
+    axes[0].set_xlim(*Extent[0:2])
+    axes[1].set_ylim(*Extent[2:])
+fig.tight_layout()
+plt.show()
+
+fig, axes = plt.subplots(1,2,figsize=(8,16))
+axes[0].imshow(np.transpose(vys[2]),extent=extent,vmin=np.min(Uys),vmax=np.max(Uys))
+axes[1].imshow(np.transpose(Uys[:]),extent=Extent,vmin=np.min(Uys),vmax=np.max(Uys))
+axes[0].set_title('Vys')
+for i in range(1):
+    axes[0].set_xlim(*Extent[0:2])
+    axes[1].set_ylim(*Extent[2:])
+fig.tight_layout()
+plt.show()
+# axes[0,0].set_title('Ws')
+# axes[1,0].set_title('Vxs')
+# axes[2,0].set_title('Vys')
+# for i in range(1):
+#     axes[i,0].set_xlim(*Extent[0:2])
+#     axes[i,0].set_ylim(*Extent[2:])
+
+
+fig, axes = plt.subplots(1,2,figsize=(8,16))
+axes[0].set_title('ns')
+axes[0].imshow(np.transpose(ns[2][:]),extent=extent)
+
+axes[1].set_title('Ts')
+axes[1].imshow(np.transpose(Ts[2][:]),extent=extent)
+fig.tight_layout()
+plt.show()
+
 
 
 

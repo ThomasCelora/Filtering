@@ -74,6 +74,7 @@ class PostProcessing(object):
         self.ps = np.zeros((num_files, self.nx, self.ny))
         self.Ws = np.zeros((num_files, self.nx, self.ny))
         self.Ts = np.zeros((num_files, self.nx, self.ny))
+        self.hs = np.zeros((num_files, self.nx, self.ny))
         self.Id_SETs = np.zeros((num_files, self.nx, self.ny, 3, 3))
 
         self.vars = {'v1': self.vxs,
@@ -126,15 +127,20 @@ class PostProcessing(object):
             for a_v_s in self.aux_vars_strs:
                 self.vars[a_v_s][counter] = f_f['Auxiliary/'+a_v_s][:]
                 # self.vars_c[a_v_s][counter] = f_c['Primitive/'+a_v_s][:]
-            # Construct Ideal SET
+            
+            # Construct Ideal SET - could this be done out-of-loop with numpy/einsum??
             for i in range(self.nx):
-                for j in range(self.ny): # Fix with ux not  vx... also v1???
+                for j in range(self.ny):
                     self.uts[counter][i,j] = self.Ws[counter][i,j]
                     self.uxs[counter][i,j] = self.Ws[counter][i,j]*self.vxs[counter][i,j]
                     self.uys[counter][i,j] = self.Ws[counter][i,j]*self.vys[counter][i,j]
                     u_vec = np.array([self.uts[counter][i,j],self.uxs[counter][i,j],self.uys[counter][i,j]])
                     self.Id_SETs[counter][i,j] = f_f['Primitive/rho'][i,j]*np.outer(u_vec,u_vec)\
                         + f_f['Primitive/p'][i,j]*(self.metric + np.outer(u_vec,u_vec))
+        
+        # Construct Beta terms... or not
+        self.hs = np.multiply(1 + self.coefficients['gamma']/(self.coefficients['gamma']-1), self.Ts)
+        
             
         # Size of box for spatial filtering
         self.L = 4*np.sqrt(self.dx*self.dy) # filtering size - coefficient ~ determines #cells along side of filtering box
