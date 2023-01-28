@@ -23,8 +23,8 @@ def clip(coeffs):
     for i in range(coeffs.shape[0]):
         for j in range(coeffs.shape[1]):
             if coeffs[i,j] == np.inf:
-                coeffs[i,j] = 0
-            coeffs[i,j] = np.log(coeffs[i,j])
+                coeffs[i,j] = 1e5
+            coeffs[i,j] = np.log10(coeffs[i,j])
             if coeffs[i,j] == -np.inf:
                 coeffs[i,j] = 0
 
@@ -42,11 +42,46 @@ axes[1].set_title('Kappa')
 
 axes[2].imshow(np.transpose(etas),vmin=-1e-2,vmax=1e2,label='Eta')
 axes[2].set_title('Eta')
-
 # plt.legend()
 plt.show()
 
+
+##########################
+
 clip(zetas),clip(kappas),clip(etas)
-sns.displot(zetas)#, x="log(zeta)")
-sns.displot(kappas)#, x="log(kappa)")
-sns.displot(etas)#, x="log(eta)")
+
+zeta_plot = sns.displot(zetas)#, x="log(zeta)")
+zeta_plot.set(xlabel ="log(zeta)", title ='Zeta distribution')
+
+kappa_plot = sns.displot(kappas)#, x="log(kappa)")
+kappa_plot.set(xlabel ="log(kappa)", title ='Kappa distribution')
+
+eta_plot = sns.displot(etas)#, x="log(eta)")
+eta_plot.set(xlabel ="log(eta)", title ='Eta distribution')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
