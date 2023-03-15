@@ -22,6 +22,16 @@ import cProfile, pstats, io
 class Base(object):
     
     def __init__(self):
+        """
+        Constructor. 
+        Reads in raw data and sets up domain parameters in time,
+        space.
+
+        Returns
+        -------
+        None.
+
+        """
         self.fs1 = []
         fs2 = []
         fs3 = []
@@ -31,7 +41,9 @@ class Base(object):
           # fs1.append(h5py.File('./Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
            # self.fs1.append(h5py.File('../Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
           # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/dp_400x800x0_'+str(n)+'.hdf5','r'))
-            self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
+            # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
+            # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_1998_2002/dp_400x800x0_'+str(n)+'.hdf5','r'))
+            self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_2998_3002/dp_400x800x0_'+str(n)+'.hdf5','r'))
             # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_1998_2002/dp_400x800x0_'+str(n)+'.hdf5','r'))
             # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_2998_3002/dp_400x800x0_'+str(n)+'.hdf5','r'))
           # fs1.append(h5py.File('./Data/KH/Shear/dp_400x800x0_'+str(n)+'.hdf5','r'))
@@ -50,10 +62,9 @@ class Base(object):
         #   fs4.append(h5py.File('ISCE/Rotor/long_highres/data_serial_'+str(n)+'.hdf5','r'))
         # fss = [fs1, fs2, fs3, fs4]
         # fss = [fs1]
-        # nx = ny = 200
         nx, ny = 400, 800
         nts = num_files
-        ts = np.linspace(9.98,10.02,nts) # Need to actually get these
+        ts = np.linspace(29.98,30.02,nts) # Need to actually get these
         xs = np.linspace(-0.5,0.5,nx) # These too...
         ys =  np.linspace(-1.0,1.0,ny)
         # X, Y = np.meshgrid(xs,ys)
@@ -68,12 +79,54 @@ class Base(object):
             self.vys[counter] = self.fs1[counter]['Primitive/v2'][:]
             self.ns[counter] = self.fs1[counter]['Primitive/n'][:]
 
-    def u_n_values_from_hdf5(self, t_n,i,j):
+    def u_n_values_from_hdf5(self, t_n, i, j):
+        """
+        Get values of the (micro) velocity and number density (u, n) from
+        the raw data.
+
+        Parameters
+        ----------
+        t_n : int
+            time slice.
+        i : int
+            x-index.
+        j : int
+            y-index.
+
+        Returns
+        -------
+        list of floats
+            u (2+1-vector)
+        float 
+            n (scalar).
+
+        """
     #     t_n = np.where(ts[:]==t)[0][0]
         return [self.fs1[t_n]['Auxiliary/W'][i,j], self.fs1[t_n]['Primitive/v1'][i,j], self.fs1[t_n]['Primitive/v2'][i,j]], self.fs1[t_n]['Primitive/n'][i,j]
     
     # gives the fluid's 4-velocity at any point in time and space
-    def interpolate_u_n_coords(self, t,x,y):
+    def interpolate_u_n_coords(self,t,x,y):
+        """
+        Returns the (micro) velocity and number density at given point (t,x,y)
+        using interpolation.
+
+        Parameters
+        ----------
+        t : float
+            time coordinate.
+        x : float
+            DESCRIPTION.
+        y : float
+            DESCRIPTION.
+
+        Returns
+        -------
+        list of floats  (there may be some reason why this isn't a np array...')
+            micro velocity, u (2+1-vector).
+        float
+            scalar, n.
+
+        """
         point = (t,x,y)
         n_interpd = interpn(self.points,self.ns,point)
         vx_interpd = interpn(self.points,self.vxs,point)
@@ -83,6 +136,10 @@ class Base(object):
         return [u_interpd[0][0], u_interpd[1][0], u_interpd[2][0]], n_interpd[0]
     
     def interpolate_u_n_point(self, point):
+        """
+        Same as interpolate_u_n_coords but takes a list [t,x,y] as a 'point'.
+        Yes, one of these two functions is completely redundant...
+        """
         n_interpd = interpn(self.points,self.ns,point)
         vx_interpd = interpn(self.points,self.vxs,point)
         vy_interpd = interpn(self.points,self.vys,point)
@@ -91,13 +148,18 @@ class Base(object):
         return [u_interpd[0][0], u_interpd[1][0], u_interpd[2][0]], n_interpd[0]
     
     def Mink_dot(self,vec1,vec2):
+        """
+        Inner-product in (n+1)-dimensions
+        """
         dot = -vec1[0]*vec2[0] # time component
         for i in range(1,len(vec1)):
             dot += vec1[i]*vec2[i] # spatial components
         return dot
     
-    
     def get_U_mu(self, Vx_Vy):
+        """
+        Construct (2+1)-velocity (meso) from spatial Cartesian (x,y) components
+        """
         # get observer U from observer Vx, Vy
         Vx, Vy = Vx_Vy[0], Vx_Vy[1]
         W = 1/np.sqrt(1-Vx**2-Vy**2)
@@ -105,10 +167,17 @@ class Base(object):
         return U_mu
     
     def get_U_mu_MagTheta(self, Vmag_Vtheta):
+        """
+        Construct (2+1)-velocity (meso) from spatial Polar (r, theta) components
+        """
         Vmag, Vtheta = Vmag_Vtheta[0], Vmag_Vtheta[1]
         return self.get_U_mu([Vmag*np.cos(Vtheta),Vmag*np.sin(Vtheta)])
     
     def construct_tetrad(self, U):
+        """
+        Construct 2 tetrad vectors that are perpendicular to (2+1)-velocity U,
+        and each other. These are used to define the box for filtering.
+        """
         e_x = np.array([0.0,1.0,0.0]) # 1 + 2D
         E_x = e_x + np.multiply(self.Mink_dot(U,e_x),U)
         E_x = E_x / np.sqrt(self.Mink_dot(E_x,E_x)) # normalization
@@ -118,6 +187,26 @@ class Base(object):
         return E_x, E_y
         
     def find_boundary_pts(self, E_x,E_y,P,L):
+        """
+        Find the (four) corners of the box that is the filtering region.
+
+        Parameters
+        ----------
+        E_x : list of floats
+            One tetrad vector.
+        E_y : list of floats
+            Second tetrad vector.
+        P : list of floats
+            Coordinate of the centre of the box (t,x,y).
+        L : float
+            Filtering lengthscale (length of one side of the box).
+
+        Returns
+        -------
+        corners : list of list of floats
+            list of the coordinates of the box's corners.
+
+        """
         c1 = P + (L/2)*(E_x + E_y)
         c2 = P + (L/2)*(E_x - E_y)
         c3 = P + (L/2)*(-E_x - E_y)
@@ -126,6 +215,10 @@ class Base(object):
         return corners
     
     def residual(self, V0_V1,P,L):
+        """
+        Calculate the residual to be minimized. This is the integral of the
+        number flux across the sides of the box.
+        """
         U = self.get_U_mu(V0_V1)
         # U = get_U_mu_MagTheta(V0_V1)
         E_x, E_y = self.construct_tetrad(U)
@@ -136,8 +229,6 @@ class Base(object):
             for coords in surface:
                 u, n = self.interpolate_u_n_point(coords)
                 n_mu = np.multiply(u,n) # construct particle drift
-    #             print(n_mu,U)
-    #             print(Mink_dot(n_mu,U))
                 if i == 3:
                     flux += self.Mink_dot(n_mu,-E_x) # Project wrt orthonormal tetrad and sum (surface integral)
                 elif i == 2:
@@ -156,6 +247,10 @@ class Base(object):
         return self.Mink_dot(n_mu,direc_vec)
     
     def residual_ib(self, V0_V1,P,L):
+        """
+        An alternative residual that uses in-build scipy method quad. This is
+        vastly slower than manual integral calculation in residual function.
+        """
         U = self.get_U_mu(V0_V1)
         # U = get_U_mu_MagTheta(V0_V1)
         E_x, E_y = self.construct_tetrad(U)
@@ -172,6 +267,27 @@ class Base(object):
             return abs(flux)
     
     def find_observers(self, t_range,x_range,y_range,L,n_ts,n_xs,n_ys,initial_guess):
+        """
+        Main function.
+        Finds the meso-observers, U, that the fluid has no drift with respect to.
+
+        Parameters
+        ----------
+        t_range, x_range, y_range : lists of 2 floats
+            Define the coordinate ranges of the points to find observers at.
+        L : Float
+            Filtering lengthscale.
+        n_ts, n_xs, n_ys : integers
+            Number of points to find observers at in (t,x,y) dimensions.
+        initial_guess (DEPRECATED): list of floats.
+            An initial guess for U. Much simpler and still robust to just use 
+            the micro velocity, u, at a given point at the initial guess.
+
+        Returns
+        -------
+        list of coordinates, Us, and minimization errors.
+
+        """
         t_coords = np.linspace(t_range[0],t_range[-1],n_ts)
         x_coords = np.linspace(x_range[0],x_range[-1],n_xs)
         y_coords = np.linspace(y_range[0],y_range[-1],n_ys)
