@@ -60,11 +60,11 @@ if __name__ == '__main__':
     # args = [([tr, tr], [xr, xr], [yr, yr], L, 1, 1, 1, initial_guess) for tr in np.linspace(6.0, 6.0, 1) for xr in np.linspace(0.0, 0.0, 1) for yr in np.linspace(0.0, 0.0, 1)]
     KH_observers = system.find_observers(t_range,x_range,y_range,L,3,26,26,initial_guess)
     # print(KH_observers)
-    with open('KH_observers_998_31919.pickle', 'wb') as handle:
+    with open('KH_observers_2998_32626_x0203_y0405.pickle', 'wb') as handle:
         pickle.dump(KH_observers, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    np.savetxt('coords998_32626_x0203_y0405.txt',KH_observers[0])
-    np.savetxt('obs998_32626_x0203_y0405.txt',KH_observers[1])
+    np.savetxt('coords2998_32626_x0203_y0405.txt',KH_observers[0])
+    np.savetxt('obs2998_32626_x0203_y0405.txt',KH_observers[1])
 
     # handle = open('KH_observers.pickle', 'wb')
     # start = timer()
