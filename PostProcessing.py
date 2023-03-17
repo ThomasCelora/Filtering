@@ -61,12 +61,12 @@ class PostProcessing(object):
         self.dy = (self.ys[-1] - self.ys[0])/self.ny
         # Numer of observer time slices - lose one on top and bottom because of box
         self.n_obs_t = num_files - 2
-        # Number of observers calculated in x and y directions - again, lose boundaries
-        self.n_obs_x = 19
-        self.n_obs_y = 19
-        self.dt_obs = 0.1 # gaps between observers in t/x/y
-        self.dx_obs = 0.1
-        self.dy_obs = 0.1
+        # Number of observers calculated in x and y directions
+        self.n_obs_x = 26
+        self.n_obs_y = 26
+        self.dt_obs = 0.1 # gaps between observers in t/x/y - should be automated
+        self.dx_obs = 0.004
+        self.dy_obs = 0.004
         # number of time/space points for which to calculate residuals - 
         # lose boundaries this time because of derivatives required
         self.n_t_slices = self.n_obs_t - 2 
@@ -79,13 +79,13 @@ class PostProcessing(object):
         # Need to do this because for some reason file is missing a point...
         # coords = np.append(coords,[0.0,0.0,0.0]) 
         self.coords = coords.reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
-        obs = np.loadtxt('obs2998_31919.txt')
+        obs = np.loadtxt('obs2998_32626_x0203_y0405.txt')
         # obs = np.append(obs,[0.0,0.0,0.0]) # a hack for 998_31919
         self.Us = obs.reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
         # self.coords = np.loadtxt('coords998_31919.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
         # self.Us = np.loadtxt('obs998_31919.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
-        self.coords = np.loadtxt('coords2998_31919.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
-        self.Us = np.loadtxt('obs2998_31919.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
+        self.coords = np.loadtxt('coords2998_32626_x0203_y0405.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
+        self.Us = np.loadtxt('obs2998_32626_x0203_y0405.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
 
         # Define fluid variables for both the fine and coarse data
         self.vxs = np.zeros((num_files, self.nx, self.ny))
@@ -586,14 +586,14 @@ if __name__ == '__main__':
     # with open('Coeffs_1998_34121.pickle', 'wb') as filehandle:
     #     pickle.dump(Processor.calculated_coefficients, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open('Zetas_2998_31919.pickle', 'wb') as filehandle:
+    with open('Zetas_2998_32626_x0203_y0405.pickle', 'wb') as filehandle:
         pickle.dump(Processor.zetas, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
-    with open('Kappas_2998_31919.pickle', 'wb') as filehandle:
+    with open('Kappas_2998_32626_x0203_y0405.pickle', 'wb') as filehandle:
         pickle.dump(Processor.kappas, filehandle, protocol=pickle.HIGHEST_PROTOCOL)        
-    with open('Etas_2998_31919.pickle', 'wb') as filehandle:
+    with open('Etas_2998_32626_x0203_y0405.pickle', 'wb') as filehandle:
         pickle.dump(Processor.etas, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open('Coeffs_2998_31919.pickle', 'wb') as filehandle:
+    with open('Coeffs_2998_32626_x0203_y0405.pickle', 'wb') as filehandle:
         pickle.dump(Processor.calculated_coefficients, filehandle, protocol=pickle.HIGHEST_PROTOCOL)
     
     # Old parallel code - need to parallelise latest version again...
