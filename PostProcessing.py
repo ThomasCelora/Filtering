@@ -74,18 +74,10 @@ class PostProcessing(object):
         self.n_y_pts = self.n_obs_y - 2
         
         # Load coords and corresponding observers from textfiles
-        coords = np.loadtxt('coords2998_31919.txt')
-        # A hack for 998_31919.. 
-        # Need to do this because for some reason file is missing a point...
-        # coords = np.append(coords,[0.0,0.0,0.0]) 
-        self.coords = coords.reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
-        obs = np.loadtxt('obs2998_32626_x0203_y0405.txt')
-        # obs = np.append(obs,[0.0,0.0,0.0]) # a hack for 998_31919
-        self.Us = obs.reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
-        # self.coords = np.loadtxt('coords998_31919.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
-        # self.Us = np.loadtxt('obs998_31919.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
         self.coords = np.loadtxt('coords2998_32626_x0203_y0405.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
         self.Us = np.loadtxt('obs2998_32626_x0203_y0405.txt').reshape(self.n_obs_t,self.n_obs_x,self.n_obs_y,3)
+        # self.Us = np.append(self.Us,[0.0,0.0,0.0]) # a hack for 998_31919
+        # Need to do this because for some reason file is missing a point...
 
         # Define fluid variables for both the fine and coarse data
         self.vxs = np.zeros((num_files, self.nx, self.ny))
