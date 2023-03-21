@@ -45,8 +45,8 @@ class PostProcessing(object):
            # fs_f.append(h5py.File('./Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
             # fs_f.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
           # fs_f.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
-            fs_f.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_1998_2002/dp_400x800x0_'+str(n)+'.hdf5','r'))
-          # fs_f.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_2998_3002/dp_400x800x0_'+str(n)+'.hdf5','r'))
+            #fs_f.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_1998_2002/dp_400x800x0_'+str(n)+'.hdf5','r'))
+            fs_f.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_2998_3002/dp_400x800x0_'+str(n)+'.hdf5','r'))
         fss = [fs_f]
         self.nx, self.ny = int(400), int(800) # raw data pts in x, y
         # self.c_nx, self.c_ny = int(self.nx/2), int(self.ny/2) # coarse
@@ -166,7 +166,7 @@ class PostProcessing(object):
             
         # Size of box for spatial filtering 
         # the numerical coefficient ~ determines #cells along side of filtering box
-        self.L = 4*np.sqrt(self.dx*self.dy) 
+        self.L = 5*np.sqrt(self.dx*self.dy) 
         self.dT = 0.01 # steps to take for differential calculations
         self.dX = 0.01
         self.dY = 0.01
