@@ -17,29 +17,27 @@ fs = []
 for n in range(n_files):
     # fs.append(h5py.File('./Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
     # fs.append(h5py.File('./Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
-    fs.append(h5py.File('./Data/KH/Ideal/t_1998_2002/dp_400x800x0_'+str(n)+'.hdf5','r'))
-    # fs.append(h5py.File('./Data/KH/Ideal/t_2998_3002/dp_400x800x0_'+str(n)+'.hdf5','r'))
+    #fs.append(h5py.File('./Data/KH/Ideal/t_1998_2002/dp_400x800x0_'+str(n)+'.hdf5','r'))
+    fs.append(h5py.File('./Data/KH/Ideal/t_2998_3002/dp_400x800x0_'+str(n)+'.hdf5','r'))
 
 n_T = 3
-n_X = 41
-n_Y = 21
-X_lims = [-0.4,0.4]
-Y_lims = [-0.2,0.2]
-t_lims = [19.98,20.02]
+n_X = 26
+n_Y = 26
+X_lims = [0.2,0.3]
+Y_lims = [0.4,0.5]
+t_lims = [29.98,30.02]
 x_lims = [-0.5,0.5]
 y_lims = [-1.0,1.0]
-obs_filename = 'coords1998_34121.txt'
-coords_filename = 'obs1998_34121.txt'
+coords_filename = './Output/coords2998_32626_x0203_y0405.txt'
+obs_filename = './Output/obs2998_32626_x0203_y0405.txt'
 coords = np.loadtxt(coords_filename)
 # coords = np.append(coords,[0.0,0.0,0.0]) # hack for 998_31919
 coords = coords.reshape(n_T,n_X,n_Y,3)
 obs = np.loadtxt(obs_filename)
 # obs = np.append(obs,[0.0,0.0,0.0]) # hack for 998_31919
 obs = obs.reshape(n_T,n_X,n_Y,3)
-# coords = np.loadtxt(coords_filename).reshape(n_T,n_X,n_Y,3)
-# obs = np.loadtxt(obs_filename).reshape(n_T,n_X,n_Y,3)
-coords = np.loadtxt('coords2998_tef2.txt').reshape(3,19,19,3)
-obs = np.loadtxt('obs2998_tef2.txt').reshape(3,19,19,3)
+coords = np.loadtxt(coords_filename).reshape(n_T,n_X,n_Y,3)
+obs = np.loadtxt(obs_filename).reshape(n_T,n_X,n_Y,3)
 Us = obs[1,:,:]
 UWs = obs[1,:,:,0]
 Uxs = obs[1,:,:,1]
@@ -58,7 +56,6 @@ extent = (xs[0],xs[-1],ys[0],ys[-1])
 # self.dt get this from files...
 dx = (xs[-1] - xs[0])/nx # actual grid-resolution
 dy = (ys[-1] - ys[0])/ny
-
 
 Ws = np.zeros((n_files, nx, ny))
 vxs = np.zeros((n_files, nx, ny))
@@ -285,24 +282,6 @@ plot2(ns[2],Ts[2],r'$n$',r'$T$','n_T_full.png')
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-=======
-
 fig, axes = plt.subplots(1,2,figsize=(8,16))
 axes[0].set_title('ns')
 axes[0].imshow(np.transpose(ns[2][:]),extent=extent)
@@ -311,7 +290,6 @@ axes[1].set_title('Ts')
 axes[1].imshow(np.transpose(Ts[2][:]),extent=extent)
 fig.tight_layout()
 plt.show()
->>>>>>> 4361a4c70c1b2cbd7030b64d370f44acd0f215ab
 
 
 
