@@ -518,10 +518,10 @@ class PostProcessing(object):
         # print('p_tilde: ', p_tilde)
         
         # print('rho','Pi','q','pi','residuals')
-        print('rho_res ',rho_res)
-        print('Pi_res ',Pi_res)
-        print('q_res ',q_res)
-        print('pi_res',pi_res)
+        # print('rho_res ',rho_res)
+        # print('Pi_res ',Pi_res)
+        # print('q_res ',q_res)
+        # print('pi_res',pi_res)
         # Calculate Non-Ideal terms
         # need to calc. derivatives here!
         # T_tilde = p_tilde/N
@@ -543,9 +543,9 @@ class PostProcessing(object):
         etas = -pi_res/(2*sigma)
         self.kappas.append(kappas)
         self.etas.append(etas)
-        print('zeta ', zeta)
-        print('kappa ',kappa)
-        print('eta ',eta)
+        # print('zeta ', zeta)
+        # print('kappa ',kappa)
+        # print('eta ',eta)
         return [zeta, kappa, eta]
     
            

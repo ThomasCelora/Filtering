@@ -8,10 +8,7 @@ Created on Tue Jan 24 14:58:00 2023
 import matplotlib.pyplot as plt
 import numpy as np
 import h5py
-<<<<<<< HEAD
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-=======
->>>>>>> 4361a4c70c1b2cbd7030b64d370f44acd0f215ab
 
 n_files = 5
 nx = 400
@@ -20,7 +17,6 @@ fs = []
 for n in range(n_files):
     # fs.append(h5py.File('./Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
     # fs.append(h5py.File('./Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
-<<<<<<< HEAD
     fs.append(h5py.File('./Data/KH/Ideal/t_1998_2002/dp_400x800x0_'+str(n)+'.hdf5','r'))
     # fs.append(h5py.File('./Data/KH/Ideal/t_2998_3002/dp_400x800x0_'+str(n)+'.hdf5','r'))
 
@@ -42,47 +38,20 @@ obs = np.loadtxt(obs_filename)
 obs = obs.reshape(n_T,n_X,n_Y,3)
 # coords = np.loadtxt(coords_filename).reshape(n_T,n_X,n_Y,3)
 # obs = np.loadtxt(obs_filename).reshape(n_T,n_X,n_Y,3)
-=======
-    # fs.append(h5py.File('./Data/KH/Ideal/t_1998_2002/dp_400x800x0_'+str(n)+'.hdf5','r'))
-    fs.append(h5py.File('./Data/KH/Ideal/t_2998_3002/dp_400x800x0_'+str(n)+'.hdf5','r'))
-    
-# coords = np.loadtxt('coords1998.txt').reshape(3,41,21,3)
-# obs = np.loadtxt('obs1998.txt').reshape(3,41,21,3)
-# coords = np.loadtxt('coords1998_tef2.txt').reshape(3,3,17,3)
-# obs = np.loadtxt('obs1998_tef2.txt').reshape(3,3,17,3)
 coords = np.loadtxt('coords2998_tef2.txt').reshape(3,19,19,3)
 obs = np.loadtxt('obs2998_tef2.txt').reshape(3,19,19,3)
->>>>>>> 4361a4c70c1b2cbd7030b64d370f44acd0f215ab
 Us = obs[1,:,:]
 UWs = obs[1,:,:,0]
 Uxs = obs[1,:,:,1]
 Uys = obs[1,:,:,2]
 
 
-# print(Uxs.shape)
-# Xs = np.linspace(-0.4,0.4,41)
-# Ys = np.linspace(-0.2,0.2,21)
-# Xs = np.linspace(-0.1,0.1,3)
-# Ys = np.linspace(-0.8,0.8,17)
-<<<<<<< HEAD
 Xs = np.linspace(X_lims[0],X_lims[1],n_X)
 Ys = np.linspace(Y_lims[0],Y_lims[1],n_Y)
 Extent = (Xs[0],Xs[-1],Ys[0],Ys[-1])
-# ts = np.linspace(9.98,10.02,n_files) # Need to actually get these
-# ts = np.linspace(19.98,20.02,n_files) # Need to actually get these
 ts = np.linspace(t_lims[0],t_lims[1],n_files) # Need to actually get these
 xs = np.linspace(x_lims[0],x_lims[1],nx)
 ys =  np.linspace(y_lims[0],y_lims[1],ny)
-=======
-Xs = np.linspace(-0.45,0.45,19)
-Ys = np.linspace(-0.9,0.9,19)
-Extent = (Xs[0],Xs[-1],Ys[0],Ys[-1])
-# ts = np.linspace(9.98,10.02,n_files) # Need to actually get these
-# ts = np.linspace(19.98,20.02,n_files) # Need to actually get these
-ts = np.linspace(9.98,10.02,n_files) # Need to actually get these
-xs = np.linspace(-0.5,0.5,nx)
-ys =  np.linspace(-1.0,1.0,ny)
->>>>>>> 4361a4c70c1b2cbd7030b64d370f44acd0f215ab
 extent = (xs[0],xs[-1],ys[0],ys[-1])
 # points = (ts,xs,ys)
 # points = np.meshgrid(xs,ys)
@@ -110,19 +79,8 @@ for f, counter in zip(fs, range(n_files)):
 #     # ax.imshow(vxs[n][:])
 #     ax.imshow(ns[n][:])
 
-<<<<<<< HEAD
-# print(np.min(Uxs),np.max(Uxs))
-# print(np.min(vxs[2]),np.max(vxs[2]))
-=======
-print(np.min(Uxs),np.max(Uxs))
-print(np.min(vxs[2]),np.max(vxs[2]))
->>>>>>> 4361a4c70c1b2cbd7030b64d370f44acd0f215ab
-
 # fig, axes = plt.subplots(4,2,figsize=(2,25))
 # fig, axes = plt.subplots(4,2,figsize=(2,12))
-
-<<<<<<< HEAD
-###################################################################
 
 import math
 
@@ -274,7 +232,9 @@ plot3(vys[2],Uys,find_fluctuations(vys[2],Uys),r'$v_y$',r'$U_y$',r'$v_y - U_y$',
 #     axes[1].set_ylim(*Extent[2:])
 # fig.tight_layout()
 # plt.show()
-=======
+
+# =============================================================================
+
 fig, axes = plt.subplots(1,2,figsize=(8,16))
 axes[0].imshow(np.transpose(Ws[2]),extent=extent,vmin=np.min(UWs),vmax=np.max(UWs))
 axes[1].imshow(np.transpose(UWs[:]),extent=Extent,vmin=np.min(UWs),vmax=np.max(UWs))
@@ -304,7 +264,7 @@ for i in range(1):
     axes[1].set_ylim(*Extent[2:])
 fig.tight_layout()
 plt.show()
->>>>>>> 4361a4c70c1b2cbd7030b64d370f44acd0f215ab
+
 # axes[0,0].set_title('Ws')
 # axes[1,0].set_title('Vxs')
 # axes[2,0].set_title('Vys')
@@ -312,7 +272,6 @@ plt.show()
 #     axes[i,0].set_xlim(*Extent[0:2])
 #     axes[i,0].set_ylim(*Extent[2:])
 
-<<<<<<< HEAD
 plot2(ns[2],Ts[2],r'$n$',r'$T$','n_T_full.png')
 
 # fig, axes = plt.subplots(1,2,figsize=(8,16))
