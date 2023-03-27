@@ -12,25 +12,23 @@ import pickle
 import seaborn as sns
 
 # with open('Coeffs_998_31919.pickle', 'rb') as filehandle:
-with open('Coeffs_1998_34121.pickle', 'rb') as filehandle:
-# with open('Coeffs_2998_31919.pickle', 'rb') as filehandle:
+# with open('Coeffs_1998_34121.pickle', 'rb') as filehandle:
+with open('Coeffs_2998_32626_x0203_y0405.pickle', 'rb') as filehandle:
     Coeffs = pickle.load(filehandle)[0]
 # print(Coeffs.shape)
 
+Nx = 26 # Number of observers in x & y directions
+Ny = 26
 # obs_filename = 'obs998_31919.txt'
 # coords_filename = 'coords998_31919.txt'
-obs_filename = 'obs1998_34121.txt'
-coords_filename = 'coords1998_34121.txt'
+obs_filename = 'obs2998_32626_x0203_y0405.txt'
+coords_filename = 'coords2998_32626_x0203_y0405.txt'
 coords = np.loadtxt(coords_filename)#[361:-360]
-coords = coords.reshape(3,41,21,3)
+coords = coords.reshape(3,Nx,Ny,3)
 obs = np.loadtxt(obs_filename)#[361:-360]
-obs = obs.reshape(3,41,21,3)
+obs = obs.reshape(3,Nx,Ny,3)
 Ws, vxs, vys = obs[1,:,:,0], obs[1,:,:,1], obs[1,:,:,2] # 1 to pick out central slice of 3
 # print(Ws.shape)
-
-with open('Coeffs_2998_31919.pickle', 'rb') as filehandle:
-    Coeffs = pickle.load(filehandle)[0]
-print(Coeffs.shape)
 
 def rearrange(raw_coeffs):
     # return raw_coeffs
