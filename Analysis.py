@@ -116,8 +116,9 @@ def cull(arr1, arr2, maxx, minn):
 # Pickle_Files = ['Zetas_998_31919.pickle','Kappas_998_31919.pickle','Etas_998_31919.pickle']
 Pickle_Files = ['Zetas_1998_34121.pickle','Kappas_1998_34121.pickle','Etas_1998_34121.pickle']
 # Pickle_Files = ['Zetas_2998_31919.pickle','Kappas_2998_31919.pickle','Etas_2998_31919.pickle']
-n_x = 39
-n_y = 19
+Pickle_Files = ['Zetas_2998_32626_x0203_y0405.pickle','Kappas_2998_32626_x0203_y0405.pickle','Etas_2998_32626_x0203_y0405.pickle']
+n_x = 24
+n_y = 24
 
 # with open(Pickle_Files[0], 'rb') as filehandle:
 #     Zetas = np.array(pickle.load(filehandle))
