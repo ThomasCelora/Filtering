@@ -21,19 +21,19 @@ for n in range(n_files):
     fs.append(h5py.File('./Data/KH/Ideal/t_2998_3002/dp_400x800x0_'+str(n)+'.hdf5','r'))
 
 n_T = 3
-# n_X = 26
-# n_Y = 26
-# X_lims = [0.2,0.3]
-# Y_lims = [0.4,0.5]
-n_X = 19
-n_Y = 19
-X_lims = [-0.4,0.4]
-Y_lims = [-0.8,0.8]
+n_X = 26
+n_Y = 26
+X_lims = [0.2,0.3]
+Y_lims = [0.4,0.5]
+# n_X = 19
+# n_Y = 19
+# X_lims = [-0.4,0.4]
+# Y_lims = [-0.8,0.8]
 t_lims = [29.98,30.02]
 x_lims = [-0.5,0.5]
 y_lims = [-1.0,1.0]
-coords_filename = './Output/coords2998_32626_x0203_y0405.txt'
-obs_filename = './Output/obs2998_32626_x0203_y0405.txt'
+coords_filename = './coords2998_32626_x0203_y0405.txt'
+obs_filename = './obs2998_32626_x0203_y0405.txt'
 coords = np.loadtxt(coords_filename)
 # coords = np.append(coords,[0.0,0.0,0.0]) # hack for 998_31919
 coords = coords.reshape(n_T,n_X,n_Y,3)
