@@ -134,7 +134,6 @@ class PostProcessing(object):
                             'Uxs': self.Uxs,
                             'Uys': self.Uys}
 
-
         # Define Minkowski metric
         self.metric = np.zeros((3,3))
         self.metric[0,0] = -1
@@ -513,7 +512,6 @@ class PostProcessing(object):
         T_tilde = p_tilde/N # rather than 
         self.T_tildes[h, i, j] = T_tilde
         # print('tau_trace ',tau_trace)
-        p_tilde = self.p_from_EoS(rho_res, N)
         # print('N, rho_res: ', N, rho_res)
         # print('p_tilde: ', p_tilde)
         

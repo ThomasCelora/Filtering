@@ -17,136 +17,10 @@ from scipy.optimize import root, minimize
 #from mpl_toolkits.mplot3d import Axes3D
 from scipy.integrate import solve_ivp, quad
 import cProfile, pstats, io
-
+import math
 
 class Base(object):
-    
-    def __init__(self):
-        """
-        Constructor. 
-        Reads in raw data and sets up domain parameters in time,
-        space.
 
-        Returns
-        -------
-        None.
-
-        """
-        self.fs1 = []
-        fs2 = []
-        fs3 = []
-        fs4 = []
-        num_files = 5
-        for n in range(num_files):
-          # fs1.append(h5py.File('./Data/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
-           # self.fs1.append(h5py.File('../Data/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
-          # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/dp_400x800x0_'+str(n)+'.hdf5','r'))
-            # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_998_1002/dp_400x800x0_'+str(n)+'.hdf5','r'))
-            # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_1998_2002/dp_400x800x0_'+str(n)+'.hdf5','r'))
-            self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_2998_3002/dp_400x800x0_'+str(n)+'.hdf5','r'))
-            # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_1998_2002/dp_400x800x0_'+str(n)+'.hdf5','r'))
-            # self.fs1.append(h5py.File('../../../../scratch/mjh1n20/Filtering_Data/KH/Ideal/t_2998_3002/dp_400x800x0_'+str(n)+'.hdf5','r'))
-          # fs1.append(h5py.File('./Data/KH/Shear/dp_400x800x0_'+str(n)+'.hdf5','r'))
-        #   fs2.append(h5py.File('../Git/Plotting/BDNK/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
-        #   fs2.append(h5py.File('../Git/Plotting/ISCE/KH/Ideal/dp_400x400x0_'+str(n)+'.hdf5','r'))
-        #   fs3.append(h5py.File('../Git/Plotting/ISCE/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
-        #   fs4.append(h5py.File('../Git/Plotting/BDNK/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
-        #   fs3.append(h5py.File('../Git/Plotting/BDNK/KH/eta0_5em4/dp_200x200x0_'+str(n)+'.hdf5','r'))
-        #   fs4.append(h5py.File('../Git/Plotting/ISCE/KH/Shear/tau5em2eta5em3/dp_200x200x0_'+str(n)+'.hdf5','r'))
-        #   fs2.append(h5py.File('../Git/Plotting/ISCE/KH/Shear/dp_800x800x0_'+str(n)+'.hdf5','r'))
-        #   fs2.append(h5py.File('../Git/Plotting/ISCE/KH/Ideal/tau5em3eta5em4/dp_400x400x0_'+str(n)+'.hdf5','r'))
-        #   fs2.append(h5py.File('../Git/Plotting/ISCE/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
-        #   fs3.append(h5py.File('../Git/Plotting/IS/KH/Ideal/dp_800x800x0_'+str(n)+'.hdf5','r'))
-        #   fs4.append(h5py.File('../Git/Plotting/IS/KH/Ideal/dp_200x200x0_'+str(n)+'.hdf5','r'))
-        #   fs3.append(h5py.File('ISCE/Rotor/lowres/data_serial_'+str(n)+'.hdf5','r'))
-        #   fs4.append(h5py.File('ISCE/Rotor/long_highres/data_serial_'+str(n)+'.hdf5','r'))
-        # fss = [fs1, fs2, fs3, fs4]
-        # fss = [fs1]
-        nx, ny = 400, 800
-        nts = num_files
-        ts = np.linspace(29.98,30.02,nts) # Need to actually get these
-        xs = np.linspace(-0.5,0.5,nx) # These too...
-        ys =  np.linspace(-1.0,1.0,ny)
-        # X, Y = np.meshgrid(xs,ys)
-        self.points = (ts,xs,ys)
-        self.dx = (xs[-1] - xs[0])/nx
-        self.dy = (ys[-1] - ys[0])/ny
-        self.vxs = np.zeros((num_files, nx, ny))
-        self.vys = np.zeros((num_files, nx, ny))
-        self.ns = np.zeros((num_files, nx, ny))
-        for counter in range(num_files):
-            self.vxs[counter] = self.fs1[counter]['Primitive/v1'][:]
-            self.vys[counter] = self.fs1[counter]['Primitive/v2'][:]
-            self.ns[counter] = self.fs1[counter]['Primitive/n'][:]
-
-    def u_n_values_from_hdf5(self, t_n, i, j):
-        """
-        Get values of the (micro) velocity and number density (u, n) from
-        the raw data.
-
-        Parameters
-        ----------
-        t_n : int
-            time slice.
-        i : int
-            x-index.
-        j : int
-            y-index.
-
-        Returns
-        -------
-        list of floats
-            u (2+1-vector)
-        float 
-            n (scalar).
-
-        """
-    #     t_n = np.where(ts[:]==t)[0][0]
-        return [self.fs1[t_n]['Auxiliary/W'][i,j], self.fs1[t_n]['Primitive/v1'][i,j], self.fs1[t_n]['Primitive/v2'][i,j]], self.fs1[t_n]['Primitive/n'][i,j]
-    
-    # gives the fluid's 4-velocity at any point in time and space
-    def interpolate_u_n_coords(self,t,x,y):
-        """
-        Returns the (micro) velocity and number density at given point (t,x,y)
-        using interpolation.
-
-        Parameters
-        ----------
-        t : float
-            time coordinate.
-        x : float
-            DESCRIPTION.
-        y : float
-            DESCRIPTION.
-
-        Returns
-        -------
-        list of floats  (there may be some reason why this isn't a np array...')
-            micro velocity, u (2+1-vector).
-        float
-            scalar, n.
-
-        """
-        point = (t,x,y)
-        n_interpd = interpn(self.points,self.ns,point)
-        vx_interpd = interpn(self.points,self.vxs,point)
-        vy_interpd = interpn(self.points,self.vys,point)
-        W_interpd = 1/np.sqrt(1 - (vx_interpd**2 + vy_interpd**2))
-        u_interpd = W_interpd, vx_interpd, vy_interpd
-        return [u_interpd[0][0], u_interpd[1][0], u_interpd[2][0]], n_interpd[0]
-    
-    def interpolate_u_n_point(self, point):
-        """
-        Same as interpolate_u_n_coords but takes a list [t,x,y] as a 'point'.
-        Yes, one of these two functions is completely redundant...
-        """
-        n_interpd = interpn(self.points,self.ns,point)
-        vx_interpd = interpn(self.points,self.vxs,point)
-        vy_interpd = interpn(self.points,self.vys,point)
-        W_interpd = 1/np.sqrt(1 - (vx_interpd**2 + vy_interpd**2))
-        u_interpd = W_interpd, vx_interpd, vy_interpd
-        return [u_interpd[0][0], u_interpd[1][0], u_interpd[2][0]], n_interpd[0]
-    
     def Mink_dot(self,vec1,vec2):
         """
         Inner-product in (n+1)-dimensions
@@ -214,116 +88,36 @@ class Base(object):
         corners = [c1,c2,c3,c4]
         return corners
     
-    def residual(self, V0_V1,P,L):
-        """
-        Calculate the residual to be minimized. This is the integral of the
-        number flux across the sides of the box.
-        """
-        U = self.get_U_mu(V0_V1)
-        # U = get_U_mu_MagTheta(V0_V1)
-        E_x, E_y = self.construct_tetrad(U)
-        corners = self.find_boundary_pts(E_x,E_y,P,L)
-        flux = 0
-        for i in range(3,-1,-1):
-            surface = np.linspace(corners[i],corners[i-1],10)
-            for coords in surface:
-                u, n = self.interpolate_u_n_point(coords)
-                n_mu = np.multiply(u,n) # construct particle drift
-                if i == 3:
-                    flux += self.Mink_dot(n_mu,-E_x) # Project wrt orthonormal tetrad and sum (surface integral)
-                elif i == 2:
-                    flux += self.Mink_dot(n_mu,-E_y) 
-                elif i == 1:
-                    flux += self.Mink_dot(n_mu,E_x)
-                elif i == 0:
-                    flux += self.Mink_dot(n_mu,E_y)
-        return abs(flux) # **2 for minimization rather than r-f'ing?
-    
-    
     def surface_flux(self, x,E_x,E_y,P,direc_vec):
         point = P + x*(E_x + E_y)
         u, n = self.interpolate_u_n_point(point)
         n_mu = np.multiply(u,n)
         return self.Mink_dot(n_mu,direc_vec)
     
-    def residual_ib(self, V0_V1,P,L):
-        """
-        An alternative residual that uses in-build scipy method quad. This is
-        vastly slower than manual integral calculation in residual function.
-        """
-        U = self.get_U_mu(V0_V1)
-        # U = get_U_mu_MagTheta(V0_V1)
-        E_x, E_y = self.construct_tetrad(U)
-        flux = 0
-        for i in range(3,-1,-1):
-            if i == 3:
-                flux += quad(func=self.surface_flux,a=-L/2,b=L/2,args=(E_x,E_y,P,-E_x))[0]
-            elif i == 2:
-                flux += quad(func=self.surface_flux,a=-L/2,b=L/2,args=(E_x,-E_y,P,-E_y))[0]
-            elif i == 1:
-                flux += quad(func=self.surface_flux,a=-L/2,b=L/2,args=(-E_x,-E_y,P,E_x))[0]
-            elif i == 0:
-                flux += quad(func=self.surface_flux,a=-L/2,b=L/2,args=(-E_x,E_y,P,E_y))[0]
-            return abs(flux)
+    def project_tensor(self, vector1_wrt, vector2_wrt, to_project):
+        return np.inner(vector1_wrt,np.inner(vector2_wrt,to_project))
     
-    def find_observers(self, t_range,x_range,y_range,L,n_ts,n_xs,n_ys,initial_guess):
-        """
-        Main function.
-        Finds the meso-observers, U, that the fluid has no drift with respect to.
+    def orthogonal_projector(self, u):
+        return self.metric + np.outer(u,u)    
 
-        Parameters
-        ----------
-        t_range, x_range, y_range : lists of 2 floats
-            Define the coordinate ranges of the points to find observers at.
-        L : Float
-            Filtering lengthscale.
-        n_ts, n_xs, n_ys : integers
-            Number of points to find observers at in (t,x,y) dimensions.
-        initial_guess (DEPRECATED): list of floats.
-            An initial guess for U. Much simpler and still robust to just use 
-            the micro velocity, u, at a given point at the initial guess.
 
-        Returns
-        -------
-        list of coordinates, Us, and minimization errors.
-
-        """
-        t_coords = np.linspace(t_range[0],t_range[-1],n_ts)
-        x_coords = np.linspace(x_range[0],x_range[-1],n_xs)
-        y_coords = np.linspace(y_range[0],y_range[-1],n_ys)
-        funs = []
-        vectors = []
-        coord_list = []
-        for t in t_coords:
-            for x in x_coords:
-                for y in y_coords:
-                    u, n = self.interpolate_u_n_coords(t,x,y)
-                    # guess_vx_vy = initial_guess
-                    guess_vx_vy = [u[1]/u[0], u[2]/u[0]]
-                    coords = [t,x,y]
-                    #sol = minimize(self.residual_ib,x0=guess_vx_vy,args=(coords,L),bounds=((-0.7,0.7),(-0.7,0.7)),tol=1e-6)#,method='CG')
-                    #vectors.append(self.get_U_mu(sol.x))
-                    #funs.append(sol.fun)
-                    #coord_list.append(coords)
-                    #guess_vx_vy = [sol.x[0],sol.x[1]]
-                    try:
-                        sol = minimize(self.residual_ib,x0=guess_vx_vy,args=(coords,L),bounds=((-0.7,0.7),(-0.7,0.7)),tol=1e-6)#,method='CG')
-                        vectors.append(self.get_U_mu(sol.x))
-                        funs.append(sol.fun)
-                        coord_list.append(coords)
-                        #guess_vx_vy = [sol.x[0],sol.x[1]]
-                        if (sol.fun > 1e-5):
-                            print("Warning! Residual is large: ",sol.fun)
-                    except:
-                        print("Failed for ",coords)
-                    finally:
-                        pass
-        # f_to_write.write(str(coord_list)+str(vectors)+str(funs))
-        # DON'T THINK THIS WAS DOING ANYTHING??
-        # with open('KH_observers.pickle', 'wb') as handle:
-        #     pickle.dump(np.array([coord_list, vectors, funs]), handle, protocol=pickle.HIGHEST_PROTOCOL)
-        return [coord_list, vectors, funs]
-    
+    """
+    A pair of functions that work in conjuction (thank you stack overflow).
+    find_nearest returns the closest value to in put 'value' in 'array',
+    find_nearest_cell then takes this closest value and returns its indices.
+    """
+    def find_nearest(self, array, value):
+        idx = np.searchsorted(array, value, side="left")
+        if idx > 0 and (idx == len(array) or math.fabs(value - array[idx-1]) < math.fabs(value - array[idx])):
+            return array[idx-1]
+        else:
+            return array[idx]
+        
+    def find_nearest_cell(self, point):
+        t_pos = self.find_nearest(self.ts,point[0])
+        x_pos = self.find_nearest(self.xs,point[1])
+        y_pos = self.find_nearest(self.ys,point[2])
+        return [np.where(self.ts==t_pos)[0][0], np.where(self.xs==x_pos)[0][0], np.where(self.ys==y_pos)[0][0]]
     
     def profile(self, fnc):
         """A decorator that uses cProfile to profile a function"""

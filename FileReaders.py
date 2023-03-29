@@ -10,7 +10,9 @@ import glob
 
 class METHOD(object):
 
-    def __init__(self, micro_model, directory):
+    # def __init__(self, micro_model, directory)
+        
+    def read_in_data(self, micro_model, directory):
         hdf5_filenames = glob.glob(directory+str('data*.hdf5'))
         print(hdf5_filenames)
         hdf5_files = []
@@ -37,3 +39,4 @@ class METHOD(object):
 
             for aux_vars_str in aux_vars_strs:
                 micro_model.aux_vars[aux_vars_str].append(hdf5_files[counter]['Auxiliary/'+aux_vars_str][:])
+

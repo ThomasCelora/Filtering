@@ -64,8 +64,9 @@ class IdealHydro(object):
                           'v2': self.vys,
                           'p': self.ps,
                           'rho': self.rhos,
-                          'n': self.ns,
-                          'u_t': self.uts,
+                          'n': self.ns}
+        
+        self.vars =       {'u_t': self.uts,
                           'u_x': self.uxs,
                           'u_y': self.uys,
                           'Id_SET': self.Id_SETs}
@@ -75,14 +76,18 @@ class IdealHydro(object):
                          'h': self.hs}
 
         self.prim_vars_strs = ['v1','v2','p','rho','n']
+        self.var_strs = ['u_t','u_x','u_y']
         self.aux_vars_strs= ['W','T','h']
 
+        # Define Minkowski metric
+        self.metric = np.zeros((3,3))
+        self.metric[0,0] = -1
+        self.metric[1,1] = self.metric[2,2] = +1
+        
         # def read_data(file_reader):
         #     file_reader = METHOD(self, './Data/Testing/')
         
-        self.interpolator
-
-    def find_observer(self, coordinate, residual):
+    def find_observer(self, point, residual):
         """
         Main function.
         Finds the meso-observers, U, that the fluid has no drift with respect to.
@@ -104,10 +109,10 @@ class IdealHydro(object):
         list of coordinates, Us, and minimization errors.
     
         """
-        u, n = self.interpolate_u_n_point(coordinate)
+        u, n = self.interpolate_u_n_point(point)
         initial_guess_vx_vy = [u[1]/u[0], u[2]/u[0]]
         try:
-            sol = minimize(residual,x0=guess_vx_vy,args=(coordinate,L),bounds=((-0.7,0.7),(-0.7,0.7)),tol=1e-6)#,method='CG')
+            sol = minimize(residual,x0=guess_vx_vy,args=(point,L),bounds=((-0.7,0.7),(-0.7,0.7)),tol=1e-6)#,method='CG')
             # Large error in root-find
             if (sol.fun > 1e-5):
                 print("Warning! Residual is large: ",sol.fun)
@@ -117,20 +122,12 @@ class IdealHydro(object):
             pass
         return sol
     
-    def interpolate_u_n_point(self, point):
-        """
-        Same as interpolate_u_n_coords but takes a list [t,x,y] as a 'point'.
-        Yes, one of these two functions is completely redundant...
-        """
-        n_interpd = interpn(self.points,self.ns,point)
-        vx_interpd = interpn(self.points,self.vxs,point)
-        vy_interpd = interpn(self.points,self.vys,point)
-        W_interpd = 1/np.sqrt(1 - (vx_interpd**2 + vy_interpd**2))
-        u_interpd = W_interpd, vx_interpd, vy_interpd
-        return [u_interpd[0][0], u_interpd[1][0], u_interpd[2][0]], n_interpd[0]
+ 
 
-MicroModel = IdealHydro()
-FileReader = METHOD(MicroModel, './Data/Testing/Rotor_2D/')
+    def interpolate_var(self, point, var_str):
+        return interpn(self.points,self.vars[var_str],point)[0]
+
+
 
 
 
