@@ -11,7 +11,7 @@ import glob
 class METHOD_HDF5(object):
 
     def __init__(self, directory):
-        hdf5_filenames = glob.glob(directory+str('data_1*.hdf5'))
+        hdf5_filenames = glob.glob(directory+str('ds*.hdf5'))
         self.hdf5_files = []
         for filename in hdf5_filenames:
             self.hdf5_files.append(h5py.File(filename,'r'))
@@ -32,6 +32,12 @@ class METHOD_HDF5(object):
         # for domain_vars_str in micro_model.domain_vars:
         for domain_vars_str in domain_const_strs:
             micro_model.domain_vars[domain_vars_str] = self.hdf5_files[0]['Domain/'+domain_vars_str]
+        
+        print(self.num_files)
+        micro_model.nt = self.num_files
+        print(micro_model.nt)
+        micro_model.nx = len(self.hdf5_files[0]['Domain/x'][:])
+        micro_model.ny = len(self.hdf5_files[0]['Domain/y'][:])
 
         for counter in range(self.num_files):
             for prim_vars_str in micro_model.prim_vars_strs:
@@ -49,6 +55,7 @@ if __name__ == '__main__':
     FileReader = METHOD_HDF5('./Data/Testing/')
     MicroModel = IdealHydro()
     FileReader.read_in_data(MicroModel)
+    MicroModel.setup()
     
     
     

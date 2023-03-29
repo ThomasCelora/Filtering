@@ -46,30 +46,45 @@ class IdealHydro(object):
                             'dy': self.dy}
  
         # Define fluid variables for both the fine and coarse data
-        self.vxs = np.zeros((self.nt, self.nx, self.ny))
-        self.vys = np.zeros((self.nt, self.nx, self.ny))
-        self.uts = np.zeros((self.nt, self.nx, self.ny))
-        self.uxs = np.zeros((self.nt, self.nx, self.ny))
-        self.uys = np.zeros((self.nt, self.nx, self.ny))
-        self.ns = np.zeros((self.nt, self.nx, self.ny))
-        self.rhos = np.zeros((self.nt, self.nx, self.ny))
-        self.ps = np.zeros((self.nt, self.nx, self.ny))
-        self.Ws = np.zeros((self.nt, self.nx, self.ny))
-        self.Ts = np.zeros((self.nt, self.nx, self.ny))
-        self.hs = np.zeros((self.nt, self.nx, self.ny))
-        self.Id_SETs = np.zeros((self.nt, self.nx, self.ny, 3, 3))
+        # self.vxs = np.zeros((self.nt, self.nx, self.ny))
+        # self.vys = np.zeros((self.nt, self.nx, self.ny))
+        # self.uts = np.zeros((self.nt, self.nx, self.ny))
+        # self.uxs = np.zeros((self.nt, self.nx, self.ny))
+        # self.uys = np.zeros((self.nt, self.nx, self.ny))
+        # self.ns = np.zeros((self.nt, self.nx, self.ny))
+        # self.rhos = np.zeros((self.nt, self.nx, self.ny))
+        # self.ps = np.zeros((self.nt, self.nx, self.ny))
+        # self.Ws = np.zeros((self.nt, self.nx, self.ny))
+        # self.Ts = np.zeros((self.nt, self.nx, self.ny))
+        # self.hs = np.zeros((self.nt, self.nx, self.ny))
+        # self.Id_SETs = np.zeros((self.nt, self.nx, self.ny, 3, 3))
         
+        self.vxs = []
+        self.vys = []
+        self.ps = []
+        self.ns = []
+        self.rhos = []
+
         self.prim_vars = {'v1': self.vxs,
                           'v2': self.vys,
                           'p': self.ps,
                           'rho': self.rhos,
                           'n': self.ns}
+
+        self.uts = []
+        self.uxs = []
+        self.uys = []
+        self.Id_SETs = []
         
         self.vars =       {'u_t': self.uts,
                           'u_x': self.uxs,
                           'u_y': self.uys,
                           'Id_SET': self.Id_SETs}
 
+        self.Ws = []
+        self.Ts = []
+        self.hs = []
+        
         self.aux_vars = {'W': self.Ws,
                          'T': self.Ts,
                          'h': self.hs}
@@ -84,6 +99,10 @@ class IdealHydro(object):
         self.metric[1,1] = self.metric[2,2] = +1
 
     def setup(self):
+        self.uts = self.Ws[:]
+        self.uxs = np.zeros((self.nt,self.nx,self.ny))
+        self.uys = np.zeros((self.nt,self.nx,self.ny))
+        self.Id_SETs = np.zeros((self.nt,self.nx,self.ny,3,3))
         for h in range(self.nt):
             for i in range(self.nx):
                 for j in range(self.ny):
@@ -91,8 +110,8 @@ class IdealHydro(object):
                     self.uxs[h][i,j] = self.Ws[h][i,j]*self.vxs[h][i,j]
                     self.uys[h][i,j] = self.Ws[h][i,j]*self.vys[h][i,j]
                     u_vec = np.array([self.uts[h][i,j],self.uxs[h][i,j],self.uys[h][i,j]])
-                    self.Id_SETs[h][i,j] = self.prim_vars['rho'][h][i,j]*np.outer(u_vec,u_vec)\
-                        + self.prim_vars['p'][h][i,j]*(self.metric + np.outer(u_vec,u_vec))
+                    self.Id_SETs[h][i,j] = self.rhos[h][i,j]*np.outer(u_vec,u_vec)\
+                        + self.ps[h][i,j]*(self.metric + np.outer(u_vec,u_vec))
 
     def find_observer(self, point, residual):
         """

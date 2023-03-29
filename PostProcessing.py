@@ -325,8 +325,8 @@ class PostProcessing(object):
     #     NonId_SET = rho*u_mu_u_nu + (p+Pi)*h_mu_nu + np.outer(q,u) + np.outer(u,q) + pi
     #     return NonId_SET
     
-    def calc_t_deriv(self, quant_str, point):
-        t, x, y = point
+    def calc_t_deriv(self, quant_str, coord):
+        t, x, y = coord
         # print(t,x,y)
         # values = [self.scalar_val(T,x,y,quant_str) for T in np.linspace(t-2*self.dT,t+2*self.dT,5)]
         values = [self.scalar_val(T,x,y,quant_str) for T in np.linspace(t-1*self.dT,t+1*self.dT,3)]
@@ -334,16 +334,16 @@ class PostProcessing(object):
         dt_quant = np.dot(self.cen_FO_stencil, values) / self.dT
         return dt_quant
     
-    def calc_x_deriv(self, quant_str, point):
-        t, x, y = point
+    def calc_x_deriv(self, quant_str, coord):
+        t, x, y = coord
         # values = [self.scalar_val(t,X,y,quant_str) for X in np.linspace(x-2*self.dX,x+2*self.dX,5)]
         values = [self.scalar_val(t,X,y,quant_str) for X in np.linspace(x-1*self.dX,x+1*self.dX,3)]
         # dX_quant = np.dot(self.cen_SO_stencil, values) / self.dX
         dX_quant = np.dot(self.cen_FO_stencil, values) / self.dX
         return dX_quant
 
-    def calc_y_deriv(self, quant_str, point):
-        t, x, y = point
+    def calc_y_deriv(self, quant_str, coord):
+        t, x, y = coord
         # values = [self.scalar_val(t,x,Y,quant_str) for Y in np.linspace(y-2*self.dX,y+2*self.dY,5)]
         values = [self.scalar_val(t,x,Y,quant_str) for Y in np.linspace(y-1*self.dY,y+1*self.dY,3)]
         # dY_quant = np.dot(self.cen_SO_stencil, values) / self.dY
@@ -364,107 +364,11 @@ class PostProcessing(object):
         """
         return interpn(self.points,self.vars[quant_str],point)
 
-    def construct_tetrad(self, U):
-        """
-        Construct 2 tetrad vectors that are perpendicular to (2+1)-velocity U,
-        and each other. These are used to define the box for filtering.
-        """
-        e_x = np.array([0.0,1.0,0.0]) # 1 + 2D
-        E_x = e_x + np.multiply(self.Mink_dot(U,e_x),U)
-        E_x = E_x / np.sqrt(self.Mink_dot(E_x,E_x)) # normalization
-        e_y = np.array([0.0,0.0,1.0])
-        E_y = e_y + np.multiply(self.Mink_dot(U,e_y),U) - np.multiply(self.Mink_dot(E_x,e_y),E_x)
-        E_y = E_y / np.sqrt(self.Mink_dot(E_y,E_y))
-        return E_x, E_y
-    
-    def Mink_dot(self,vec1,vec2):
-        """
-        Inner-product in (n+1)-dimensions
-        """
-        dot = -vec1[0]*vec2[0] # time component
-        for i in range(1,len(vec1)):
-            dot += vec1[i]*vec2[i] # spatial components
-        return dot
-    
-    def find_boundary_pts(self, E_x,E_y,P,L):
-        """
-        Find the (four) corners of the box that is the filtering region.
-
-        Parameters
-        ----------
-        E_x : list of floats
-            One tetrad vector.
-        E_y : list of floats
-            Second tetrad vector.
-        P : list of floats
-            Coordinate of the centre of the box (t,x,y).
-        L : float
-            Filtering lengthscale (length of one side of the box).
-
-        Returns
-        -------
-        corners : list of list of floats
-            list of the coordinates of the box's corners.
-
-        """
-        c1 = P + (L/2)*(E_x + E_y)
-        c2 = P + (L/2)*(E_x - E_y)
-        c3 = P + (L/2)*(-E_x - E_y)
-        c4 = P + (L/2)*(-E_x + E_y)
-        corners = [c1,c2,c3,c4]
-        return corners
-    
-    def filter_scalar(self, point, U, quant_str):
-        """
-        Filter a variable over the volume of a box with centre given by 'point'.
-        Originally done by scipy integration over the volume, but again incredibly
-        slow so now a manual sum over all the cells within the box and then a 
-        division by total number of cells.
-        """
-        # contruct tetrad...
-        E_x, E_y = self.construct_tetrad(U)
-        # corners = self.find_boundary_pts(E_x,E_y,point,self.L)
-        # start, end = corners[0], corners[2]
-        t, x, y = point
-        integrand = 0
-        counter = 0
-        start_cell, end_cell = self.find_nearest_cell([t-(self.L/2),x-(self.L/2),y-(self.L/2)]), \
-            self.find_nearest_cell([t+(self.L/2),x+(self.L/2),y+(self.L/2)])
-        for i in range(start_cell[0],end_cell[0]+1):
-            for j in range(start_cell[1],end_cell[1]+1):
-                for k in range(start_cell[2],end_cell[2]+1):
-                    integrand += self.vars[quant_str][i][j,k]
-                    counter += 1
-        return integrand/counter
-
-
-    def project_tensor(self,vector1_wrt, vector2_wrt, to_project):
-        projection = np.inner(vector1_wrt,np.inner(vector2_wrt,to_project))
-        return projection
-    
-    def orthogonal_projector(self, u):
-        return self.metric + np.outer(u,u)
-    
+  
     def values_from_hdf5(self, point, quant_str):
         t_label, x_label, y_label = self.find_nearest_cell(point)
         return self.vars[quant_str][t_label][x_label, y_label]
-    """
-    A pair of functions that work in conjuction (thank you stack overflow).
-    find_nearest returns the closest value to in put 'value' in 'array',
-    find_nearest_cell then takes this closest value and returns its indices.
-    """
-    def find_nearest(self, array, value):
-        idx = np.searchsorted(array, value, side="left")
-        if idx > 0 and (idx == len(array) or math.fabs(value - array[idx-1]) < math.fabs(value - array[idx])):
-            return array[idx-1]
-        else:
-            return array[idx]
-        
-    def find_nearest_cell(self, point):
-        t_pos = self.find_nearest(self.ts,point[0])
-        x_pos = self.find_nearest(self.xs,point[1])
-        y_pos = self.find_nearest(self.ys,point[2])
-        return [np.where(self.ts==t_pos)[0][0], np.where(self.xs==x_pos)[0][0], np.where(self.ys==y_pos)[0][0]]
+
     
     def calc_coeffs(self, coord, U, obs_indices):
         """

@@ -67,6 +67,13 @@ class NonIdealHydro(object):
                 flux += quad(func=self.surface_flux,a=-L/2,b=L/2,args=(-E_x,E_y,P,E_y))[0]
             return abs(flux)
         
+    def calculate_local_quantities(self, coord):
+        # Need U, T to be calculated first
+        N = self.Filter.filter_scalar(coord, U, 'n')
+
+                    
+        
+        
     def calculate_dissipative_residuals(self, coord, U):
         # Filter the scalar fields
         N = self.Filter.filter_scalar(coord, U, 'n')
@@ -83,6 +90,8 @@ class NonIdealHydro(object):
         # Calculate Pi and pi residuals
         tau_trace = np.trace(tau_res)#
         p_tilde = self.p_from_EoS(rho_res, N)
+        T_tilde = p_tilde/N
+        self.T_tildes[h, i, j] = T_tilde
         Pi_res = tau_trace - p_tilde
         pi_res = tau_res - np.dot((p_tilde + Pi_res),h_mu_nu)
         
@@ -110,12 +119,8 @@ class NonIdealHydro(object):
 
         """
         h, i, j = indices
-        T = self.values_from_hdf5(coord, 'T') # Fix this - should be from EoS(N,p_tilde)
-        # Calculate Non-Ideal terms
-        # need to store T here then calc. T derivatives!
-        # T_tilde = p_tilde/N # rather than 
-        # self.T_tildes[h, i, j] = T_tilde
-        
+        # T = self.values_from_hdf5(coord, 'T') # Fix this - should be from EoS(N,p_tilde)
+        T = self.T_tildes[h, i, j]
         dtT = self.calc_t_deriv('T',coord)[0]
         dxT = self.calc_x_deriv('T',coord)[0]
         dyT = self.calc_y_deriv('T',coord)[0]
@@ -123,15 +128,15 @@ class NonIdealHydro(object):
         Ut = self.Uts[h,i,j]
         Ux = self.Uxs[h,i,j]
         Uy = self.Uys[h,i,j]
-        dtUt = self.dtUts[i,j]
-        dtUx = self.dtUxs[i,j]
-        dtUy = self.dtUys[i,j]
-        dxUt = self.dxUts[i,j]
-        dxUx = self.dxUxs[i,j]
-        dxUy = self.dxUys[i,j]
-        dyUt = self.dyUts[i,j]
-        dyUx = self.dyUxs[i,j]
-        dyUy = self.dyUys[i,j]
+        dtUt = self.dtUts[h,i,j]
+        dtUx = self.dtUxs[h,i,j]
+        dtUy = self.dtUys[h,i,j]
+        dxUt = self.dxUts[h,i,j]
+        dxUx = self.dxUxs[h,i,j]
+        dxUy = self.dxUys[h,i,j]
+        dyUt = self.dyUts[h,i,j]
+        dyUx = self.dyUxs[h,i,j]
+        dyUy = self.dyUys[h,i,j]
    
         Theta = dtUt + dxUx + dyUy
         a = np.array([Ut*dtUt + Ux*dxUt + Uy*dyUt, Ut*dtUx + Ux*dxUx + Uy*dyUx, Ut*dtUy + Ux*dxUy + Uy*dyUy])#,ux*dxuz+uy*dyuz+uz*dzuz])

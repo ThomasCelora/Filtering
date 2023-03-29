@@ -17,7 +17,8 @@ if __name__ == '__main__':
     
     
     MicroModel = IdealHydro()
-    FileReader = METHOD()
+    FileReader = METHOD_HDF5()
     FileReader.read_in_data(MicroModel, './Data/Testing/')
     Filter = Box_2D(0.1)
     MesoModel = NonIdealHydro(MicroModel)
+    MesoModel.calculate_coefficients()
