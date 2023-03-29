@@ -13,7 +13,6 @@ from scipy.optimize import root, minimize
 class IdealHydro(object):
 
     def __init__(self):
-        
         self.nt = 0
         self.nx = 0
         self.ny = 0
@@ -83,10 +82,18 @@ class IdealHydro(object):
         self.metric = np.zeros((3,3))
         self.metric[0,0] = -1
         self.metric[1,1] = self.metric[2,2] = +1
-        
-        # def read_data(file_reader):
-        #     file_reader = METHOD(self, './Data/Testing/')
-        
+
+    def setup(self):
+        for h in range(self.nt):
+            for i in range(self.nx):
+                for j in range(self.ny):
+                    self.uts[h][i,j] = self.Ws[h][i,j]
+                    self.uxs[h][i,j] = self.Ws[h][i,j]*self.vxs[h][i,j]
+                    self.uys[h][i,j] = self.Ws[h][i,j]*self.vys[h][i,j]
+                    u_vec = np.array([self.uts[h][i,j],self.uxs[h][i,j],self.uys[h][i,j]])
+                    self.Id_SETs[h][i,j] = self.prim_vars['rho'][h][i,j]*np.outer(u_vec,u_vec)\
+                        + self.prim_vars['p'][h][i,j]*(self.metric + np.outer(u_vec,u_vec))
+
     def find_observer(self, point, residual):
         """
         Main function.
@@ -122,7 +129,6 @@ class IdealHydro(object):
             pass
         return sol
     
- 
 
     def interpolate_var(self, point, var_str):
         return interpn(self.points,self.vars[var_str],point)[0]
