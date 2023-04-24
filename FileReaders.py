@@ -23,8 +23,8 @@ class METHOD_HDF5(object):
             
         
     def read_in_data(self, micro_model):
-        domain_const_strs = ['x','y']
-        # domain_const_strs = ['nt','nx','ny','Nx','Ny','x','y''dx','dy']
+        # domain_const_strs = ['x','y','nx']
+        domain_const_strs = ['nx','ny','Nx','Ny','x','y','dx','dy']
         domain_var_strs = []# ['t']
         prim_vars_strs = ['v1','v2','p','rho','n']
         aux_vars_strs = ['W','T','h']
@@ -33,12 +33,8 @@ class METHOD_HDF5(object):
         for domain_vars_str in domain_const_strs:
             micro_model.domain_vars[domain_vars_str] = self.hdf5_files[0]['Domain/'+domain_vars_str]
         
-        print(self.num_files)
         micro_model.nt = self.num_files
-        print(micro_model.nt)
-        micro_model.nx = len(self.hdf5_files[0]['Domain/x'][:])
-        micro_model.ny = len(self.hdf5_files[0]['Domain/y'][:])
-
+ 
         for counter in range(self.num_files):
             for prim_vars_str in micro_model.prim_vars_strs:
                 micro_model.prim_vars[prim_vars_str].append(self.hdf5_files[counter]['Primitive/'+prim_vars_str][:])
