@@ -8,7 +8,7 @@ Created on Mon Mar 27 18:53:53 2023
 import numpy as np
 from scipy.integrate import quad
 
-class NonIdealHydro(object):
+class NonIdealHydro2D(object):
 
     def __init__(self, MicroModel, Filter):
         self.Filter = Filter

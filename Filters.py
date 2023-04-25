@@ -26,6 +26,7 @@ class Favre_observers(object):
         -----
         To-do: think about checking compatibility (dimension + baryon currrent)
         """
+        self.micro_model = micro_model
         self.spatial_dims = micro_model.spatial_dims
         self.L = box_len
 
@@ -154,8 +155,8 @@ class Favre_observers(object):
                     surf_coords.append(temp)
 
                 for coord in surf_coords: 
-                    U = micro_model.get_interpol_struct('bar_vel', coord)
-                    rho = micro_model.get_interpol_prim(['rho'], coord)
+                    U = self.micro_model.get_interpol_struct('bar_vel', coord)
+                    rho = self.micro_model.get_interpol_prim(['rho'], coord)
                     Na = np.multiply(rho, U)
                     flux += self.Mink_dot(Na, vec)
 
@@ -188,8 +189,8 @@ class Favre_observers(object):
         developed for the 2+1 dimensional case only. 
         """
         coords = point + np.multiply(x, Vx) + np.multiply(y, Vy)
-        U = micro_model.get_interpol_struct('bar_vel', coords)
-        rho = micro_model.get_interpol_prim(['rho'], coords)
+        U = self.micro_model.get_interpol_struct('bar_vel', coords)
+        rho = self.micro_model.get_interpol_prim(['rho'], coords)
         Na = np.multiply(rho, U)
         flux = self.Mink_dot(Na, normal)
         return flux
@@ -281,13 +282,14 @@ class Favre_observers(object):
         failed_coords = []
 
         for coord in coords:          
-            U = micro_model.get_interpol_struct('bar_vel', coord)
+            U = self.micro_model.get_interpol_struct('bar_vel', coord)
             guess = []
             for i in range(1, len(U)):
                 guess.append(U[i] / U[0])
             guess = np.array(guess)
+            sol = minimize(self.Favre_residual, x0 = guess, args = (coord, spacing), bounds=((-0.8,0.8),(-0.8,0.8)),tol=1e-6)
+            # This rearrangement shouldn't be necessary!?!?
             try: 
-                sol = minimize(self.Favre_residual, x0 = guess, args = (coord, spacing), bounds=((-0.8,0.8),(-0.8,0.8)),tol=1e-6)
                 if sol.success:
                     observers.append(self.get_U_from_vels(sol.x))
                     funs.append(sol.fun)
@@ -301,47 +303,95 @@ class Favre_observers(object):
 
         return [success_coords, observers, funs] , failed_coords
 
-
-if __name__ == '__main__':
-    CPU_start_time = time.process_time()
-
-    FileReader = METHOD_HDF5('./Data/test_res100/')
-    micro_model = IdealMHD_2D()
-    FileReader.read_in_data(micro_model) 
-    micro_model.setup_structures()
-
-    filter = Favre_observers(micro_model,0.001)
+    def filter_var(self, point, spatial_vels, var_str, shape='box'):
+        """
+        Filter a variable over the volume of a box with centre given by 'point'.
+        Originally done by scipy integration over the volume, but again incredibly
+        slow so now a manual sum over all the cells within the box and then a 
+        division by total number of cells.
+        """
+        # contruct tetrad...
+        tetrad = self.get_tetrad_from_vels(spatial_vels)
+        # corners = self.find_boundary_pts(E_x,E_y,point,self.L)
+        # start, end = corners[0], corners[2]
+        t, x, y = point
+        integrand = 0
+        counter = 0
+        start_cell, end_cell = self.find_nearest_cell([t-(self.L/2),x-(self.L/2),y-(self.L/2)]), \
+            self.find_nearest_cell([t+(self.L/2),x+(self.L/2),y+(self.L/2)])
+        for i in range(start_cell[0],end_cell[0]+1):
+            for j in range(start_cell[1],end_cell[1]+1):
+                for k in range(start_cell[2],end_cell[2]+1):
+                    integrand += self.vars[quant_str][i][j,k]
+                    counter += 1
+        return integrand/counter
     
-    # tetrad = filter.get_tetrad_from_vxvy([0.5,0.73])
-    # print(type(tetrad[0]),' ',type(tetrad[1]),' ',type(tetrad[2]),'\n', tetrad[0],' ',tetrad[1],' ',tetrad[2],'\n')
-    # print(filter.Mink_dot(tetrad[0],tetrad[1]), filter.Mink_dot(tetrad[0],tetrad[2]), filter.Mink_dot(tetrad[1],tetrad[2]))
-    # print(type(tetrad))
+    def get_interpol_var(self, t, x, y, var_str):
+        return self.micro_model.get_interpol_var(var_str, [t,x,y])
 
-    # smart_guess = micro_model.get_interpol_prim(['vx','vy'],[0.5,0.5,0.5])
+    def filter_var_ib(self, point, spatial_vels, var_str, shape='box'):
+        """
+        Filter a variable over the volume of a box with centre given by 'point'.
+        Originally done by scipy integration over the volume, but again incredibly
+        slow so now a manual sum over all the cells within the box and then a 
+        division by total number of cells.
+        """
+        # contruct tetrad...
+        tetrad = self.get_tetrad_from_vels(spatial_vels)
+        # t_range = 
+        # corners = self.find_boundary_pts(E_x,E_y,point,self.L)
+        # start, end = corners[0], corners[2]
+        integrand = 0
+        integrand, error = integrate.tplquad(self.get_interpol_var, t_range[0], t_range[1],\ 
+                                            x_range[0], x_range[1], y_range[0], y_range[1],\
+                                            args = var_str, epsabs = 1e-6 )[:]
+            
+        return vol_integrand/(self.L)**3, error
 
-    # CPU_start_time = time.process_time()
-    # res = filter.Favre_residual(smart_guess,[0.5,0.5,0.5], 10)
-    # print('Residual: ',res,f'\nElapsed CPU time is {time.process_time() - CPU_start_time} with {10**filter.spatial_dim} points per face\n')
+        coords = point + np.multiply(x, Vx) + np.multiply(y, Vy)
 
-    # CPU_start_time = time.process_time()
-    # res, error = filter.Favre_residual_ib(smart_guess,[0.5,0.5,0.5])[:]
-    # print('Residual: ',res,"\nError estimate: ",error,f'\nElapsed CPU time is {time.process_time() - CPU_start_time} with the inbuilt method')
 
-    CPU_start_time = time.process_time()
-    coord_range = [[1.502,1.504],[0.5,0.7],[0.5,0.7]]
-    num_points = [1,1,1]
+# if __name__ == '__main__':
+#     CPU_start_time = time.process_time()
+
+#     FileReader = METHOD_HDF5('./Data/Testing/')
+#     # micro_model = IdealMHD_2D()
+#     micro_model = IdealHydro_2D()
+#     FileReader.read_in_data(micro_model) 
+#     micro_model.setup_structures()
+
+#     filter = Favre_observers(micro_model,box_len=0.001)
     
-    min_res, failed_coord = filter.find_observers(num_points, coord_range, 10)
-    for i in range(len(min_res[0])):
-        for j in range(len(min_res)):
-            print(min_res[j][i])
-        print('\n')
+#     # tetrad = filter.get_tetrad_from_vxvy([0.5,0.73])
+#     # print(type(tetrad[0]),' ',type(tetrad[1]),' ',type(tetrad[2]),'\n', tetrad[0],' ',tetrad[1],' ',tetrad[2],'\n')
+#     # print(filter.Mink_dot(tetrad[0],tetrad[1]), filter.Mink_dot(tetrad[0],tetrad[2]), filter.Mink_dot(tetrad[1],tetrad[2]))
+#     # print(type(tetrad))
 
-    num_minim = 1
-    for x in num_points: 
-        num_minim *= x
-    print(f'Elapsed CPU time for finding {num_minim} observer is {time.process_time() - CPU_start_time}.')
-    print('Failed coordinates:', failed_coord)
+#     # smart_guess = micro_model.get_interpol_prim(['vx','vy'],[0.5,0.5,0.5])
+
+#     # CPU_start_time = time.process_time()
+#     # res = filter.Favre_residual(smart_guess,[0.5,0.5,0.5], 10)
+#     # print('Residual: ',res,f'\nElapsed CPU time is {time.process_time() - CPU_start_time} with {10**filter.spatial_dim} points per face\n')
+
+#     # CPU_start_time = time.process_time()
+#     # res, error = filter.Favre_residual_ib(smart_guess,[0.5,0.5,0.5])[:]
+#     # print('Residual: ',res,"\nError estimate: ",error,f'\nElapsed CPU time is {time.process_time() - CPU_start_time} with the inbuilt method')
+
+#     CPU_start_time = time.process_time()
+#     coord_range = [[9.995,10.005],[-0.2,-0.3],[0.5,0.7]]
+#     num_points = [1,1,1]
+    
+#     min_res, failed_coord = filter.find_observers(num_points, coord_range, 10)
+#     for i in range(len(min_res[0])):
+#         for j in range(len(min_res)):
+#             print(min_res[j][i])
+#         print('\n')
+
+#     num_minim = 1
+#     for x in num_points: 
+#         num_minim *= x
+#     print(f'Elapsed CPU time for finding {num_minim} observer(s) is {time.process_time() - CPU_start_time}.')
+#     print('Failed coordinates:', failed_coord)
 
 
 
