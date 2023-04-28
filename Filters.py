@@ -237,7 +237,7 @@ class Favre_observers(object):
         return abs(flux) , error
 
 
-    def find_observers(self, num_points, ranges, spacing ): 
+    def find_observers(self, num_points, ranges, spacing): 
         """
         Main function: minimize the Favre_residual and find the Favre observers for points
         in linearly spaced (with spacing num_points) in the ranges. 
@@ -303,7 +303,7 @@ class Favre_observers(object):
 
         return [success_coords, observers, funs] , failed_coords
 
-    def filter_var(self, point, spatial_vels, var_str, shape='box'):
+    def filter_var(self, centre_coord, spatial_vels, var_str, shape='box'):
         """
         Filter a variable over the volume of a box with centre given by 'point'.
         Originally done by scipy integration over the volume, but again incredibly
@@ -312,19 +312,53 @@ class Favre_observers(object):
         """
         # contruct tetrad...
         tetrad = self.get_tetrad_from_vels(spatial_vels)
-        # corners = self.find_boundary_pts(E_x,E_y,point,self.L)
-        # start, end = corners[0], corners[2]
-        t, x, y = point
+        start_coord = []
+        end_coord = []
+        for coord in centre_coord:
+            start_coord.append(np.array([coord-self.L/2]))
+            end_coord.append(np.array([coord+self.L/2]))
+
         integrand = 0
         counter = 0
-        start_cell, end_cell = self.find_nearest_cell([t-(self.L/2),x-(self.L/2),y-(self.L/2)]), \
-            self.find_nearest_cell([t+(self.L/2),x+(self.L/2),y+(self.L/2)])
+        start_cell, end_cell = micro_model.find_nearest_cell([t-(self.L/2),x-(self.L/2),y-(self.L/2)]), \
+            micro_model.find_nearest_cell([t+(self.L/2),x+(self.L/2),y+(self.L/2)])
         for i in range(start_cell[0],end_cell[0]+1):
             for j in range(start_cell[1],end_cell[1]+1):
                 for k in range(start_cell[2],end_cell[2]+1):
                     integrand += self.vars[quant_str][i][j,k]
                     counter += 1
         return integrand/counter
+
+
+        for vec in tetrad: 
+            rem_vecs = [x for x in tetrad if not (x==vec).all()]
+            for i in range(2):
+                center = point + np.multiply( (-1)**i * self.L / 2, vec)
+
+                xs = []
+                for i in range(self.spatial_dims):
+                    xs.append(np.linspace(-self.L /2 , self.L /2, lin_spacing))
+                coords = []
+                for element in product(*xs):
+                    coords.append(np.array(element))
+
+                surf_coords = []
+                for coord in coords:
+                    temp = center
+                    for i in range(self.spatial_dims):
+                        temp += np.multiply(coord[i], rem_vecs[i])
+                    surf_coords.append(temp)
+
+                for coord in surf_coords: 
+                    U = self.micro_model.get_interpol_struct('bar_vel', coord)
+                    rho = self.micro_model.get_interpol_prim(['rho'], coord)
+                    Na = np.multiply(rho, U)
+                    flux += self.Mink_dot(Na, vec)
+
+        flux *= (self.L / lin_spacing) ** self.spatial_dims
+        return abs(flux)
+
+
     
     def get_interpol_var(self, t, x, y, var_str):
         return self.micro_model.get_interpol_var(var_str, [t,x,y])
@@ -342,7 +376,7 @@ class Favre_observers(object):
         # corners = self.find_boundary_pts(E_x,E_y,point,self.L)
         # start, end = corners[0], corners[2]
         integrand = 0
-        integrand, error = integrate.tplquad(self.get_interpol_var, t_range[0], t_range[1],\ 
+        integrand, error = integrate.tplquad(self.get_interpol_var, t_range[0], t_range[1],\
                                             x_range[0], x_range[1], y_range[0], y_range[1],\
                                             args = var_str, epsabs = 1e-6 )[:]
             

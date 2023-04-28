@@ -30,16 +30,13 @@ class Base(object):
             dot += vec1[i]*vec2[i] # spatial components
         return dot
     
-    def get_U_mu(self, Vx_Vy):
+    def get_rel_vel(self, spatial_vels):
         """
-        Construct (2+1)-velocity (meso) from spatial Cartesian (x,y) components
+        Construct (n+1)-velocity (meso) from spatial Cartesian (x,y,...) components
         """
-        # get observer U from observer Vx, Vy
-        Vx, Vy = Vx_Vy[0], Vx_Vy[1]
-        W = 1/np.sqrt(1-Vx**2-Vy**2)
-        U_mu = [W,Vx,Vy]
-        return U_mu
-    
+        W = 1 / np.sqrt(1-np.sum(spatial_vels**2))
+        return spatial_vels.insert(spatial_vels,0,W)    
+
     def get_U_mu_MagTheta(self, Vmag_Vtheta):
         """
         Construct (2+1)-velocity (meso) from spatial Polar (r, theta) components

@@ -43,23 +43,27 @@ if __name__ == '__main__':
 
     CPU_start_time = time.process_time()
     coord_range = [[9.995,10.005],[-0.2,-0.3],[0.5,0.7]]
-    num_points = [1,1,1]
-    
-    min_res, failed_coord = Filter.find_observers(num_points, coord_range, 10)
-    for i in range(len(min_res[0])):
-        for j in range(len(min_res)):
-            print(min_res[j][i])
-        print('\n')
+    num_points = [1,2,1]
 
-    num_minim = 1
-    for x in num_points: 
-        num_minim *= x
-    print(f'Elapsed CPU time for finding {num_minim} observer(s) is {time.process_time() - CPU_start_time}.')
-    print('Failed coordinates:', failed_coord)
+    MesoModel = NonIdealHydro2D(micro_model, Filter)
+    MesoModel.find_observers(num_points, coord_range, 10)
+    MesoModel.filter_variables()
+    
+    # min_res, failed_coord = Filter.find_observers(num_points, coord_range, 10)
+    # for i in range(len(min_res[0])):
+    #     for j in range(len(min_res)):
+    #         print(min_res[j][i])
+    #     print('\n')
+
+    # num_minim = 1
+    # for x in num_points: 
+    #     num_minim *= x
+    # print(f'Elapsed CPU time for finding {num_minim} observer(s) is {time.process_time() - CPU_start_time}.')
+    # print('Failed coordinates:', failed_coord)
     
     # Filter = Box_2D(0.1)
-    MesoModel = NonIdealHydro(micro_model, Filter)
-    MesoModel.calculate_coefficients()
+    #MesoModel = NonIdealHydro2D(micro_model, Filter)
+    #MesoModel.calculate_coefficients()
     
     
     
