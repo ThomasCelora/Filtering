@@ -44,23 +44,37 @@ class METHOD_HDF5(object):
         micro_model: class MicroModel 
             strs in micromodel have to be the same as hdf5 files output from METHOD.
         """ 
+
+        self.translating_prims = dict.fromkeys(micro_model.get_prim_strs())
+        for prim_str in micro_model.get_prim_strs():
+            if prim_str == "n":
+                self.translating_prims[prim_str] = "rho"
+            else: 
+                self.translating_prims[prim_str] = prim_str 
+
         for prim_var_str in  micro_model.prim_vars:
             try: 
+                method_str = self.translating_prims[prim_var_str]
                 for counter in range(self.num_files):
-                    micro_model.prim_vars[prim_var_str].append( self.hdf5_files[counter]["Primitive/"+prim_var_str][:] )
+                    micro_model.prim_vars[prim_var_str].append( self.hdf5_files[counter]["Primitive/"+method_str][:] )
                     # The [:] is for returning the arrays not the dataset
                 micro_model.prim_vars[prim_var_str]  = np.array(micro_model.prim_vars[prim_var_str])
             except KeyError:
-                print(f'{prim_var_str} is not in the hdf5 dataset: check Primitive/')
+                print(f'{method_str} is not in the hdf5 dataset: check Primitive/')
         
+
+        self.translating_aux = dict.fromkeys(micro_model.get_aux_strs())
+        for aux_str in micro_model.get_aux_strs():
+            self.translating_aux[aux_str] = aux_str
 
         for aux_var_str in  micro_model.aux_vars:
             try: 
+                method_str = self.translating_aux[aux_var_str]
                 for counter in range(self.num_files):
-                    micro_model.aux_vars[aux_var_str].append( self.hdf5_files[counter]["Auxiliary/"+aux_var_str][:] )
+                    micro_model.aux_vars[aux_var_str].append( self.hdf5_files[counter]["Auxiliary/"+method_str][:] )
                 micro_model.aux_vars[aux_var_str] = np.array(micro_model.aux_vars[aux_var_str])
             except KeyError:
-                print(f'{aux_var_str} is not in the hdf5 dataset: check Auxiliary/')
+                print(f'{method_str} is not in the hdf5 dataset: check Auxiliary/')
  
         # As METHOD saves endTime, the time variables (and points) need to be dealt with separately
         for dom_var_str in micro_model.domain_int_strs: 
@@ -91,19 +105,6 @@ class METHOD_HDF5(object):
                 print(f'{dom_var_str} is not in the hdf5 dataset: check Domain/')
 
 
-        # for dom_var_str in micro_model.domain_vars:
-        #     try: 
-        #         if dom_var_str in ['t','nt','tmin','tmax','points']:
-        #             pass
-        #         if dom_var_str in ['x', 'y']:
-        #             micro_model.domain_vars[dom_var_str] =  self.hdf5_files[0]['Domain/' + dom_var_str][:]
-        #         if dom_var_str in ['nx', 'ny']:
-        #             micro_model.domain_vars[dom_var_str] =  int(self.hdf5_files[0]['Domain/' + dom_var_str][:]
-        #         else:
-        #             micro_model.domain_vars[dom_var_str] =  self.hdf5_files[0]['Domain/' + dom_var_str][:]
-        #     except KeyError:
-        #         print(f'{dom_var_str} is not in the hdf5 dataset: check Domain/')
-
         micro_model.domain_vars['nt'] = self.num_files
         for counter in range(self.num_files):
             micro_model.domain_vars['t'].append( float(self.hdf5_files[counter]['Domain/endTime'][:]))
@@ -113,17 +114,10 @@ class METHOD_HDF5(object):
         micro_model.domain_vars['points'] = [micro_model.domain_vars['t'], micro_model.domain_vars['x'], \
                                              micro_model.domain_vars['y']]
 
-    
 if __name__ == '__main__':
 
     from MicroModels import * 
 
     FileReader = METHOD_HDF5('./Data/test_res100/')
     MicroModel = IdealMHD_2D()
-
-    # print(FileReader.get_hdf5_keys())
-    # FileReader.micro_model_compatibility(MicroModel)
     FileReader.read_in_data(MicroModel)
-    for str in MicroModel.domain_vars:
-        print(str + '  ',type(MicroModel.domain_vars[str]),' ', MicroModel.domain_vars[str], '\n')
-    

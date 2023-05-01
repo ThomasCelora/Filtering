@@ -155,7 +155,10 @@ class NonIdealHydro(object):
         return -Pi_res/Theta, -q_res/omega, -pi_res/sigma
         
         
-        
+class meso_model_example(object):
+
+    def __init__(self, micro_model, constraint, filter):
+        pass
         
         
         
