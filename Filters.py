@@ -733,45 +733,8 @@ class Box_filter(object):
         
         return np.multiply( integrand, 1 / (self.filter_width**self.spatial_dims)), error
 
-        integrand = 0
-        counter = 0
-        start_cell, end_cell = micro_model.find_nearest_cell([t-(self.L/2),x-(self.L/2),y-(self.L/2)]), \
-            micro_model.find_nearest_cell([t+(self.L/2),x+(self.L/2),y+(self.L/2)])
-        for i in range(start_cell[0],end_cell[0]+1):
-            for j in range(start_cell[1],end_cell[1]+1):
-                for k in range(start_cell[2],end_cell[2]+1):
-                    integrand += self.vars[quant_str][i][j,k]
-                    counter += 1
-        return integrand/counter
-
-
-        for vec in tetrad: 
-            rem_vecs = [x for x in tetrad if not (x==vec).all()]
-            for i in range(2):
-                center = point + np.multiply( (-1)**i * self.L / 2, vec)
-
-                xs = []
-                for i in range(self.spatial_dims):
-                    xs.append(np.linspace(-self.L /2 , self.L /2, lin_spacing))
-                coords = []
-                for element in product(*xs):
-                    coords.append(np.array(element))
-
-                surf_coords = []
-                for coord in coords:
-                    temp = center
-                    for i in range(self.spatial_dims):
-                        temp += np.multiply(coord[i], rem_vecs[i])
-                    surf_coords.append(temp)
-
-                for coord in surf_coords: 
-                    U = self.micro_model.get_interpol_struct('bar_vel', coord)
-                    rho = self.micro_model.get_interpol_prim(['rho'], coord)
-                    Na = np.multiply(rho, U)
-                    flux += self.Mink_dot(Na, vec)
-
-        flux *= (self.L / lin_spacing) ** self.spatial_dims
-        return abs(flux)
+if __name__ == '__main__':
+    CPU_start_time = time.process_time()
 
     FileReader = METHOD_HDF5('./Data/test_res100/')
     micro_model = IdealMHD_2D()
