@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Mar 31 10:00:00 2023
-
 @author: Thomas
 """
 
@@ -15,7 +14,6 @@ class METHOD_HDF5(object):
         """
         Set up the list of files (from hdf5) and dictionary with dataset names
         in the hdf5 file. 
-
         Parameters
         ----------
         directory: string 
@@ -38,7 +36,6 @@ class METHOD_HDF5(object):
     def read_in_data(self, micro_model):   
         """
         Store data from files into micro_model 
-
         Parameters
         ----------
         micro_model: class MicroModel 

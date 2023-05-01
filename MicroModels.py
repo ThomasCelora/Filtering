@@ -6,7 +6,7 @@ Created on Fri Mar 31 10:00:02 2023
 """
 
 from FileReaders import *
-from scipy.interpolate import interpn 
+from scipy.interpolate import interpn
 # from scipy import interpolate
 import numpy as np
 import math
@@ -99,8 +99,8 @@ class IdealMHD_2D(object):
             for i in range(self.domain_vars['nx']):
                 for j in range(self.domain_vars['ny']): 
                     self.structures["bar_vel"][0,h,i,j] = self.aux_vars['W'][h,i,j] 
-                    self.structures["bar_vel"][1,h,i,j] = self.aux_vars['W'][h,i,j] * self.prim_vars['vx'][h,i,j]
-                    self.structures["bar_vel"][2,h,i,j] = self.aux_vars['W'][h,i,j] * self.prim_vars['vy'][h,i,j]
+                    self.structures["bar_vel"][1,h,i,j] = self.aux_vars['W'][h,i,j] * self.prim_vars['v1'][h,i,j]
+                    self.structures["bar_vel"][2,h,i,j] = self.aux_vars['W'][h,i,j] * self.prim_vars['v2'][h,i,j]
                     vel = np.array(self.structures["bar_vel"][:,h,i,j])
 
                     fibr_b = np.array([self.aux_vars['b0'][h,i,j],self.aux_vars['bx'][h,i,j],self.aux_vars['by'][h,i,j]])
@@ -538,8 +538,9 @@ if __name__ == '__main__':
 
     CPU_start_time = time.process_time()
 
-    FileReader = METHOD_HDF5('./Data/test_res100/')
-    micro_model = IdealMHD_2D()
+    FileReader = METHOD_HDF5('./Data/Testing/')
+    # micro_model = IdealMHD_2D()
+    micro_model = IdealHydro_2D()
     FileReader.read_in_data(micro_model) 
     micro_model.setup_structures()
 
