@@ -118,10 +118,6 @@ class IdealMHD_2D(object):
                     self.structures['Faraday'][:,:,h,i,j] = np.outer( fol_vel_vec,fol_e_vec) - np.outer(fol_e_vec,fol_vel_vec) -\
                                                 np.tensordot(self.Levi3D,fol_b_vec,axes=([2],[0]))
 
-        self.vars = self.prim_vars
-        self.vars.update(self.aux_vars)
-        self.vars.update(self.structures) 
-
     def get_interpol_prim(self, vars, point): 
         """
         Returns the interpolated variable at the point
