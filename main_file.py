@@ -19,6 +19,7 @@ if __name__ == '__main__':
     CPU_start_time = time.process_time()
 
     FileReader = METHOD_HDF5('./Data/Testing/')
+    # FileReader = METHOD_HDF5('../../Filtering/Data/KH/Ideal/t_1998_2002/')
     # micro_model = IdealMHD_2D()
     micro_model = IdealHydro_2D()
     FileReader.read_in_data(micro_model) 

@@ -57,60 +57,6 @@ class Base(object):
         W = 1 / np.sqrt(1-np.sum(spatial_vels**2))
         return np.insert(spatial_vels,0,W)    
 
-    def get_U_mu_MagTheta(self, Vmag_Vtheta):
-        """
-        Construct (2+1)-velocity (meso) from spatial Polar (r, theta) components
-        """
-        Vmag, Vtheta = Vmag_Vtheta[0], Vmag_Vtheta[1]
-        return self.get_U_mu([Vmag*np.cos(Vtheta),Vmag*np.sin(Vtheta)])
-    
-    def construct_tetrad(self, U):
-        """
-        Construct 2 tetrad vectors that are perpendicular to (2+1)-velocity U,
-        and each other. These are used to define the box for filtering.
-        """
-        e_x = np.array([0.0,1.0,0.0]) # 1 + 2D
-        E_x = e_x + np.multiply(self.Mink_dot(U,e_x),U)
-        E_x = E_x / np.sqrt(self.Mink_dot(E_x,E_x)) # normalization
-        e_y = np.array([0.0,0.0,1.0])
-        E_y = e_y + np.multiply(self.Mink_dot(U,e_y),U) - np.multiply(self.Mink_dot(E_x,e_y),E_x)
-        E_y = E_y / np.sqrt(self.Mink_dot(E_y,E_y))
-        return E_x, E_y
-        
-    def find_boundary_pts(self, E_x,E_y,P,L):
-        """
-        Find the (four) corners of the box that is the filtering region.
-
-        Parameters
-        ----------
-        E_x : list of floats
-            One tetrad vector.
-        E_y : list of floats
-            Second tetrad vector.
-        P : list of floats
-            Coordinate of the centre of the box (t,x,y).
-        L : float
-            Filtering lengthscale (length of one side of the box).
-
-        Returns
-        -------
-        corners : list of list of floats
-            list of the coordinates of the box's corners.
-
-        """
-        c1 = P + (L/2)*(E_x + E_y)
-        c2 = P + (L/2)*(E_x - E_y)
-        c3 = P + (L/2)*(-E_x - E_y)
-        c4 = P + (L/2)*(-E_x + E_y)
-        corners = [c1,c2,c3,c4]
-        return corners
-    
-    def surface_flux(self, x,E_x,E_y,P,direc_vec):
-        point = P + x*(E_x + E_y)
-        u, n = self.interpolate_u_n_point(point)
-        n_mu = np.multiply(u,n)
-        return self.Mink_dot(n_mu,direc_vec)
-
     @staticmethod
     def project_tensor(vector1_wrt, vector2_wrt, to_project):
         return np.inner(vector1_wrt,np.inner(vector2_wrt,to_project))
@@ -140,12 +86,9 @@ class Base(object):
             print("find_nearest_cell: The length of the coordinate vector\
                    does not match the length of the coordinates.")
         positions = []
-        for dim in len(point):
-            positions.append(self.find_nearest(points[dim], point[dim]))
-        t_pos = self.find_nearest(points,point[0])
-        x_pos = self.find_nearest(self.xs,point[1])
-        y_pos = self.find_nearest(self.ys,point[2])
-        return [np.where(points[dim] == positions[i])[0][0] for i in len(positions)]
+        for dim in range(len(point)):
+            positions.append(Base.find_nearest(points[dim], point[dim]))
+        return [np.where(points[i] == positions[i])[0][0] for i in range(len(positions))]
     
     def profile(self, fnc):
         """A decorator that uses cProfile to profile a function"""
