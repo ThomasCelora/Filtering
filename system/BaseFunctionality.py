@@ -21,21 +21,41 @@ import math
 
 class Base(object):
 
-    def Mink_dot(self,vec1,vec2):
+    @staticmethod
+    def Mink_dot(vec1,vec2):
         """
-        Inner-product in (n+1)-dimensions
+        Parameters:
+        -----------
+        vec1, vec2 : list of floats (or np.arrays)
+
+        Return:
+        -------
+        mink-dot (cartesian) in 1+n dim
         """
-        dot = -vec1[0]*vec2[0] # time component
+        if len(vec1) != len(vec2):
+            print("The two vectors passed to Mink_dot are not of same dimension!")
+
+        dot = -vec1[0]*vec2[0]
         for i in range(1,len(vec1)):
-            dot += vec1[i]*vec2[i] # spatial components
+            dot += vec1[i] * vec2[i]
         return dot
-    
-    def get_rel_vel(self, spatial_vels):
+  
+    @staticmethod
+    def get_rel_vel(spatial_vels):
         """
-        Construct (n+1)-velocity (meso) from spatial Cartesian (x,y,...) components
+        Build unit vectors starting from spatial components
+        Needed as this will enter the minimization procedure
+
+        Parameters:
+        ----------
+        spatial_vels: list of floats
+
+        Returns:
+        --------
+        list of floats: the d+1 vector, normalized wrt Mink metric
         """
         W = 1 / np.sqrt(1-np.sum(spatial_vels**2))
-        return spatial_vels.insert(spatial_vels,0,W)    
+        return np.insert(spatial_vels,0,W)    
 
     def get_U_mu_MagTheta(self, Vmag_Vtheta):
         """
@@ -104,19 +124,28 @@ class Base(object):
     A pair of functions that work in conjuction (thank you stack overflow).
     find_nearest returns the closest value to in put 'value' in 'array',
     find_nearest_cell then takes this closest value and returns its indices.
+    Should now work for any dimensional data.
     """
-    def find_nearest(self, array, value):
+    @staticmethod
+    def find_nearest(array, value):
         idx = np.searchsorted(array, value, side="left")
         if idx > 0 and (idx == len(array) or math.fabs(value - array[idx-1]) < math.fabs(value - array[idx])):
             return array[idx-1]
         else:
             return array[idx]
-        
-    def find_nearest_cell(self, point):
-        t_pos = self.find_nearest(self.ts,point[0])
+
+    @staticmethod   
+    def find_nearest_cell(point, points):
+        if len(points) != len(point):
+            print("find_nearest_cell: The length of the coordinate vector\
+                   does not match the length of the coordinates.")
+        positions = []
+        for dim in len(point):
+            positions.append(self.find_nearest(points[dim], point[dim]))
+        t_pos = self.find_nearest(points,point[0])
         x_pos = self.find_nearest(self.xs,point[1])
         y_pos = self.find_nearest(self.ys,point[2])
-        return [np.where(self.ts==t_pos)[0][0], np.where(self.xs==x_pos)[0][0], np.where(self.ys==y_pos)[0][0]]
+        return [np.where(points[dim] == positions[i])[0][0] for i in len(positions)]
     
     def profile(self, fnc):
         """A decorator that uses cProfile to profile a function"""
