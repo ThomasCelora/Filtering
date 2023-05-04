@@ -12,7 +12,7 @@ from itertools import product
 
 from MicroModels import *
 from FileReaders import *
-
+from system.BaseFunctionality import *
 
 class Favre_observers(object): 
 
@@ -75,7 +75,31 @@ class Favre_observers(object):
             U.append(W * spatial_vels[i])
         return U
         
-    
+    def get_tetrad_from_U(self, U):
+        """
+        Build tetrad orthogonal to unit velocity with from complete velocity vector
+
+        Parameters:
+        -----------
+        U: list of d+1 floats, with d the number of spatial dimensions 
+
+        Return:
+        -------
+        list of arrays: U + d unit vectors that complete it to a orthonormal basis
+        """
+        es =[]
+        for _ in range(self.spatial_dims):
+            es.append(np.zeros(self.spatial_dims+1))
+        for i in range(len(es)):
+            es[i][i+1]  = 1    
+        tetrad = [U]
+        for i, vec in enumerate(es): #enumerate returns a tuple: so acts by value not reference!
+            vec = vec + np.multiply(self.Mink_dot(vec, U), U)
+            for j in range(i-1,-1,-1):
+                vec = vec - np.multiply(self.Mink_dot(vec, es[j]), es[j])
+            es[i] = np.multiply(vec, 1 / np.sqrt(self.Mink_dot(vec, vec)))
+            tetrad += [es[i]]
+        return tetrad        
 
     def get_tetrad_from_vels(self, spatial_vels):
         """
@@ -91,19 +115,7 @@ class Favre_observers(object):
         """
 
         U = np.array(self.get_U_from_vels(spatial_vels))
-        es =[]
-        for _ in range(self.spatial_dims):
-            es.append(np.zeros(self.spatial_dims+1))
-        for i in range(len(es)):
-            es[i][i+1]  = 1    
-        tetrad = [U]
-        for i, vec in enumerate(es): #enumerate returns a tuple: so acts by value not reference!
-            vec = vec + np.multiply(self.Mink_dot(vec, U), U)
-            for j in range(i-1,-1,-1):
-                vec = vec - np.multiply(self.Mink_dot(vec, es[j]), es[j])
-            es[i] = np.multiply(vec, 1 / np.sqrt(self.Mink_dot(vec, vec)))
-            tetrad += [es[i]]
-        return tetrad 
+        return self.get_tetrad_from_U(U)
 
 
     def Favre_residual(self, spatial_vels, point, lin_spacing):
@@ -155,8 +167,8 @@ class Favre_observers(object):
                     surf_coords.append(temp)
 
                 for coord in surf_coords: 
-                    U = self.micro_model.get_interpol_struct('bar_vel', coord)
-                    rho = self.micro_model.get_interpol_prim(['rho'], coord)
+                    U = self.micro_model.get_interpol_var(['bar_vel'], coord)[0]
+                    rho = self.micro_model.get_interpol_var(['rho'], coord)
                     Na = np.multiply(rho, U)
                     flux += self.Mink_dot(Na, vec)
 
@@ -281,8 +293,8 @@ class Favre_observers(object):
         success_coords = []
         failed_coords = []
 
-        for coord in coords:          
-            U = self.micro_model.get_interpol_struct('bar_vel', coord)
+        for coord in coords:
+            U = self.micro_model.get_interpol_var(['bar_vel'], coord)[0]
             guess = []
             for i in range(1, len(U)):
                 guess.append(U[i] / U[0])
@@ -303,7 +315,49 @@ class Favre_observers(object):
 
         return [success_coords, observers, funs] , failed_coords
 
-    def filter_var(self, centre_coord, spatial_vels, var_str, shape='box'):
+    """
+    A pair of functions that work in conjuction (thank you stack overflow).
+    find_nearest returns the closest value to in put 'value' in 'array',
+    find_nearest_cell then takes this closest value and returns its indices.
+    """
+    def find_nearest(self, array, value):
+        idx = np.searchsorted(array, value, side="left")
+        if idx > 0 and (idx == len(array) or math.fabs(value - array[idx-1]) < math.fabs(value - array[idx])):
+            return array[idx-1]
+        else:
+            return array[idx]
+        
+    def find_nearest_cell(self, coord):
+        t_pos = self.find_nearest(self.micro_model.domain_vars['t'],coord[0])
+        x_pos = self.find_nearest(self.micro_model.domain_vars['x'],coord[1])
+        y_pos = self.find_nearest(self.micro_model.domain_vars['y'],coord[2])
+        return [np.where(self.micro_model.domain_vars['t']==t_pos)[0][0],\
+                np.where(self.micro_model.domain_vars['x']==x_pos)[0][0],\
+                np.where(self.micro_model.domain_vars['y']==y_pos)[0][0]]
+
+    def filter_prim_var(self, centre_coord, U, var_str, shape='box'):
+        """
+        Filter a variable over the volume of a box with centre given by 'point'.
+        Originally done by scipy integration over the volume, but again incredibly
+        slow so now a manual sum over all the cells within the box and then a 
+        division by total number of cells.
+        """
+        tetrad = self.get_tetrad_from_U(U)
+        start_coord, end_coord = centre_coord, centre_coord
+        for coord, vec in zip(centre_coord, tetrad):
+            start_coord -= np.array(vec)*self.L/2
+            end_coord += np.array(vec)*self.L/2
+        integrand = 0
+        counter = 0
+        start_cell, end_cell = self.find_nearest_cell(start_coord), self.find_nearest_cell(end_coord)
+        for i in range(start_cell[0],end_cell[0]+1):
+            for j in range(start_cell[1],end_cell[1]+1):
+                for k in range(start_cell[2],end_cell[2]+1):
+                    integrand += self.micro_model.prim_vars[var_str][i,j,k]
+                    counter += 1
+        return integrand/counter
+
+    def filter_struc(self, centre_coord, U, var_str, shape='box'):
         """
         Filter a variable over the volume of a box with centre given by 'point'.
         Originally done by scipy integration over the volume, but again incredibly
@@ -311,55 +365,21 @@ class Favre_observers(object):
         division by total number of cells.
         """
         # contruct tetrad...
-        tetrad = self.get_tetrad_from_vels(spatial_vels)
-        start_coord = []
-        end_coord = []
-        for coord in centre_coord:
-            start_coord.append(np.array([coord-self.L/2]))
-            end_coord.append(np.array([coord+self.L/2]))
-
+        tetrad = self.get_tetrad_from_U(U)
+        start_coord, end_coord = centre_coord, centre_coord
+        for coord, vec in zip(centre_coord, tetrad):
+            start_coord -= np.array(vec)*self.L/2
+            end_coord += np.array(vec)*self.L/2
         integrand = 0
         counter = 0
-        start_cell, end_cell = micro_model.find_nearest_cell([t-(self.L/2),x-(self.L/2),y-(self.L/2)]), \
-            micro_model.find_nearest_cell([t+(self.L/2),x+(self.L/2),y+(self.L/2)])
+        start_cell, end_cell = self.find_nearest_cell(start_coord), self.find_nearest_cell(end_coord)
         for i in range(start_cell[0],end_cell[0]+1):
             for j in range(start_cell[1],end_cell[1]+1):
                 for k in range(start_cell[2],end_cell[2]+1):
-                    integrand += self.vars[quant_str][i][j,k]
+                    integrand += self.micro_model.structures[var_str][i,j,k]
                     counter += 1
         return integrand/counter
 
-
-        for vec in tetrad: 
-            rem_vecs = [x for x in tetrad if not (x==vec).all()]
-            for i in range(2):
-                center = point + np.multiply( (-1)**i * self.L / 2, vec)
-
-                xs = []
-                for i in range(self.spatial_dims):
-                    xs.append(np.linspace(-self.L /2 , self.L /2, lin_spacing))
-                coords = []
-                for element in product(*xs):
-                    coords.append(np.array(element))
-
-                surf_coords = []
-                for coord in coords:
-                    temp = center
-                    for i in range(self.spatial_dims):
-                        temp += np.multiply(coord[i], rem_vecs[i])
-                    surf_coords.append(temp)
-
-                for coord in surf_coords: 
-                    U = self.micro_model.get_interpol_struct('bar_vel', coord)
-                    rho = self.micro_model.get_interpol_prim(['rho'], coord)
-                    Na = np.multiply(rho, U)
-                    flux += self.Mink_dot(Na, vec)
-
-        flux *= (self.L / lin_spacing) ** self.spatial_dims
-        return abs(flux)
-
-
-    
     def get_interpol_var(self, t, x, y, var_str):
         return self.micro_model.get_interpol_var(var_str, [t,x,y])
 
@@ -381,9 +401,6 @@ class Favre_observers(object):
                                             args = var_str, epsabs = 1e-6 )[:]
             
         return vol_integrand/(self.L)**3, error
-
-        coords = point + np.multiply(x, Vx) + np.multiply(y, Vy)
-
 
 # if __name__ == '__main__':
 #     CPU_start_time = time.process_time()

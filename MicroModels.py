@@ -51,7 +51,7 @@ class IdealMHD_2D(object):
             self.domain_vars[str] = []   
 
         #Dictionary for primitive var
-        self.prim_strs = ("v1","v2","rho","p","Bx","By")
+        self.prim_strs = ("vx","vy","rho","p","Bx","By")
         self.prim_vars = dict.fromkeys(self.prim_strs)
         for str in self.prim_strs:
             self.prim_vars[str] = []
@@ -243,7 +243,7 @@ class IdealHydro_2D(object):
             self.domain_vars[str] = []   
 
         #Dictionary for primitive var
-        self.prim_strs = ("v1","v2","rho","p")
+        self.prim_strs = ("v1","v2","rho","p","n")
         self.prim_vars = dict.fromkeys(self.prim_strs)
         for str in self.prim_strs:
             self.prim_vars[str] = []
@@ -262,7 +262,10 @@ class IdealHydro_2D(object):
 
         #Dictionary for all vars
         self.var_strs = self.prim_strs + self.aux_strs + self.structures_strs
-
+        # self.vars = self.prim_vars
+        # self.vars.update(self.aux_vars)
+        # self.vars.update(self.structures)   
+        
     def get_domain_strs(self):
         return self.domain_info_strs + self.domain_points_strs
     
@@ -275,6 +278,29 @@ class IdealHydro_2D(object):
     def get_structures_strs(self):
         return self.get_structures_strs
 
+    # def setup_structures(self):
+    #     """
+    #     Set up the structures (i.e baryon vel, SET and Faraday) 
+
+    #     Structures are built as multi-dim np.arrays, with the first indices referring 
+    #     corrensponding to their components, the last three to the grid coordinates.
+    #     """
+    #     self.structures["bar_vel"] = np.zeros((3,self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny']))
+    #     self.structures["SET"] = np.zeros((3,3,self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny']))
+
+    #     for h in range(self.domain_vars['nt']):
+    #         for i in range(self.domain_vars['nx']):
+    #             for j in range(self.domain_vars['ny']): 
+    #                 self.structures["bar_vel"][0,h,i,j] = self.aux_vars['W'][h,i,j] 
+    #                 self.structures["bar_vel"][1,h,i,j] = self.aux_vars['W'][h,i,j] * self.prim_vars['v1'][h,i,j]
+    #                 self.structures["bar_vel"][2,h,i,j] = self.aux_vars['W'][h,i,j] * self.prim_vars['v2'][h,i,j]
+    #                 vel = np.array(self.structures["bar_vel"][:,h,i,j])
+
+                    
+    #                 self.structures["SET"][:,:,h,i,j] = (self.prim_vars["rho"][h,i,j] + self.prim_vars["p"][h,i,j]) * \
+    #                                                 np.outer(vel,vel) + self.prim_vars["p"][h,i,j] * self.metric
+                
+
     def setup_structures(self):
         """
         Set up the structures (i.e baryon vel, SET and Faraday) 
@@ -282,25 +308,24 @@ class IdealHydro_2D(object):
         Structures are built as multi-dim np.arrays, with the first indices referring 
         corrensponding to their components, the last three to the grid coordinates.
         """
-        self.structures["bar_vel"] = np.zeros((3,self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny']))
-        self.structures["SET"] = np.zeros((3,3,self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny']))
+        self.structures["bar_vel"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3))
+        self.structures["SET"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3,3))
 
         for h in range(self.domain_vars['nt']):
             for i in range(self.domain_vars['nx']):
                 for j in range(self.domain_vars['ny']): 
-                    self.structures["bar_vel"][0,h,i,j] = self.aux_vars['W'][h,i,j] 
-                    self.structures["bar_vel"][1,h,i,j] = self.aux_vars['W'][h,i,j] * self.prim_vars['v1'][h,i,j]
-                    self.structures["bar_vel"][2,h,i,j] = self.aux_vars['W'][h,i,j] * self.prim_vars['v2'][h,i,j]
-                    vel = np.array(self.structures["bar_vel"][:,h,i,j])
+                    self.structures["bar_vel"][h,i,j,0] = self.aux_vars['W'][h,i,j] 
+                    self.structures["bar_vel"][h,i,j,1] = self.aux_vars['W'][h,i,j] * self.prim_vars['v1'][h,i,j]
+                    self.structures["bar_vel"][h,i,j,2] = self.aux_vars['W'][h,i,j] * self.prim_vars['v2'][h,i,j]
+                    vel = np.array(self.structures["bar_vel"][h,i,j,:])
 
                     
-                    self.structures["SET"][:,:,h,i,j] = (self.prim_vars["rho"][h,i,j] + self.prim_vars["p"][h,i,j]) * \
+                    self.structures["SET"][h,i,j,:,:] = (self.prim_vars["rho"][h,i,j] + self.prim_vars["p"][h,i,j]) * \
                                                     np.outer(vel,vel) + self.prim_vars["p"][h,i,j] * self.metric
 
         self.vars = self.prim_vars
         self.vars.update(self.aux_vars)
-        self.vars.update(self.structures)                    
-
+        self.vars.update(self.structures)
 
     def get_interpol_prim(self, var_names, point): 
         """
@@ -390,7 +415,7 @@ class IdealHydro_2D(object):
             print(f"{var} does not belong to the structures in the micro_model")
         return res    
 
-    def get_interpol_var(self, var_names, point): 
+    def get_interpol_var(self, var_names, point):
         """
         Returns the interpolated structure at the point
 
@@ -415,7 +440,7 @@ class IdealHydro_2D(object):
             try:
                 res.append( interpn(self.domain_vars["points"], self.vars[var_name], point, method = self.interp_method)[0])
             except KeyError:
-                print(f"{var_name} does not belong to the auxiliary variables of the micro_model!")
+                print(f"{var_name} does not belong to the variables of the micro_model!")
         return res
 
 

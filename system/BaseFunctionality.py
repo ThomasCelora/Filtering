@@ -90,12 +90,14 @@ class Base(object):
         u, n = self.interpolate_u_n_point(point)
         n_mu = np.multiply(u,n)
         return self.Mink_dot(n_mu,direc_vec)
-    
-    def project_tensor(self, vector1_wrt, vector2_wrt, to_project):
+
+    @staticmethod
+    def project_tensor(vector1_wrt, vector2_wrt, to_project):
         return np.inner(vector1_wrt,np.inner(vector2_wrt,to_project))
     
-    def orthogonal_projector(self, u):
-        return self.metric + np.outer(u,u)    
+    @staticmethod
+    def orthogonal_projector(u, metric):
+        return metric + np.outer(u,u)    
 
 
     """
