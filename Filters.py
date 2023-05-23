@@ -159,8 +159,8 @@ class Favre_observers(object):
                     surf_coords.append(temp)
 
                 for coord in surf_coords: 
-                    U = self.micro_model.get_interpol_struct('bar_vel', coord)
-                    n = self.micro_model.get_interpol_prim(['n'], coord)
+                    U = self.micro_model.get_interpol_var('bar_vel', coord)
+                    n = self.micro_model.get_interpol_var('n', coord)
                     Na = np.multiply(n, U)
                     flux += self.Mink_dot(Na, vec)
 
@@ -246,8 +246,8 @@ class Favre_observers(object):
                     surf_coords.append(temp)
 
                 for i, coord in enumerate(surf_coords): 
-                    U = self.micro_model.get_interpol_struct('bar_vel', coord)
-                    n = self.micro_model.get_interpol_prim(['n'], coord)
+                    U = self.micro_model.get_interpol_var('bar_vel', coord)
+                    n = self.micro_model.get_interpol_var('n', coord)
                     Na = np.multiply(n, U)
                     flux += self.Mink_dot(Na, vec) * totws[i]
 
@@ -288,8 +288,8 @@ class Favre_observers(object):
         if self.spatial_dims == 2: 
             def point_flux(x, y , center, Vx, Vy, normal):
                 coords = center + np.multiply(x, Vx) + np.multiply(y, Vy)
-                U = self.micro_model.get_interpol_struct('bar_vel', coords)
-                n = self.micro_model.get_interpol_prim(['n'], coords)
+                U = self.micro_model.get_interpol_var('bar_vel', coords)
+                n = self.micro_model.get_interpol_vars('n', coords)
                 Na = np.multiply(n, U)
                 flux = self.Mink_dot(Na, normal)
                 return flux
@@ -307,8 +307,8 @@ class Favre_observers(object):
         elif self.spatial_dims == 3: 
             def point_flux(x, y, z , center, Vx, Vy, Vz, normal):
                 coords = center + np.multiply(x, Vx) + np.multiply(y, Vy) + np.multiply(z, Vz)
-                U = self.micro_model.get_interpol_struct('bar_vel', coords)
-                n = self.micro_model.get_interpol_prim(['n'], coords)
+                U = self.micro_model.get_interpol_var('bar_vel', coords)
+                n = self.micro_model.get_interpol_var('n', coords)
                 Na = np.multiply(n, U)
                 flux = self.Mink_dot(Na, normal)
                 return flux
@@ -346,7 +346,7 @@ class Favre_observers(object):
         the optional arguments in the corresponding methods.
         """
 
-        U = self.micro_model.get_interpol_struct('bar_vel', point)
+        U = self.micro_model.get_interpol_var('bar_vel', point)
         guess = []
         for i in range(1, len(U)):
             guess.append(U[i] / U[0])

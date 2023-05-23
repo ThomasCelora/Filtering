@@ -88,25 +88,25 @@ class IdealMHD_2D(object):
         """
         Set up the structures (i.e baryon vel, SET and Faraday) 
 
-        Structures are built as multi-dim np.arrays, with the first indices referring 
-        corrensponding to their components, the last three to the grid coordinates.
+        Structures are built as multi-dim np.arrays, with the first three indices referring 
+        to the grid, while the last one or two refer to space-time components.
         """
-        self.structures["bar_vel"] = np.zeros((3,self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny']))
-        self.structures["SET"] = np.zeros((3,3,self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny']))
-        self.structures["Faraday"] = np.zeros((3,3,self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny']))
+        self.structures["bar_vel"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3))
+        self.structures["SET"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3,3))
+        self.structures["Faraday"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3,3))
 
         for h in range(self.domain_vars['nt']):
             for i in range(self.domain_vars['nx']):
                 for j in range(self.domain_vars['ny']): 
-                    self.structures["bar_vel"][0,h,i,j] = self.aux_vars['W'][h,i,j] 
-                    self.structures["bar_vel"][1,h,i,j] = self.aux_vars['W'][h,i,j] * self.prim_vars['vx'][h,i,j]
-                    self.structures["bar_vel"][2,h,i,j] = self.aux_vars['W'][h,i,j] * self.prim_vars['vy'][h,i,j]
-                    vel = np.array(self.structures["bar_vel"][:,h,i,j])
+                    self.structures["bar_vel"][h,i,j,0] = self.aux_vars['W'][h,i,j] 
+                    self.structures["bar_vel"][h,i,j,1] = self.aux_vars['W'][h,i,j] * self.prim_vars['vx'][h,i,j]
+                    self.structures["bar_vel"][h,i,j,2] = self.aux_vars['W'][h,i,j] * self.prim_vars['vy'][h,i,j]
+                    vel = np.array(self.structures["bar_vel"][h,i,j,:])
 
                     fibr_b = np.array([self.aux_vars['b0'][h,i,j],self.aux_vars['bx'][h,i,j],self.aux_vars['by'][h,i,j]])
 
                     
-                    self.structures["SET"][:,:,h,i,j] = (self.prim_vars["n"][h,i,j] + self.prim_vars["p"][h,i,j] + self.aux_vars["bsq"][h,i,j]) * \
+                    self.structures["SET"][h,i,j,:,:] = (self.prim_vars["n"][h,i,j] + self.prim_vars["p"][h,i,j] + self.aux_vars["bsq"][h,i,j]) * \
                                                     np.outer( vel,vel) + (self.prim_vars["p"][h,i,j] + self.aux_vars["bsq"][h,i,j]/2) * self.metric \
                                                     - np.outer(fibr_b, fibr_b)
                     
@@ -115,133 +115,8 @@ class IdealMHD_2D(object):
                     fol_b_vec = np.array([self.aux_vars["b0"][h,i,j],self.aux_vars["bx"][h,i,j],self.aux_vars["by"][h,i,j]])
                     fol_e_vec = np.tensordot( self.Levi3D, np.outer(vel,fol_b_vec), axes = ([1,2],[0,1]))
 
-                    self.structures['Faraday'][:,:,h,i,j] = np.outer( fol_vel_vec,fol_e_vec) - np.outer(fol_e_vec,fol_vel_vec) -\
+                    self.structures['Faraday'][h,i,j,:,:] = np.outer( fol_vel_vec,fol_e_vec) - np.outer(fol_e_vec,fol_vel_vec) -\
                                                 np.tensordot(self.Levi3D,fol_b_vec,axes=([2],[0]))
-
-    def get_interpol_prim(self, vars, point): 
-        """
-        Returns the interpolated variable at the point
-
-        Parameters
-        ----------
-        vars : list of strings 
-            strings have to be in to prim_vars keys
-        point : list of floats
-            ordered coordinates: t,x,y
-        Return
-        ------
-        list of floats corresponding to string of vars
-
-        Notes
-        -----
-        Interpolation raises a ValueError when out of grid boundaries.   
-        """
-        res = []
-        
-        for var_name in vars:
-            try:
-                res.append( interpn(self.domain_vars["points"], self.prim_vars[var_name], point, method = self.interp_method)[0]) #, bounds_error = False)
-            except KeyError:
-                print(f"{var_name} does not belong to the primitive variables of the micro_model!")    
-        return res
-    
-    def get_interpol_aux(self, vars, point): 
-        """
-        Returns the interpolated variable at the point
-
-        Parameters
-        ----------
-        vars : list of strings 
-            strings have to be in to aux_vars keys
-        point : list of floats
-            ordered coordinates: t,x,y
-        Return
-        ------
-        list of floats corresponding to string of vars
-
-        Notes
-        -----
-        Interpolation gives errors when applied to boundary  
-        """
-
-        res = []
-        for var_name in vars:
-            try:
-                res.append( interpn(self.domain_vars["points"], self.aux_vars[var_name], point, method = self.interp_method)[0])
-            except KeyError:
-                print(f"{var_name} does not belong to the auxiliary variables of the micro_model!")
-        return res
-
-    def get_interpol_struct(self, var, point): 
-        """
-        Returns the interpolated structure at the point
-
-        Parameters
-        ----------
-        var : str corresponding to one of the structures
-            
-        point : list of floats
-            ordered coordinates: t,x,y
-
-        Return
-        ------
-        Array with the interpolated values of the var structure
-            Empty list if var is not a structure in the micro_model
-
-        Notes
-        -----
-        Interpolation gives errors when applied to boundary  
-        """
-        res = []
-        if var == "bar_vel":
-            res = np.zeros(len(self.structures[var][:,0,0,0]))
-            for a in range(len(self.structures[var][:,0,0,0])):
-                res[a] = interpn(self.domain_vars["points"], self.structures[var][a,:,:,:], point, method = self.interp_method)[0]
-        elif var == "SET":   
-            res = np.zeros((len(self.structures[var][:,0,0,0,0]),len(self.structures[var][0,:,0,0,0])))
-            for a in range(len(self.structures[var][:,0,0,0,0])):
-                for b in range(len(self.structures[var][0,:,0,0,0])):
-                    res[a,b] = interpn(self.domain_vars["points"],self.structures[var][a,b,:,:,:], point, method = self.interp_method)[0]                   
-        elif var == "Faraday":
-            res = np.zeros((len(self.structures[var][:,0,0,0,0]),len(self.structures[var][0,:,0,0,0])))
-            for a in range(len(self.structures[var][:,0,0,0,0])):
-                for b in range(len(self.structures[var][0,:,0,0,0])):
-                    res[a,b]= interpn(self.domain_vars["points"],self.structures[var][a,b,:,:,:], point, method = self.interp_method)[0]
-        else:
-            print(f"{var} does not belong to the structures in the micro_model")
-        return res
-
-    def get_interpol_var(self, var, point):
-        """
-        Returns the interpolated var at the point. The method calls the correct one
-        for prim, aux or struct.
-
-        Parameters
-        ----------
-        var : str corresponding to either a primitive, auxiliary or structre variable
-            
-        point : list of floats
-            ordered coordinates: t,x,y
-
-        Return
-        ------
-        Interpolated values of the var 
-        Empty list if var is not a primitive, auxiliary o structure variable of the micro_model
-
-        Notes
-        -----
-        Interpolation gives errors when applied to boundary  
-        """
-        if var in self.get_prim_strs():
-            return self.get_interpol_prim([var], point)[0]
-        
-        elif var in self.get_aux_strs():
-            return self.get_interpol_aux([var], point)[0]
-        
-        elif var in self.get_structures_strs():
-            return self.get_interpol_struct(var, point)
-        else:
-            print('The variable to be interpolated does not belong to the micromodel!')
 
     def find_nearest(self, array, value):
         """
@@ -299,13 +174,13 @@ class IdealMHD_2D(object):
 
         Parameters:
         -----------
-        var: string
+        vars: string corresponding to primitive, auxiliary or structre variable
 
         point: list of 2+1 floats
 
         Returns: 
         --------
-        np.array or np.float 
+        Values or arrays corresponding to variable evaluated at the closest grid-point to input 'point'. 
 
         Notes:
         ------
@@ -313,28 +188,57 @@ class IdealMHD_2D(object):
         becomes too expensive. 
         """
         indices = self.find_nearest_cell(point)
-
         if var in self.get_prim_strs():
             return self.prim_vars[var][tuple(indices)]
-        
+            
         elif var in self.get_aux_strs():
             return self.aux_vars[var][tuple(indices)]
-        
+            
         elif var in self.get_structures_strs():
             if var == "bar_vel":
-                res = np.zeros(self.structures[var][:,0,0,0].shape)
-                for a in range(len(self.structures[var][:,0,0,0])):
-                    res[a] = self.structures[var][tuple([a]+indices)]
-                return res
+                tmp = np.zeros(self.structures[var][0,0,0,:].shape)
+                for a in range(len(self.structures[var][0,0,0,:])):
+                    tmp[a] = self.structures[var][tuple(indices+[a])]
+                return tmp
             else:
-                res = res = np.zeros(self.structures[var][:,:,0,0,0].shape)
-                for a in range(len(res[:,0])):
-                    for b in range(len(res[0,:])):
-                        res[a,b] = self.structures[var][tuple([a,b]+indices)]
-                return res
+                tmp = np.zeros(self.structures[var][0,0,0,:,:].shape)
+                for a in range(len(tmp[:,0])):
+                    for b in range(len(tmp[0,:])):
+                        tmp[a,b] = self.structures[var][tuple(indices+[a,b])]
+                return tmp
         else: 
             print(f"{var} is not a variable of IdealMHD_2D!")
             return None
+
+    def get_interpol_var(self, var, point):
+        """
+        Returns the interpolated variables at the point.
+
+        Parameters
+        ----------
+        vars : str corresponding to primitive, auxiliary or structre variable
+            
+        point : list of floats
+            ordered coordinates: t,x,y
+
+        Return
+        ------
+        Interpolated values/arrays corresponding to variable. 
+        Empty list if none of the variables is a primitive, auxiliary o structure of the micro_model
+
+        Notes
+        -----
+        Interpolation gives errors when applied to boundary 
+        """
+
+        if var in self.get_prim_strs():
+            return interpn(self.domain_vars['points'], self.prim_vars[var], point, method = self.interp_method)[0]
+        elif var in self.get_aux_strs():
+            return interpn(self.domain_vars['points'], self.aux_vars[var], point, method = self.interp_method)[0]
+        elif var in self.get_structures_strs():
+            return interpn(self.domain_vars['points'], self.structures[var], point, method = self.interp_method)[0]
+        else:
+            print(f'{var} is not a primitive, auxiliary variable or structure of the micro_model!!')
 
 
 class IdealHydro_2D(object):
@@ -539,21 +443,11 @@ if __name__ == '__main__':
     FileReader.read_in_data(micro_model) 
     micro_model.setup_structures()
 
-    var = "SET" 
+    # var = "SET" 
     point = [1.502,0.4,0.2]
-    
-    star_time = time.process_time()
-    v1 = micro_model.get_interpol_var(var, point)
-    time4interp =  time.process_time() - star_time
 
-    star_time = time.process_time()
-    v2 = micro_model.get_var_gridpoint(var, point)
-    time4grid =  time.process_time() - star_time
-
-    speedup = time4interp / time4grid
-    error = np.zeros(v1.shape)
-    for ind in np.ndindex(error.shape):
-        error[ind] = (v1[ind] - v2[ind])/v1[ind]
-
-    print(f"Reading from the grid corresponds to a speed up of {speedup}, with an associated"+ \
-          f" componentwise error of \n {error}")
+    vars = ['SET', 'vx']
+    for var in vars: 
+        res = micro_model.get_interpol_var(var, point)
+        res2 = micro_model.get_var_gridpoint(var, point)
+        print(f'{var}: \n {res} \n {res2} \n ********** \n ')
