@@ -683,17 +683,19 @@ if __name__ == '__main__':
     constraint = FindObs_drift_min(micro_model,0.001)
     filter = Box_filter(micro_model, 0.001)
 
-    var = "SET"
+    vars = ['BC','SET']
     point = [1.502,0.3,0.5]
     observer = Base.get_rel_vel(constraint.find_observer(point).x)
-    CPU_start_time = time.process_time()
-    filtvar1 = filter.filter_var_point_inbuilt(var, point, observer)
-    print(f"CPU time to filter SET with in-built method is {time.process_time()- CPU_start_time}. ")
+    for var in vars:
+        CPU_start_time = time.process_time()
+        filtvar1 = filter.filter_var_point_inbuilt(var, point, observer)
+        print(f"CPU time to filter {var} with in-built method is {time.process_time()- CPU_start_time}. ")
 
-    CPU_start_time = time.process_time()
-    filtvar2 = filter.filter_var_point(var, point, observer)
-    print(f"CPU time to filter SET with Gauss method is {time.process_time()- CPU_start_time}. ")
+        CPU_start_time = time.process_time()
+        filtvar2 = filter.filter_var_point(var, point, observer)
+        print(f"CPU time to filter {var} with Gauss method is {time.process_time()- CPU_start_time}. ")
 
-    print(f"Difference between the two is: \n {filtvar1[0] - filtvar2}")
+        print(f"Difference between the two is: \n {filtvar1[0] - filtvar2}")
+        print('\n************************\n')
 
     
