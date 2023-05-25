@@ -10,12 +10,13 @@ import time
 import scipy.integrate as integrate 
 from scipy.optimize import minimize
 from itertools import product
+from system.BaseFunctionality import *
 
 from MicroModels import *
 from FileReaders import *
 
 
-class Favre_observers(object): 
+class FindObs_drift_min(object): 
     """
     Class for computing the Favre observer given a micromodel. 
     Work in any dimension, read on construction from the micro-model. 
@@ -35,54 +36,13 @@ class Favre_observers(object):
         self.L = box_len
 
         self.residuals_methods = { 
-            "gauss" : self.Favre_residual_Gauss ,
-            "linear" : self.Favre_residual ,
-            "inbuilt" : self.Favre_residual_ib
+            "gauss" : self.drift_residual_Gauss ,
+            "linear" : self.drift_residual ,
+            "inbuilt" : self.drift_residual_ib
             }
 
     def set_box_length(self, bl):
         self.L = bl
-
-    def Mink_dot(self, vec1, vec2):
-        """
-        Parameters:
-        -----------
-        vec1, vec2 : list of floats (or np.arrays)
-
-        Return:
-        -------
-        mink-dot (cartesian) in 1+n dim
-        """
-        if len(vec1) != len(vec2):
-            print("The two vectors passed to Mink_dot are not of same dimension!")
-
-        dot = -vec1[0]*vec2[0]
-        for i in range(1,len(vec1)):
-            dot += vec1[i] * vec2[i]
-        return dot
-
-    def get_U_from_vels(self, spatial_vels):
-        """
-        Build unit vectors starting from spatial components
-        Needed as this will enter the minimization procedure
-
-        Parameters:
-        ----------
-        spatial_vels: list of floats
-
-        Returns:
-        --------
-        list of floats: the d+1 vector, normalized wrt Mink metric
-        """
-
-        temp = 0
-        for i in range(len(spatial_vels)):
-            temp += spatial_vels[i]**2
-        W = 1 / np.sqrt(1 - temp)
-        U = [W]
-        for i in range(len(spatial_vels)):
-            U.append(W * spatial_vels[i])
-        return np.array(U)
         
     def get_tetrad_from_vels(self, spatial_vels):
         """
@@ -96,8 +56,11 @@ class Favre_observers(object):
         -------
         list of arrays: U + d unit vectors that complete it to a orthonormal basis
         """
-
-        U = np.array(self.get_U_from_vels(spatial_vels))
+        if len(spatial_vels) != self.spatial_dims:
+            print('The number of spatial velocities passed is not compatible with \
+                  micro_model dimensionality!')
+            return None
+        U = Base.get_rel_vel(spatial_vels)
         es =[]
         for _ in range(self.spatial_dims):
             es.append(np.zeros(self.spatial_dims+1))
@@ -105,14 +68,14 @@ class Favre_observers(object):
             es[i][i+1]  = 1    
         tetrad = [U]
         for i, vec in enumerate(es): #enumerate returns a tuple: so acts by value not reference!
-            vec = vec + np.multiply(self.Mink_dot(vec, U), U)
+            vec = vec + np.multiply(Base.Mink_dot(vec, U), U)
             for j in range(i-1,-1,-1):
-                vec = vec - np.multiply(self.Mink_dot(vec, es[j]), es[j])
-            es[i] = np.multiply(vec, 1 / np.sqrt(self.Mink_dot(vec, vec)))
+                vec = vec - np.multiply(Base.Mink_dot(vec, es[j]), es[j])
+            es[i] = np.multiply(vec, 1 / np.sqrt(Base.Mink_dot(vec, vec)))
             tetrad += [es[i]]
         return tetrad 
 
-    def Favre_residual(self, spatial_vels, point, lin_spacing = 10):
+    def drift_residual(self, spatial_vels, point, lin_spacing = 10):
         """
         Compute the drift of baryons through the box built from vx_vy.
         First get the center of the 2*(d+1) faces of the (d+1)-box, then build coords 
@@ -159,15 +122,12 @@ class Favre_observers(object):
                     surf_coords.append(temp)
 
                 for coord in surf_coords: 
-                    U = self.micro_model.get_interpol_var('bar_vel', coord)
-                    n = self.micro_model.get_interpol_var('n', coord)
-                    Na = np.multiply(n, U)
-                    flux += self.Mink_dot(Na, vec)
+                    flux += Base.Mink_dot(self.micro_model.get_interpol_var('BC', coord), vec)
 
         flux *= (self.L / lin_spacing) ** self.spatial_dims
         return abs(flux)
      
-    def Favre_residual_Gauss(self, spatial_vels, point, order = 3):
+    def drift_residual_Gauss(self, spatial_vels, point, order = 3):
         """
         Alternative for computing manually the Favre residual, using the Gauss
         Legendre method. 
@@ -246,15 +206,13 @@ class Favre_observers(object):
                     surf_coords.append(temp)
 
                 for i, coord in enumerate(surf_coords): 
-                    U = self.micro_model.get_interpol_var('bar_vel', coord)
-                    n = self.micro_model.get_interpol_var('n', coord)
-                    Na = np.multiply(n, U)
-                    flux += self.Mink_dot(Na, vec) * totws[i]
+                    Na = self.micro_model.get_interpol_var('BC',coord)
+                    flux += Base.Mink_dot(Na, vec) * totws[i]
 
         flux *= (self.L /2  ) ** self.spatial_dims 
         return abs(flux)
 
-    def Favre_residual_ib(self, spatial_vels, point, abserr = 1e-7):
+    def drift_residual_ib(self, spatial_vels, point, abserr = 1e-7):
         """
         Compute the residual using inbuilt method dblquad
         Based on function point_flux
@@ -288,9 +246,7 @@ class Favre_observers(object):
         if self.spatial_dims == 2: 
             def point_flux(x, y , center, Vx, Vy, normal):
                 coords = center + np.multiply(x, Vx) + np.multiply(y, Vy)
-                U = self.micro_model.get_interpol_var('bar_vel', coords)
-                n = self.micro_model.get_interpol_vars('n', coords)
-                Na = np.multiply(n, U)
+                Na = self.micro_model.get_interpol_var('BC', coords)
                 flux = self.Mink_dot(Na, normal)
                 return flux
 
@@ -307,9 +263,7 @@ class Favre_observers(object):
         elif self.spatial_dims == 3: 
             def point_flux(x, y, z , center, Vx, Vy, Vz, normal):
                 coords = center + np.multiply(x, Vx) + np.multiply(y, Vy) + np.multiply(z, Vz)
-                U = self.micro_model.get_interpol_var('bar_vel', coords)
-                n = self.micro_model.get_interpol_var('n', coords)
-                Na = np.multiply(n, U)
+                Na = self.micro_model.get_interpol_var('BC', coords)
                 flux = self.Mink_dot(Na, normal)
                 return flux
 
@@ -346,7 +300,7 @@ class Favre_observers(object):
         the optional arguments in the corresponding methods.
         """
 
-        U = self.micro_model.get_interpol_var('bar_vel', point)
+        U = np.multiply(1 / self.micro_model.get_interpol_var('n', point) , self.micro_model.get_interpol_var('BC', point) )
         guess = []
         for i in range(1, len(U)):
             guess.append(U[i] / U[0])
@@ -467,24 +421,6 @@ class Box_filter(object):
         self.spatial_dims = micro_model.get_spatial_dims()
         self.filter_width = filter_width
 
-    def Mink_dot(self, vec1, vec2):
-        """
-        Parameters:
-        -----------
-        vec1, vec2 : list of floats (or np.arrays)
-
-        Return:
-        -------
-        mink-dot (cartesian) in 1+n dim
-        """
-        if len(vec1) != len(vec2):
-            print("The two vectors passed to Mink_dot are not of same dimension!")
-
-        dot = -vec1[0]*vec2[0]
-        for i in range(1,len(vec1)):
-            dot += vec1[i] * vec2[i]
-        return dot
-
     def set_filter_width(self, filter_width):
         """
         Method to change the width of the filter. 
@@ -534,17 +470,17 @@ class Box_filter(object):
             es[i][i+1]  = 1.
         triad = []
         for i, vec in enumerate(es): #enumerate returns a tuple: so acts by value not reference!
-            vec = vec + np.multiply(self.Mink_dot(vec, U), U)
+            vec = vec + np.multiply(Base.Mink_dot(vec, U), U)
             for j in range(i-1,-1,-1):
-                vec = vec - np.multiply(self.Mink_dot(vec, es[j]), es[j])
-            es[i] = np.multiply(vec, 1 / np.sqrt(self.Mink_dot(vec, vec)))
+                vec = vec - np.multiply(Base.Mink_dot(vec, es[j]), es[j])
+            es[i] = np.multiply(vec, 1/np.sqrt(Base.Mink_dot(vec, vec)))
             triad += [es[i]]
         return triad
 
-    def filter_var_point_ip(self, var_str, point, observer, sample_method = "gauss", num_points = 3):
+    def filter_var_point(self, var_str, point, observer, sample_method = "gauss", num_points = 3):
         """
         First complete the observer to a tetrad at the point. Then build coords for 
-        (linearly spaced) sample points in the spatial directions. Then approximate the 
+        sample points in the spatial directions adapted to observer. Then approximate the 
         filter integral as a Riemann sum.
 
         Parameters:
@@ -566,13 +502,12 @@ class Box_filter(object):
 
         Notes: 
         ------
-        The method uses interpolated values for the structure. So this is expected to be 
-        more costly than using only values on the grid points. Using Gauss-Legendre method 
-        should give accurate results for low values of num-points.  
+        Current version uses interpolated values. Should this be too expensive, change
+        get_interpol_var for get_var_gridpoint! 
         
-        If Gauss-Legendre is using interpolated values is too expensive, change: 
-        self.micro_model.get_interpol_var() for self.micro_model.get_var_gridpoint(). 
-        This avoids interpolating, and uses the values on the grid closest to input 'point'.
+        Gauss quadrature gives more accurate results for low values of num-points, hence 
+        reduce number of interpolations.
+        The alternative is to use the gridpoint method with linearly spaced sampling points.
         """
         xs = []
         coords = []  
@@ -653,7 +588,7 @@ class Box_filter(object):
             print("Sample methods to filter variable must be either 'gauss' or 'linear'! ")
             return None
 
-    def filter_var_manypoints_ip(self, var_str, points, observers, sample_method = "gauss", num_points = 3):
+    def filter_var_manypoints(self, var_str, points, observers, sample_method = "gauss", num_points = 3):
         """
         Method to filter a variable in the micro_model given a list of points and observers.
 
@@ -671,6 +606,11 @@ class Box_filter(object):
         Returns:
         --------
         List with the filtered var (np.float or nd.array depending on var_str) at all points
+
+        Notes:
+        ------
+        Current version uses interpolated values. Should this be too expensive, change
+        get_interpol_var for get_var_gridpoint!
         """
         if len(points) != len(observers):
             print("The number of points and observers do not match!")
@@ -678,7 +618,7 @@ class Box_filter(object):
         
         filtered_var = []
         for i, point in enumerate(points): 
-            filtered_var.append(self.filter_var_point_ip(var_str, point, observers[i], sample_method = sample_method, num_points = num_points ))
+            filtered_var.append(self.filter_var_point(var_str, point, observers[i], sample_method = sample_method, num_points = num_points ))
         
         return filtered_var
 
@@ -740,18 +680,18 @@ if __name__ == '__main__':
     micro_model = IdealMHD_2D()
     FileReader.read_in_data(micro_model) 
     micro_model.setup_structures()
-    constraint = Favre_observers(micro_model,0.001)
+    constraint = FindObs_drift_min(micro_model,0.001)
     filter = Box_filter(micro_model, 0.001)
 
     var = "SET"
     point = [1.502,0.3,0.5]
-    observer = constraint.get_U_from_vels( constraint.find_observer(point).x)
+    observer = Base.get_rel_vel(constraint.find_observer(point).x)
     CPU_start_time = time.process_time()
     filtvar1 = filter.filter_var_point_inbuilt(var, point, observer)
     print(f"CPU time to filter SET with in-built method is {time.process_time()- CPU_start_time}. ")
 
     CPU_start_time = time.process_time()
-    filtvar2 = filter.filter_var_point_ip(var, point, observer)
+    filtvar2 = filter.filter_var_point(var, point, observer)
     print(f"CPU time to filter SET with Gauss method is {time.process_time()- CPU_start_time}. ")
 
     print(f"Difference between the two is: \n {filtvar1[0] - filtvar2}")
