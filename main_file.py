@@ -45,9 +45,10 @@ if __name__ == '__main__':
     CPU_start_time = time.process_time()
     coord_range = [[9.995,10.005],[-0.2,-0.3],[0.5,0.7]]
     num_points = [3,3,3]
+    spacing = 10
 
     MesoModel = NonIdealHydro2D(micro_model, Filter)
-    MesoModel.find_observers(num_points, coord_range, 10)
+    MesoModel.find_observers(num_points, coord_range, spacing)
     MesoModel.setup_variables()
     MesoModel.filter_micro_variables()
     MesoModel.calculate_dissipative_coefficients()

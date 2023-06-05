@@ -55,7 +55,7 @@ class Base(object):
         list of floats: the d+1 vector, normalized wrt Mink metric
         """
         W = 1 / np.sqrt(1-np.sum(spatial_vels**2))
-        return np.insert(spatial_vels,0,W)    
+        return W * np.insert(spatial_vels,0,1.0)
 
     @staticmethod
     def project_tensor(vector1_wrt, vector2_wrt, to_project):
