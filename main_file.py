@@ -10,6 +10,7 @@ from FileReaders import *
 from Filters import *
 from MicroModels import *
 from MesoModels import *
+from Visualization import *
 
 
 
@@ -24,6 +25,13 @@ if __name__ == '__main__':
     micro_model = IdealHydro_2D()
     FileReader.read_in_data(micro_model) 
     micro_model.setup_structures()
+
+    visualizer = Plotter_2D()
+    visualizer.plot_vars(micro_model, ['v1','n'], t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
+                          interp_dims=(20,40), method='interpolate', component_indices=[(),()])
+    
+    # visualizer.plot_micro_var_2D_interpol('v1', t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2], dimensions=(20,40))
+    # visualizer.plot_micro_var_2D_rawdata('v1', t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2])
 
     Filter = Favre_observers(micro_model,box_len=0.001)
     
@@ -43,16 +51,32 @@ if __name__ == '__main__':
     # print('Residual: ',res,"\nError estimate: ",error,f'\nElapsed CPU time is {time.process_time() - CPU_start_time} with the inbuilt method')
 
     CPU_start_time = time.process_time()
-    coord_range = [[9.995,10.005],[-0.2,-0.3],[0.5,0.7]]
-    num_points = [3,3,3]
+    coord_range = [[10.000, 10.005],[-0.1,0.1], [-0.2,0.2]]
+    num_points = [2,5,10]
     spacing = 10
 
-    MesoModel = NonIdealHydro2D(micro_model, Filter)
-    MesoModel.find_observers(num_points, coord_range, spacing)
-    MesoModel.setup_variables()
-    MesoModel.filter_micro_variables()
-    MesoModel.calculate_dissipative_coefficients()
+    meso_model = NonIdealHydro2D(micro_model, Filter)
+    meso_model.find_observers(num_points, coord_range, spacing)
+    meso_model.setup_variables()
+    meso_model.filter_micro_variables()
+    meso_model.calculate_dissipative_coefficients()
+
+    visualizer.plot_vars(meso_model, ['U','pi'], t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
+                      interp_dims=(20,40), method='interpolate', component_indices=[(1),(0,1)])
+            
+    visualizer.plot_var_model_comparison([micro_model, meso_model], 'SET', \
+                                         t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
+                      interp_dims=(20,40), method='interpolate', component_index=(1,2))
+        
+        
+    # visualizer.set_meso_model(meso_model)
+    # visualizer.plot_meso_var_2D_rawdata('U', t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2])
+    # visualizer.plot_meso_var_2D_interpol('U', t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2], dimensions=(20,40))
+
+    # visualizer.compare_micro_meso_var_interpol(micro_var_str='v1', meso_var_str='U',\
+    #            t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2], dimensions=(20,40))
     
+ 
     # min_res, failed_coord = Filter.find_observers(num_points, coord_range, 10)
     # for i in range(len(min_res[0])):
     #     for j in range(len(min_res)):
@@ -66,8 +90,8 @@ if __name__ == '__main__':
     # print('Failed coordinates:', failed_coord)
     
     # Filter = Box_2D(0.1)
-    #MesoModel = NonIdealHydro2D(micro_model, Filter)
-    #MesoModel.calculate_coefficients()
+    #meso_model = NonIdealHydro2D(micro_model, Filter)
+    #meso_model.calculate_coefficients()
     
     
     

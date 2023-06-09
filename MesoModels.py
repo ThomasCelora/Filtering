@@ -13,13 +13,14 @@ import pickle
 
 class NonIdealHydro2D(object):
 
-    def __init__(self, MicroModel, Filter):
+    def __init__(self, MicroModel, Filter, interp_method = "linear"):
         self.Filter = Filter
         self.MicroModel = MicroModel
         #self.Observers = Observers
         self.spatial_dims = 2
+        self.interp_method = interp_method
         
-        self.domain_var_strs = ('Nt','Nx','Ny','dT','dX','dY')
+        self.domain_var_strs = ('Nt','Nx','Ny','dT','dX','dY','points')
         self.domain_vars = dict.fromkeys(self.domain_var_strs)
         
         #Dictionary for 'local' variables, 
@@ -52,6 +53,16 @@ class NonIdealHydro2D(object):
         self.coefficient_strs = ("Gamma")
         self.coefficients = dict.fromkeys(self.diss_coeff_strs)
         self.coefficients['Gamma'] = 4.0/3.0
+
+        #Dictionary for all vars - useful for e.g. plotting
+        self.var_strs = self.filter_var_strs + self.meso_var_strs + self.deriv_var_strs\
+                        + self.diss_residual_strs + self.diss_var_strs + self.diss_coeff_strs
+        self.vars = self.filter_vars.copy()
+        self.vars.update(self.meso_vars)
+        self.vars.update(self.deriv_vars)
+        self.vars.update(self.diss_residuals)
+        self.vars.update(self.diss_vars)
+        self.vars.update(self.diss_coeffs)
         
         # Stencils for finite-differencing
         self.cen_SO_stencil = [1/12, -2/3, 0, 2/3, -1/12]
@@ -76,6 +87,12 @@ class NonIdealHydro2D(object):
         else:
             print("Meso and Micro models are incompatible!")        
 
+    def get_all_var_strs(self):
+        return self.var_strs
+    
+    def get_model_name(self):
+        return 'NonIdealHydro2D'
+    
     def find_observers(self, num_points, ranges, spacing):
         self.meso_vars['U_coords'], self.meso_vars['U'], self.meso_vars['U_errors'] = \
             self.Filter.find_observers(num_points, ranges, spacing)[0]
@@ -83,6 +100,9 @@ class NonIdealHydro2D(object):
         self.domain_vars['dT'] = (ranges[0][-1] - ranges[0][0]) / self.domain_vars['Nt']
         self.domain_vars['dX'] = (ranges[1][-1] - ranges[1][0]) / self.domain_vars['Nx']
         self.domain_vars['dY'] = (ranges[2][-1] - ranges[2][0]) / self.domain_vars['Ny']
+        self.domain_vars['points'] = [np.linspace(ranges[0][0], ranges[0][-1], num_points[0]),\
+                                      np.linspace(ranges[1][0], ranges[1][-1], num_points[1]),\
+                                      np.linspace(ranges[2][0], ranges[2][-1], num_points[2])]
     
     def setup_variables(self):
         Nt, Nx, Ny = self.domain_vars['Nt'], self.domain_vars['Nx'], self.domain_vars['Ny']
@@ -110,7 +130,10 @@ class NonIdealHydro2D(object):
         # Single value for each coefficient (per data point) for now...
         self.diss_coeffs['Zeta'] = np.zeros((Nt, Nx, Ny)) 
         self.diss_coeffs['Kappa'] = np.zeros((Nt, Nx, Ny)) 
-        self.diss_coeffs['Eta'] = np.zeros((Nt, Nx, Ny)) 
+        self.diss_coeffs['Eta'] = np.zeros((Nt, Nx, Ny))
+        
+    # def post_process(self):
+        
         
     def p_from_EoS(self, rho, n):
         """

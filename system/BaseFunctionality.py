@@ -68,7 +68,7 @@ class Base(object):
 
     """
     A pair of functions that work in conjuction (thank you stack overflow).
-    find_nearest returns the closest value to in put 'value' in 'array',
+    find_nearest returns the closest value to 'value' in 'array',
     find_nearest_cell then takes this closest value and returns its indices.
     Should now work for any dimensional data.
     """

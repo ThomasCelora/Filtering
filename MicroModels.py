@@ -47,7 +47,7 @@ class IdealMHD_2D(object):
         self.domain_int_strs = ('nt','nx','ny')
         self.domain_float_strs = ("tmin","tmax","xmin","xmax","ymin","ymax","dt","dx","dy")
         self.domain_array_strs = ("t","x","y","points")
-        self.domain_vars = dict.fromkeys(self.domain_int_strs+self.domain_float_strs + self.domain_array_strs)
+        self.domain_vars = dict.fromkeys(self.domain_int_strs+self.domain_float_strs+self.domain_array_strs)
         for str in self.domain_vars:
             self.domain_vars[str] = []   
 
@@ -69,6 +69,15 @@ class IdealMHD_2D(object):
         for str in self.structures_strs:
             self.structures[str] = []
 
+        #Dictionary for all vars
+        self.all_var_strs = self.prim_strs + self.aux_strs + self.structures_strs
+        self.all_vars = self.prim_vars.copy()
+        self.all_vars.update(self.aux_vars)
+        self.all_vars.update(self.structures)
+
+    def get_model_name(self):
+        return 'IdealMHD_2D'
+    
     def get_spatial_dims(self):
         return self.spatial_dims
 
@@ -83,6 +92,9 @@ class IdealMHD_2D(object):
     
     def get_structures_strs(self):
         return self.structures_strs
+
+    def get_all_var_strs(self):
+        return self.all_var_strs
 
     def setup_structures(self):
         """
@@ -125,7 +137,7 @@ class IdealMHD_2D(object):
 
         Parameters:
         -----------
-        vars: string corresponding to primitive, auxiliary or structre variable
+        vars: string corresponding to primitive, auxiliary or structure variable
 
         point: list of 2+1 floats
 
@@ -267,10 +279,13 @@ class IdealHydro_2D(object):
             self.structures[str] = []
 
         #Dictionary for all vars
-        self.var_strs = self.prim_strs + self.aux_strs + self.structures_strs
-        # self.vars = self.prim_vars
-        # self.vars.update(self.aux_vars)
-        # self.vars.update(self.structures)   
+        self.all_var_strs = self.prim_strs + self.aux_strs + self.structures_strs
+        self.all_vars = self.prim_vars.copy()
+        self.all_vars.update(self.aux_vars)
+        self.all_vars.update(self.structures)   
+
+    def get_model_name(self):
+        return 'IdealHydro_2D'
 
     def get_spatial_dims(self):
         return self.spatial_dims
@@ -285,7 +300,10 @@ class IdealHydro_2D(object):
         return self.aux_strs
     
     def get_structures_strs(self):
-        return self.get_structures_strs   
+        return self.get_structures_strs
+    
+    def get_all_var_strs(self):
+        return self.all_var_strs
 
     def setup_structures(self):
         """

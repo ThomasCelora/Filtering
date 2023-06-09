@@ -87,7 +87,6 @@ class METHOD_HDF5(object):
             except KeyError: 
                 print(f'{dom_var_str} is not in the hdf5 dataset: check Domain/')
 
-
         # for dom_var_str in micro_model.domain_vars:
         #     try: 
         #         if dom_var_str in ['t','nt','tmin','tmax','points']:
