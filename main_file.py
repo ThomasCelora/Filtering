@@ -61,7 +61,7 @@ if __name__ == '__main__':
     meso_model.filter_micro_variables()
     meso_model.calculate_dissipative_coefficients()
 
-    visualizer.plot_vars(meso_model, ['U','pi'], t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
+    visualizer.plot_vars(meso_model, ['U','Eta'], t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
                       interp_dims=(20,40), method='interpolate', component_indices=[(1),(0,1)])
             
     visualizer.plot_var_model_comparison([micro_model, meso_model], 'SET', \

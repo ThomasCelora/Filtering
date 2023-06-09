@@ -280,9 +280,6 @@ class IdealHydro_2D(object):
 
         #Dictionary for all vars
         self.all_var_strs = self.prim_strs + self.aux_strs + self.structures_strs
-        self.all_vars = self.prim_vars.copy()
-        self.all_vars.update(self.aux_vars)
-        self.all_vars.update(self.structures)   
 
     def get_model_name(self):
         return 'IdealHydro_2D'

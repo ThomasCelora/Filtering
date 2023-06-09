@@ -55,14 +55,8 @@ class NonIdealHydro2D(object):
         self.coefficients['Gamma'] = 4.0/3.0
 
         #Dictionary for all vars - useful for e.g. plotting
-        self.var_strs = self.filter_var_strs + self.meso_var_strs + self.deriv_var_strs\
+        self.all_var_strs = self.filter_var_strs + self.meso_var_strs + self.deriv_var_strs\
                         + self.diss_residual_strs + self.diss_var_strs + self.diss_coeff_strs
-        self.vars = self.filter_vars.copy()
-        self.vars.update(self.meso_vars)
-        self.vars.update(self.deriv_vars)
-        self.vars.update(self.diss_residuals)
-        self.vars.update(self.diss_vars)
-        self.vars.update(self.diss_coeffs)
         
         # Stencils for finite-differencing
         self.cen_SO_stencil = [1/12, -2/3, 0, 2/3, -1/12]
@@ -88,7 +82,7 @@ class NonIdealHydro2D(object):
             print("Meso and Micro models are incompatible!")        
 
     def get_all_var_strs(self):
-        return self.var_strs
+        return self.all_var_strs
     
     def get_model_name(self):
         return 'NonIdealHydro2D'
@@ -132,8 +126,12 @@ class NonIdealHydro2D(object):
         self.diss_coeffs['Kappa'] = np.zeros((Nt, Nx, Ny)) 
         self.diss_coeffs['Eta'] = np.zeros((Nt, Nx, Ny))
         
-    # def post_process(self):
-        
+        self.vars = self.filter_vars
+        self.vars.update(self.meso_vars)
+        self.vars.update(self.deriv_vars)
+        self.vars.update(self.diss_residuals)
+        self.vars.update(self.diss_vars)
+        self.vars.update(self.diss_coeffs)        
         
     def p_from_EoS(self, rho, n):
         """
