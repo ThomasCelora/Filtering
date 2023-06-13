@@ -456,18 +456,32 @@ if __name__ == '__main__':
         print(f'{var}: \n {res} \n {res2} \n ********** \n ')
 
 # MH
-if __name__ == '__main__':
+# if __name__ == '__main__':
 
-    CPU_start_time = time.process_time()
+#     CPU_start_time = time.process_time()
 
-    FileReader = METHOD_HDF5('./Data/test_res100/')
-    micro_model = IdealMHD_2D()
-    FileReader.read_in_data(micro_model) 
-    micro_model.setup_structures()
+#     FileReader = METHOD_HDF5('./Data/Testing/')
+#     # micro_model = IdealMHD_2D()
+#     micro_model = IdealHydro_2D()
+#     FileReader.read_in_data(micro_model) 
+#     micro_model.setup_structures()
 
-    point = [1.502,0.4,0.2]
-    vars = ['SET', 'BC']
-    for var in vars: 
-        res = micro_model.get_interpol_var(var, point)
-        res2 = micro_model.get_var_gridpoint(var, point)
-        print(f'{var}: \n {res} \n {res2} \n ********** \n ')
+#     res = micro_model.get_interpol_var(['v1','rho'],[10.0,0.3,0.2])
+#     print(type(res),"\n", res)
+
+#     res = micro_model.get_interpol_var(['T','W'],[10.0,0.3,0.2])
+#     print(type(res),"\n", res)
+
+#     # res = micro_model.get_interpol_var(['bar_vel','SET'],[10.0,0.3,0.2])
+#     # print(type(res),"\n", res)
+#     # res = micro_model.get_interpol_aux(["b0","bx"],[0.5, 0.3,0.2])
+#     # print(type(res),"\n", res)
+
+#     # res = micro_model.get_interpol_struct("SET",[2.5, 0.3, 0.2])
+#     # print(res.shape, res[0],'\n')
+
+#     # print( micro_model.get_domain_strs() )
+
+#     CPU_end_time = time.process_time()
+#     CPU_time = CPU_end_time - CPU_start_time
+#     print(f'The CPU time is {CPU_time} seconds')
