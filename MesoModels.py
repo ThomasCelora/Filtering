@@ -8,6 +8,14 @@ Created on Mon Mar 27 18:53:53 2023
 import numpy as np
 from scipy.integrate import quad
 from multiprocessing import Process, Pool
+from itertools import product
+from system.BaseFunctionality import *
+from FileReaders import *
+from MicroModels import *
+from Filters import *  
+
+
+
 
 class NonIdealHydro2D(object):
 
@@ -16,115 +24,242 @@ class NonIdealHydro2D(object):
         self.MicroModel = MicroModel
         #self.Observers = Observers
         self.spatial_dims = 2
+        
+        self.domain_var_strs = ('Nt','Nx','Ny','dT','dX','dY')
+        self.domain_vars = dict.fromkeys(self.domain_var_strs)
+        
+        #Dictionary for 'local' variables, 
+        #obtained from filtering the appropriate MicroModel variables
+        self.filter_var_strs = ("n","SET")
+        self.filter_vars = dict.fromkeys(self.filter_var_strs)
 
-        # Run some compatability test...
-        compatible = True
-        if(compatible):
-            print("Meso and Micro models are compatible!")
-        else:
-            print("Meso and Micro models are incompatible!")
-            
-        #Dictionary for 'local' variables - ones we won't need derivatives of
-        self.local_var_strs = ("n","SET")
-        self.local_vars = dict.fromkeys(self.local_var_strs)
-        for str in self.local_vars:
-            self.local_vars[str] = []
+        #Dictionary for MesoModel variables
+        self.meso_var_strs = ("U","U_coords","U_errors","T~")
+        self.meso_vars = dict.fromkeys(self.meso_var_strs)
 
-        #Dictionary for 'non-local' variables - ones we need to take derivatives of
-        self.nonlocal_var_strs = ("T_tilde","U")
-        self.nonlocal_vars = dict.fromkeys(self.nonlocal_var_strs)
-        for str in self.nonlocal_var_strs:
-            self.nonlocal_vars[str] = []
+        #Strings for 'non-local' variables - ones we need to take derivatives of
+        self.nonlocal_var_strs = ("U","T~")
 
-    def find_observers(self, num_points, ranges, spacing):
-        self.U_coords, self.Us, self.U_errors = self.Filter.find_observers(num_points, ranges, spacing)[0]
-            
-    def p_from_EoS(self, rho, n):
-        """
-        Calculate pressure from EoS
-        """
-        p = (self.coefficients['gamma']-1)*(rho-n)
-        return p
-    
-       
-    def filter_variables(self):
-        # Filter necessary variables from the micromodel
-        filter_args = [(coord, U) for coord, U in zip(self.U_coords, self.Us)]
-        print(filter_args)
-        for local_var_str in self.local_var_strs:
-            with Pool(2) as p:
-                self.local_vars[local_var_str] = p.starmap(self.Filter.filter_var, filter_args)
- 
-        for coord, U in zip(self.U_coords, self.Us):
-            self.Ns = self.Filter.filter_var(coord, U, 'n')
-            self.SETs = self.Filter.filter_var(coord, U, 'SET')
-    
-    def calculate_nonlocal_variables(self, coords):
-        # Size of box for spatial filtering 
-        # the numerical coefficient ~ determines #cells along side of filtering box
-        self.L = 4*np.sqrt(self.dx*self.dy) 
-        self.dT = 0.01 # steps to take for differential calculations
-        self.dX = 0.01
-        self.dY = 0.01
+        #Dictionary for derivative variables - calculated by finite differencing
+        self.deriv_var_strs = ("dtU","dxU","dyU","dtT~","dxT~","dyT~")
+        self.deriv_vars = dict.fromkeys(self.deriv_var_strs)
+
+        #Dictionary for dissipative residuals - from the NonId-SET that we take
+        #projections of
+        self.diss_residual_strs = ("Pi","q","pi")
+        self.diss_residuals = dict.fromkeys(self.diss_residual_strs)
+
+        self.diss_var_strs = ("Theta","Omega","Sigma")
+        self.diss_vars = dict.fromkeys(self.diss_residual_strs)
+
+        self.diss_coeff_strs = ("Zeta", "Kappa", "Eta")
+        self.diss_coeffs = dict.fromkeys(self.diss_coeff_strs)
+        
+        self.coefficient_strs = ("Gamma")
+        self.coefficients = dict.fromkeys(self.diss_coeff_strs)
+        self.coefficients['Gamma'] = 4.0/3.0
+        
         # Stencils for finite-differencing
         self.cen_SO_stencil = [1/12, -2/3, 0, 2/3, -1/12]
         self.cen_FO_stencil = [-1/2, 0, 1/2]
         self.fw_FO_stencil = [-1, 1]
         self.bw_FO_stencil = [-1, 1]
-        
-        # Calculate time derivatives for central slices
-        for t_slice in range(self.n_obs_t):
-            # Central-difference                                
-            for i in range(1,self.n_obs_x-1):
-                for j in range(1,self.n_obs_y-1): # fix these to use self.n_x_pts etc.
-                    self.dtUts[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Uts[t_slice][i][j] / self.dt_obs
-                    self.dtUxs[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Uxs[t_slice][i][j] / self.dt_obs
-                    self.dtUys[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Uys[t_slice][i][j] / self.dt_obs
-                    # pick out central slice with first [1]    
-                    self.dxUts[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Uts[1][i-1+t_slice][j] / self.dx_obs
-                    self.dxUxs[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Uxs[1][i-1+t_slice][j] / self.dx_obs
-                    self.dxUys[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Uys[1][i-1+t_slice][j] / self.dx_obs
 
-                    self.dyUts[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Uts[1][i][j-1+t_slice] / self.dy_obs
-                    self.dyUxs[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Uxs[1][i][j-1+t_slice] / self.dy_obs
-                    self.dyUys[i,j] += self.cen_FO_stencil[t_slice]*\
-                        self.Uys[1][i][j-1+t_slice] / self.dy_obs                    
+        self.metric = np.zeros((3,3))
+        self.metric[0,0] = -1
+        self.metric[1,1] = self.metric[2,2] = +1
+
+        # Run some compatability test...
+        compatible = True
+        if self.spatial_dims != self.MicroModel.spatial_dims:
+            compatible = False
+        for filter_var_str in self.filter_var_strs:
+            if not (filter_var_str in MicroModel.vars.keys()):
+                compatible = False
+
+        if compatible:
+            print("Meso and Micro models are compatible!")
+        else:
+            print("Meso and Micro models are incompatible!")        
+
+    def find_observers(self, num_points, ranges, spacing):
+        self.meso_vars['U_coords'], self.meso_vars['U'], self.meso_vars['U_errors'] = \
+            self.Filter.find_observers(num_points, ranges, spacing)[0]
+        self.domain_vars['Nt'], self.domain_vars['Nx'], self.domain_vars['Ny'] = num_points[:]
+        self.domain_vars['dT'] = (ranges[0][-1] - ranges[0][0]) / self.domain_vars['Nt']
+        self.domain_vars['dX'] = (ranges[1][-1] - ranges[1][0]) / self.domain_vars['Nx']
+        self.domain_vars['dY'] = (ranges[2][-1] - ranges[2][0]) / self.domain_vars['Ny']
+    
+    def setup_variables(self):
+        Nt, Nx, Ny = self.domain_vars['Nt'], self.domain_vars['Nx'], self.domain_vars['Ny']
+        n_dims = self.spatial_dims+1
+        self.meso_vars['U_coords'] = np.array(self.meso_vars['U_coords']).reshape([Nt, Nx, Ny, n_dims])
+        self.meso_vars['U'] = np.array(self.meso_vars['U']).reshape([Nt, Nx, Ny, n_dims])
+        self.meso_vars['U_errors'] = np.array(self.meso_vars['U_errors']).reshape([Nt, Nx, Ny])
+        self.meso_vars['T~'] = np.zeros((Nt, Nx, Ny))
+
+        self.filter_vars['n'] = np.zeros((Nt, Nx, Ny))
+        self.filter_vars['SET'] = np.zeros((Nt, Nx, Ny,n_dims,n_dims))
         
+        for nonlocal_var_str in self.nonlocal_var_strs:
+            self.deriv_vars['dt'+nonlocal_var_str] = np.zeros_like(self.meso_vars[nonlocal_var_str])
+            self.deriv_vars['dx'+nonlocal_var_str] = np.zeros_like(self.meso_vars[nonlocal_var_str])
+            self.deriv_vars['dy'+nonlocal_var_str] = np.zeros_like(self.meso_vars[nonlocal_var_str])
+
+        self.diss_residuals['Pi'] = np.zeros((Nt, Nx, Ny)) 
+        self.diss_vars['Theta'] = np.zeros((Nt, Nx, Ny)) 
+        self.diss_residuals['q'] = np.zeros((Nt, Nx, Ny,n_dims)) 
+        self.diss_vars['Omega'] = np.zeros((Nt, Nx, Ny,n_dims)) 
+        self.diss_residuals['pi'] = np.zeros((Nt, Nx, Ny,n_dims,n_dims)) 
+        self.diss_vars['Sigma'] = np.zeros((Nt, Nx, Ny,n_dims,n_dims)) 
+
+        # Single value for each coefficient (per data point) for now...
+        self.diss_coeffs['Zeta'] = np.zeros((Nt, Nx, Ny)) 
+        self.diss_coeffs['Kappa'] = np.zeros((Nt, Nx, Ny)) 
+        self.diss_coeffs['Eta'] = np.zeros((Nt, Nx, Ny)) 
         
-    def calculate_dissipative_residuals(self, coord, U):
+    def p_from_EoS(self, rho, n):
+        """
+        Calculate pressure from EoS using rho (energy density) and n (number density)
+        """
+        p = (self.coefficients['Gamma']-1)*(rho-n)
+        return p
+      
+    def filter_micro_variables(self):
+        """
+        'Spatially' average required variables from the micromodel w.r.t.
+        the observers that have been found.
+        """
+        for h in range(self.domain_vars['Nt']):
+            for i in range(self.domain_vars['Nx']):
+                for j in range(self.domain_vars['Ny']):
+                        self.filter_vars['n'][h,i,j] =\
+                            self.Filter.filter_prim_var(self.meso_vars['U_coords'][h,i,j], self.meso_vars['U'][h,i,j], 'n')
+                        self.filter_vars['SET'][h,i,j] =\
+                            self.Filter.filter_struc(self.meso_vars['U_coords'][h,i,j], self.meso_vars['U'][h,i,j], 'SET')
+                    
+        # Should be able to convert here to only 1 filter function... (not prim/struct)
+        # for filter_var_str in self.filter_var_strs:
+        #     filter_args = [(coord, U, filter_var_str) for coord, U in zip(self.U_coords, self.Us)]
+        #     with Pool(2) as p:
+        #         self.micro_vars[micro_var_str] = p.starmap(self.Filter.filter_var, filter_args)
+        #         self.micro_vars[micro_var_str] = p.starmap(self.Filter.filter_prim_var, filter_args)
+    
+    def calculate_derivatives(self):
+        """
+        Calculate the required derivatives of MesoModel variables for 
+        constructing the non-ideal terms.
+        """
+        for nonlocal_var_str in self.nonlocal_var_strs:
+            self.calculate_time_derivatives(nonlocal_var_str)
+            self.calculate_x_derivatives(nonlocal_var_str)
+            self.calculate_y_derivatives(nonlocal_var_str)
+    
+    def calculate_time_derivatives(self, nonlocal_var_str):
+        deriv_var_str = 'dt'+nonlocal_var_str
+        for h in range(self.domain_vars['Nt']):
+            if h == 0:
+                stencil = self.fw_FO_stencil
+                samples = [0,1]
+            elif h == (self.domain_vars['Nt']-1):
+                stencil = self.fw_FO_stencil
+                samples = [-1,0]
+            else:
+                stencil = self.cen_FO_stencil
+                samples = [-1,0,1]
+            for i in range(self.domain_vars['Nx']):
+                for j in range(self.domain_vars['Ny']):
+                    for s in range(len(samples)):
+                        self.deriv_vars[deriv_var_str][h,i,j] \
+                        += (stencil[s]*self.meso_var_strs[nonlocal_var_str][h+samples[s],i,j]) / self.domain_vars['dT']
+                        
+    def calculate_x_derivatives(self, nonlocal_var_str):
+        deriv_var_str = 'dx'+nonlocal_var_str
+        for h in range(self.domain_vars['Nt']):
+          for i in range(self.domain_vars['Nx']):
+              if i == 0:
+                  stencil = self.fw_FO_stencil
+                  samples = [0,1]
+              elif i == (self.domain_vars['Nx']-1):
+                  stencil = self.fw_FO_stencil
+                  samples = [-1,0]
+              else:
+                  stencil = self.cen_FO_stencil
+                  samples = [-1,0,1]
+              for j in range(self.domain_vars['Ny']):
+                  for s in range(len(samples)):
+                      self.deriv_vars[deriv_var_str][h,i,j] \
+                      += (stencil[s]*self.meso_var_strs[nonlocal_var_str][h,i+samples[s],j]) / self.domain_vars['dX']
+                      
+    def calculate_y_derivatives(self, nonlocal_var_str):
+        deriv_var_str = 'dy'+nonlocal_var_str
+        for h in range(self.domain_vars['Nt']):
+            for i in range(self.domain_vars['Nx']):
+                for j in range(self.domain_vars['Ny']):
+                    if j == 0:
+                        stencil = self.fw_FO_stencil
+                        samples = [0,1]
+                    elif j == (self.domain_vars['Ny']-1):
+                        stencil = self.fw_FO_stencil
+                        samples = [-1,0]
+                    else:
+                        stencil = self.cen_FO_stencil
+                        samples = [-1,0,1]   
+                    for s in range(len(samples)):
+                        self.deriv_vars[deriv_var_str][h,i,j] \
+                        += (stencil[s]*self.meso_var_strs[nonlocal_var_str][h,i,j+samples[s]]) / self.domain_vars['dY']                  
+
+    def calculate_dissipative_residuals(self, h, i, j):
+        """
+        Returns the inferred (residual) values of the 
+        dissipative terms from the filtered MicroModel SET.        
+
+        Parameters
+        ----------
+        indices : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        Pi_res : scalar float
+            Bulk viscosity
+        q_res : (d+1) vector of floats
+            Heat flux.
+        pi_res : (d+1)x(d+1) tensor of floats
+            Shear viscosity.
+
+        """
+        # Move this
+        # h, i, j = indices
         # Filter the scalar fields
-        N = self.Filter.filter_scalar(coord, U, 'n')
-
-        # Construct filtered Id SET         
-        filtered_Id_SET = self.Filter.filter_scalar(coord, U, 'Id_SET')
+        N = self.filter_vars['n'][h,i,j]
+        Id_SET = self.filter_vars['SET'][h,i,j]
+        U = self.meso_vars['U'][h,i,j]
         
         # Do required projections of SET
-        h_mu_nu = self.orthogonal_projector(U)
-        rho_res = self.project_tensor(U,U,filtered_Id_SET)
-        q_res = np.einsum('ij,i,jk',filtered_Id_SET,U,h_mu_nu)            
-        tau_res = np.einsum('ij,ik,jl',filtered_Id_SET,h_mu_nu,h_mu_nu) # tau = p + Pi+ pi
-        
-        # Calculate Pi and pi residuals
-        tau_trace = np.trace(tau_res)#
+        h_mu_nu = Base.orthogonal_projector(U, self.metric)
+        rho_res = Base.project_tensor(U,U,Id_SET)
+
+        # Set Meso temperature from filtered quantities using EoS
         p_tilde = self.p_from_EoS(rho_res, N)
         T_tilde = p_tilde/N
-        self.T_tildes[h, i, j] = T_tilde
+        self.meso_vars['T~'][h,i,j] = T_tilde
+        
+        # Calculate dissipative residual with tensor manipulation
+        q_res = np.einsum('ij,i,jk',Id_SET,U,h_mu_nu)            
+        tau_res = np.einsum('ij,ik,jl',Id_SET,h_mu_nu,h_mu_nu)
+        tau_trace = np.trace(tau_res)
         Pi_res = tau_trace - p_tilde
         pi_res = tau_res - np.dot((p_tilde + Pi_res),h_mu_nu)
-        
-        return Pi_res, q_res, pi_res
 
-    def calculate_nonlocal_variables(self, coord, indices):
+        self.diss_residuals['Pi'][h,i,j] = Pi_res
+        self.diss_residuals['q'][h,i,j] = q_res
+        self.diss_residuals['pi'][h,i,j] = pi_res
+
+    def calculate_dissipative_variables(self, h, i, j):
         """
-        Calculate the non-ideal, dissipation terms (without coefficeints).
+        Calculates the non-ideal, dissipation terms (without coefficeints)
+        for the non-ideal MesoModel SET.
 
         Parameters
         ----------
@@ -135,64 +270,221 @@ class NonIdealHydro2D(object):
 
         Returns
         -------
-        Theta : float
-            Divergence of the observer velocity.
+        Decomposition of the observer velocity:
+            
+        Theta : float (scalar)
+            Divergence (isotropic).
         omega : vector of floats
             Transverse momentum.
-        sigma : tensor of floats
-            Symmetric, trace-free bla bla.
+        sigma : (d+1)x(d+1) tensor of floats
+            Symmetric, trace-free.
 
         """
-        h, i, j = indices
-        # T = self.values_from_hdf5(coord, 'T') # Fix this - should be from EoS(N,p_tilde)
-        T = self.T_tildes[h, i, j]
-        dtT = self.calc_t_deriv('T',coord)[0]
-        dxT = self.calc_x_deriv('T',coord)[0]
-        dyT = self.calc_y_deriv('T',coord)[0]
-        # print(T.shape,dxT.shape)
-        Ut = self.Uts[h,i,j]
-        Ux = self.Uxs[h,i,j]
-        Uy = self.Uys[h,i,j]
-        dtUt = self.dtUts[h,i,j]
-        dtUx = self.dtUxs[h,i,j]
-        dtUy = self.dtUys[h,i,j]
-        dxUt = self.dxUts[h,i,j]
-        dxUx = self.dxUxs[h,i,j]
-        dxUy = self.dxUys[h,i,j]
-        dyUt = self.dyUts[h,i,j]
-        dyUx = self.dyUxs[h,i,j]
-        dyUy = self.dyUys[h,i,j]
-   
-        Theta = dtUt + dxUx + dyUy
-        a = np.array([Ut*dtUt + Ux*dxUt + Uy*dyUt, Ut*dtUx + Ux*dxUx + Uy*dyUx, Ut*dtUy + Ux*dxUy + Uy*dyUy])#,ux*dxuz+uy*dyuz+uz*dzuz])
+        # h, i, j = indices
 
-        omega = np.array([dtT, dxT, dyT]) + np.multiply(T,a) # FIX
-        sigma = np.array([[2*dtUt - (2/3)*Theta, dtUx + dxUt, dtUy + dyUt],\
+        T = self.meso_vars['T~'][h, i, j]
+        dtT = self.deriv_vars['dtT~'][h, i, j]
+        dxT = self.deriv_vars['dxT~'][h, i, j]
+        dyT = self.deriv_vars['dyT~'][h, i, j]
+
+        # U = self.meso_vars['U'][h,i,j][:]
+        Ut, Ux, Uy = self.meso_vars['U'][h,i,j][:]
+
+        # dtU = self.deriv_vars['dtU'][h,i,j]
+        dtUt, dtUx, dtUy = self.deriv_vars['dtU'][h,i,j][:]
+        dxUt, dxUx, dxUy = self.deriv_vars['dxU'][h,i,j][:]
+        dyUt, dyUx, dyUy = self.deriv_vars['dyU'][h,i,j][:]
+        
+        # Need to do this with Einsum...
+        Theta = dtUt + dxUx + dyUy
+        a = np.array([Ut*dtUt + Ux*dxUt + Uy*dyUt, Ut*dtUx + Ux*dxUx + Uy*dyUx, Ut*dtUy + Ux*dxUy + Uy*dyUy])
+
+        Omega = np.array([dtT, dxT, dyT]) + np.multiply(T,a)
+        Sigma = np.array([[2*dtUt - (2/3)*Theta, dtUx + dxUt, dtUy + dyUt],\
                                                   [dxUt + dtUx, 2*dxUx - (2/3)*Theta, dxUy + dyUx],
                                                   [dyUt + dtUy, dyUx + dxUy, 2*dyUy - (2/3)*Theta]])
+        self.diss_vars['Theta'][h,i,j] = Theta
+        self.diss_vars['Omega'][h,i,j] = Omega
+        self.diss_vars['Sigma'][h,i,j] = Sigma
+        
+    def calculate_dissipative_coefficients(self):
+        Nt, Nx, Ny = self.domain_vars['Nt'], self.domain_vars['Nx'], self.domain_vars['Ny']
+        # parallel_args = [(h, i, j) for h in range(Nt) for i in range(Nx) for j in range(Ny)]
+        # # print(parallel_args)
+        # with Pool(2) as p:
+        #     p.starmap(self.calculate_dissipative_residuals, parallel_args)
+        #     p.starmap(self.calculate_dissipative_variables, parallel_args)
 
-        return Theta, omega, sigma
+        # self.diss_coeffs['Zeta'] = -self.diss_residuals['Pi'] / self.diss_vars['Theta']
+        for h in range(self.domain_vars['Nt']):
+            for i in range(self.domain_vars['Nx']):
+                for j in range(self.domain_vars['Ny']):
+                      self.calculate_dissipative_residuals(h,i,j)
+                      self.calculate_dissipative_variables(h,i,j)
+                      self.diss_coeffs['Zeta'][h,i,j] = -self.diss_residuals['Pi'][h,i,j] / self.diss_vars['Theta'][h,i,j]
+                    
+        for diss_coeff_str in self.diss_coeff_strs:
+            coeffs_handle = open(diss_coeff_str+'.pickle', 'wb')
+            pickle.dump(self.diss_coeffs[diss_coeff_str], coeffs_handle, protocol=pickle.HIGHEST_PROTOCOL)       
+        
+        
+        
+class resMHD2D(object):
+    """
+    Work in Progress
+    """
+    def __init__(self, micro_model, find_obs, filter):
+        self.micro_model = micro_model
+        self.find_obs = find_obs
+        self.filter = filter
 
-        
-    def calculate_coefficients(self, point):
-        Pi_res, q_res, pi_res = self.calculate_dissipative_residuals(point)
-        Theta, omega, sigma = self.calculate_nonlocal_variables(point)
-        return -Pi_res/Theta, -q_res/omega, -pi_res/sigma
-        
-        
-class meso_model_example(object):
+        self.spatial_dims = 2
 
-    def __init__(self, micro_model, constraint, filter):
-        pass
+        self.meso_structures_strs  = ['SET', 'BC', 'Fab']
+        self.meso_structures = dict.fromkeys(self.meso_structures_strs) 
+        for var in self.meso_structures:
+                self.meso_structures[var] = []
+
+        self.domain_int_strs = ('Nt','Nx','Ny')
+        self.domain_float_strs = ("Tmin","Tmax","Xmin","Xmax","Ymin","Ymax","Dt","Dx","Dy")
+        self.domain_array_strs = ("T","X","Y","Points")
+        self.domain_vars = dict.fromkeys(self.domain_int_strs+self.domain_float_strs+self.domain_array_strs)
+        for var in self.domain_vars: 
+            self.domain_vars[var] = []
+
+        self.filter_vars_strs = ['U', 'U_errors', 'U_success']
+        self.filter_vars = dict.fromkeys(self.filter_vars_strs)
+        for var in self.filter_vars:
+            var = []
+
+        # Run some compatability test... 
+        compatible = True
+        error = ''
+        if self.spatial_dims != micro_model.get_spatial_dims(): 
+            compatible = False
+            error += '\nError: different dimensions.'
+        for struct in self.meso_structures_strs:
+            if struct not in self.micro_model.get_structures_strs():
+                compatible = False
+                error += f'\nError: {struct} not in micro_model!'
+
+        if not compatible:
+            print("Meso and Micro models are incompatible"+error) 
+
+
+    def setup_meso_grid(self, patch_bdrs, coarse_factor): 
+        """
+        Builds the meso_model grid using the micro_model grid points contained in 
+        the input patch (defined via 'patch_bdrs'). The method allows for coarse graining 
+        the grid in the spatial directions. 
+
+        Parameters: 
+        -----------
+        patch_bdrs: list of lists of two floats, 
+            [[tmin, tmax],[xmin,xmax],[ymin,ymax]]
+
+        coarse_factor: integer    
+        """
+        # Is the patch within the micro_model domain? 
+        conditions = patch_bdrs[0][0] < self.micro_model.domain_vars['tmin'] and \
+                    patch_bdrs[0][1] > self.micro_model.domain_vars['tmax'] and \
+                    patch_bdrs[1][0] < self.micro_model.domain_vars['xmin'] and \
+                    patch_bdrs[1][1] > self.micro_model.domain_vars['xmax'] and \
+                    patch_bdrs[2][0] < self.micro_model.domain_vars['ymin'] and \
+                    patch_bdrs[2][1] > self.micro_model.domain_vars['ymax']
         
+        if conditions: 
+            print('The input region for filtering is larger than micro_model domain!')
+            return None
+
+        patch_min = [patch_bdrs[0][0], patch_bdrs[1][0], patch_bdrs[2][0]]
+        patch_max = [patch_bdrs[0][1], patch_bdrs[1][1], patch_bdrs[2][1]]
+        idx_mins = Base.find_nearest_cell(patch_min, micro_model.domain_vars['points'])
+        idx_maxs = Base.find_nearest_cell(patch_max, micro_model.domain_vars['points'])
+
+        self.domain_vars['Dt'] = self.micro_model.domain_vars['dt']
+        self.domain_vars['DX'] = self.micro_model.domain_vars['dx'] * coarse_factor
+        self.domain_vars['DY'] = self.micro_model.domain_vars['dy'] * coarse_factor
+
+        h, i, j = idx_mins[0], idx_mins[1], idx_mins[2]
+        while h <= idx_maxs[0]:
+            self.domain_vars['T'].append(self.micro_model.domain_vars['t'][h])
+            h += 1
+        while i <= idx_maxs[1]:
+            self.domain_vars['X'].append(self.micro_model.domain_vars['x'][i])
+            i += coarse_factor
+        while j <= idx_maxs[2]:
+            self.domain_vars['Y'].append(self.micro_model.domain_vars['x'][j])
+            j += coarse_factor
+
+        self.domain_vars['Points'] = [self.domain_vars['T'], self.domain_vars['X'], self.domain_vars['Y']]
+        self.domain_vars['Tmin'] = np.amin(self.domain_vars['T'])
+        self.domain_vars['Xmin'] = np.amin(self.domain_vars['X'])
+        self.domain_vars['Ymin'] = np.amin(self.domain_vars['Y'])
+        self.domain_vars['Tmax'] = np.amax(self.domain_vars['T'])
+        self.domain_vars['Xmax'] = np.amax(self.domain_vars['X'])
+        self.domain_vars['Ymax'] = np.amax(self.domain_vars['Y'])
+        self.domain_vars['Nt'] = len(self.domain_vars['T'])
+        self.domain_vars['Nx'] = len(self.domain_vars['X'])
+        self.domain_vars['Ny'] = len(self.domain_vars['Y'])
+
+    def build_observers(self):
+        """
+        Method to compute filtering observers at grid points built with setup_meso_grid. 
+        The observers found (and relative errors) are saved in the dictionary self.filter_vars.
         
+        Set up a dictionary self.filter_vars['U_successes] with info on where observers have been found. 
         
+        Notes:
+        ------
+        The dictionary self.filter_vars['U_successes] has as key:value pairs the following
+
+        keys: tuples corresponding to grid points
         
+        values: [bool, index]
         
+        The bool is true/false according to whether the observer has been found at the point,
+        the index is the tuple needed to access the observers found at the corresponding point
+        as ' self.filter_vars['U'][index]'
+        """
+        Nt, Nx, Ny = self.domain_vars['Nt'], self.domain_vars['Nx'], self.domain_vars['Ny']
+        self.filter_vars['U'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1))
+        self.filter_vars['U_errors'] = np.zeros((Nt, Nx, Ny))
+        self.filter_vars['U_success'] = dict()
+
+        for h, t in enumerate(self.domain_vars['T']):
+            for i, x in enumerate(self.domain_vars['X']):
+                for j, y in enumerate(self.domain_vars['Y']): 
+                    point = [t,x,y]
+                    sol = self.find_obs.find_observer(point)
+                    if sol[0]:
+                        self.filter_vars['U'][h,i,j] = sol[1]
+                        self.filter_vars['U_errors'][h,i,j] = sol[2]
+                        self.filter_vars['U_success'].update({tuple(point) : [True, (h,i,j)]})
+
+                    if not sol[0]: 
+                        self.filter_vars['U_success'].update({tuple(point) : [False, (h,i,j)]})
+                        print('Careful: obs could not be found at: ', self.domain_vars['Points'][h][i][j])
+
+
+    def compute_local(self):
         
-        
-        
-        
-        
-        
-        
+
+if __name__ == '__main__':
+
+    FileReader = METHOD_HDF5('./Data/test_res100/')
+    micro_model = IdealMHD_2D()
+    FileReader.read_in_data(micro_model) 
+    micro_model.setup_structures()
+    find_obs = FindObs_drift_root(micro_model, 0.001)
+    filter = spatial_box_filter(micro_model, 0.003)
+
+    meso_model = resMHD2D(micro_model, find_obs, filter)
+    meso_model.setup_meso_grid([[1.503, 1.503],[0.37, 0.42],[0.43, 0.54]],2)
+    meso_model.build_observers()
+    for elem in meso_model.filter_vars['U_success']:
+        idx = meso_model.filter_vars['U_success'][elem][1]
+        if meso_model.filter_vars['U_success'][elem][0]: 
+            print('Success: ', elem, meso_model.filter_vars['U'][idx], meso_model.filter_vars['U_errors'][idx], '\n')
+        else:
+            print('Failed: ', elem,'\n')

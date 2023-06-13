@@ -64,7 +64,7 @@ class IdealMHD_2D(object):
             self.aux_vars[str] = []
 
         #Dictionary for structures
-        self.structures_strs = ("BC","SET","Faraday")
+        self.structures_strs = ("BC","SET","Fab")
         self.structures = dict.fromkeys(self.structures_strs)
         for str in self.structures_strs:
             self.structures[str] = []
@@ -93,7 +93,7 @@ class IdealMHD_2D(object):
         """
         self.structures["BC"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3))
         self.structures["SET"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3,3))
-        self.structures["Faraday"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3,3))
+        self.structures["Fab"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3,3))
 
         for h in range(self.domain_vars['nt']):
             for i in range(self.domain_vars['nx']):
@@ -115,7 +115,7 @@ class IdealMHD_2D(object):
                     fol_b_vec = np.array([self.aux_vars["b0"][h,i,j],self.aux_vars["bx"][h,i,j],self.aux_vars["by"][h,i,j]])
                     fol_e_vec = np.tensordot( self.Levi3D, np.outer(vel,fol_b_vec), axes = ([1,2],[0,1]))
 
-                    self.structures['Faraday'][h,i,j,:,:] = np.outer( fol_vel_vec,fol_e_vec) - np.outer(fol_e_vec,fol_vel_vec) -\
+                    self.structures['Fab'][h,i,j,:,:] = np.outer( fol_vel_vec,fol_e_vec) - np.outer(fol_e_vec,fol_vel_vec) -\
                                                 np.tensordot(self.Levi3D,fol_b_vec,axes=([2],[0]))
 
     def get_var_gridpoint(self, var, point):

@@ -288,7 +288,8 @@ class FindObs_flux_min(object):
 
         Returns:
         --------
-        OptimizedResult of the minimization via scipy.optimize.minimize
+        Successful minimization: Boolean True, observer, error
+        Failed minimization: Boolean False, coordinates
 
         Notes:
         ------
@@ -302,11 +303,24 @@ class FindObs_flux_min(object):
         for i in range(1, len(U)):
             guess.append(U[i] / U[0])
         guess = np.array(guess)
+        # try: 
+        #     sol = minimize(self.flux_methods[flux_str], x0 = guess, args = (point), bounds=((-0.8,0.8),(-0.8,0.8)),tol=1e-6)
+        #     return sol
+        # except  KeyError: 
+        #     print(f"The method you want to use for computing the flux, {flux_str}, does not exist!")
+        #     return None
+
         try: 
-            sol = minimize(self.flux_methods[flux_str], x0 = guess, args = (point), bounds=((-0.8,0.8),(-0.8,0.8)),tol=1e-6)
-            return sol
+            sol = sol = minimize(self.flux_methods[flux_str], x0 = guess, args = (point), bounds=((-0.8,0.8),(-0.8,0.8)),tol=1e-6)
+            if sol.success: 
+                observer = Base.get_rel_vel(sol.x)
+                if sol.fun > 1e-5:
+                    print(f'Warning: residual is large at {point}', avg_error)
+                return sol.success, observer, sol.fun
+            if not sol.success: 
+                return sol.success, point 
         except  KeyError: 
-            print(f"The method you want to use for computing the flux, {flux_str}, does not exist!")
+            print(f"The method you want to use for computing the flux, {drift_str}, does not exist!")
             return None
     
     def find_observers_points(self, points, flux_str = "gauss"):
@@ -337,23 +351,21 @@ class FindObs_flux_min(object):
         change the default values of the optional arguments in the corresponding methods.
         """
         observers = []
-        funs = []
+        errors = []
         success_coords = []
         failed_coords = []
 
         for point in points:
             sol = self.find_observer(point, flux_str)
-            if sol.success:
-                observers.append(Base.get_rel_vel(sol.x))
-                funs.append(sol.fun)
+            if sol[0]: 
+                observers.append(sol[1])
+                errors.append(sol[2])
                 success_coords.append(point)
+                
+            if not sol[0]: 
+                failed_coords.append[point]
 
-                if (sol.fun > 1e-5): 
-                    print(f"Warning, residual is large at {point}: ", sol.fun)
-            else: 
-                print(f'Failed for coordinates: {point}, due to', sol.message)
-                failed_coords.append(point)
-        return [success_coords, observers, funs] , failed_coords
+        return [success_coords, observers, errors] , failed_coords
     
     def find_observers_ranges(self, num_points, ranges, flux_str = "gauss" ): 
         """
@@ -493,7 +505,7 @@ class FindObs_drift_root(object):
         integral = np.zeros(1+self.spatial_dims)
         for coord in coords: 
             DeltaV = (self.L / lin_spacing)**(1+self.spatial_dims)
-            integral += np.multiply(DeltaV, micro_model.get_interpol_var('BC', coord))
+            integral += np.multiply(DeltaV, self.micro_model.get_interpol_var('BC', coord))
         
         drifts = []
         for i in range(len(tetrad)-1):
@@ -568,7 +580,7 @@ class FindObs_drift_root(object):
 
         integral = np.zeros(1+self.spatial_dims)
         for i, coord in enumerate(coords): 
-            integral += np.multiply(totws[i], micro_model.get_interpol_var('BC', coord))
+            integral += np.multiply(totws[i], self.micro_model.get_interpol_var('BC', coord))
         integral *= (self.L /2  ) ** (self.spatial_dims+1)
 
         drifts = []
@@ -616,7 +628,7 @@ class FindObs_drift_root(object):
     
             return drifts
 
-    def find_observer(self, point, drift_str):
+    def find_observer(self, point, drift_str = "gauss"):
         """
         Key method: use optimize.root to find the roots of the drift function. 
 
@@ -629,7 +641,8 @@ class FindObs_drift_root(object):
 
         Returns:
         --------
-        OptimizedResult obtained via optimize.root
+        Successful root-finding: Boolean True, observer, avg error
+        Failed minimization: Boolean False, coordinates 
 
         Notes:
         ------
@@ -644,7 +657,17 @@ class FindObs_drift_root(object):
 
         try: 
             sol = root(self.drift_methods[drift_str], x0 = guess, args = (point))
-            return sol
+            if sol.success: 
+                observer = Base.get_rel_vel(sol.x)
+                error = 0 
+                for i in range(len(sol.fun)):
+                    error += sol.fun[i]
+                avg_error = error/ len(sol.fun)
+                if avg_error > 1e-5: 
+                    print(f'Warning: residual is large at {point}', avg_error)
+                return sol.success, observer, avg_error
+            if not sol.success: 
+                return sol.success, point 
         except  KeyError: 
             print(f"The method you want to use for computing the flux, {drift_str}, does not exist!")
             return None
@@ -676,23 +699,21 @@ class FindObs_drift_root(object):
         the number of points used to sample the d+1 box. 
         """
         observers = []
-        funs = []
+        avg_errors = []
         success_coords = []
         failed_coords = []
 
         for point in points:
             sol = self.find_observer(point, drift_str)
-            if sol.success:
-                observers.append(Base.get_rel_vel(sol.x))
-                funs.append(sol.fun)
+            if sol[0]: 
+                observers.append(sol[1])
+                avg_errors.append(sol[2])
                 success_coords.append(point)
+                
+            if not sol[0]: 
+                failed_coords.append[point]
 
-                if (sol.fun > 1e-5).any(): 
-                    print(f"Warning, residual is large in at least one direction at {point}: ", sol.fun)
-            else: 
-                print(f'Failed for coordinates: {point}, due to', sol.message)
-                failed_coords.append(point)
-        return [success_coords, observers, funs] , failed_coords
+        return [success_coords, observers, avg_errors] , failed_coords
 
     def find_observers_ranges(self, num_points, ranges, drift_str = "gauss" ): 
         """
@@ -1015,7 +1036,8 @@ if __name__ == '__main__':
     FileReader.read_in_data(micro_model) 
     micro_model.setup_structures()
 
-    find_obs = FindObs_drift_root(micro_model, 0.001)
+    # find_obs = FindObs_drift_root(micro_model, 0.001)
+    find_obs = FindObs_flux_min(micro_model, 0.001)
     filter = spatial_box_filter(micro_model, 0.003)
 
     vars = ['BC','SET']
@@ -1033,5 +1055,5 @@ if __name__ == '__main__':
             gauss_time = time.process_time() - CPU_start_time
             print(f"CPU time speed-up to filter {var} with Gauss method at {points[i]} is {inbuilt_time/gauss_time}. ")
             print(f'Filtered quantity with Gauss is \n {filtvar2}')
-            print(f"Difference between the two is: \n {filtvar1[0] - filtvar2}")  
+            print(f"Difference with method based on inbuilt integration is: \n {filtvar1[0] - filtvar2}")  
             print('\n************************\n')

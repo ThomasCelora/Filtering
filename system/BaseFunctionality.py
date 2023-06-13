@@ -112,6 +112,8 @@ class Base(object):
         -----------
         point: list of d+1 float
 
+        points: list of lists of d+1 floats 
+
         Returns:
         --------
         List of d+1 indices corresponding to closest value to point in points
