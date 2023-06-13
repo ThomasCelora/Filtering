@@ -47,7 +47,7 @@ class IdealMHD_2D(object):
         self.domain_int_strs = ('nt','nx','ny')
         self.domain_float_strs = ("tmin","tmax","xmin","xmax","ymin","ymax","dt","dx","dy")
         self.domain_array_strs = ("t","x","y","points")
-        self.domain_vars = dict.fromkeys(self.domain_int_strs+self.domain_float_strs + self.domain_array_strs)
+        self.domain_vars = dict.fromkeys(self.domain_int_strs+self.domain_float_strs+self.domain_array_strs)
         for str in self.domain_vars:
             self.domain_vars[str] = []   
 
@@ -64,11 +64,27 @@ class IdealMHD_2D(object):
             self.aux_vars[str] = []
 
         #Dictionary for structures
+<<<<<<< HEAD
         self.structures_strs = ("BC","SET","Fab")
+=======
+        self.structures_strs = ("BC","SET","Faraday")
+>>>>>>> 7775d53b835ac3366603f777af6eadd768abd049
         self.structures = dict.fromkeys(self.structures_strs)
         for str in self.structures_strs:
             self.structures[str] = []
 
+<<<<<<< HEAD
+=======
+        #Dictionary for all vars
+        self.all_var_strs = self.prim_strs + self.aux_strs + self.structures_strs
+        self.all_vars = self.prim_vars.copy()
+        self.all_vars.update(self.aux_vars)
+        self.all_vars.update(self.structures)
+
+    def get_model_name(self):
+        return 'IdealMHD_2D'
+    
+>>>>>>> 7775d53b835ac3366603f777af6eadd768abd049
     def get_spatial_dims(self):
         return self.spatial_dims
 
@@ -83,6 +99,12 @@ class IdealMHD_2D(object):
     
     def get_structures_strs(self):
         return self.structures_strs
+<<<<<<< HEAD
+=======
+
+    def get_all_var_strs(self):
+        return self.all_var_strs
+>>>>>>> 7775d53b835ac3366603f777af6eadd768abd049
 
     def setup_structures(self):
         """
@@ -93,7 +115,11 @@ class IdealMHD_2D(object):
         """
         self.structures["BC"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3))
         self.structures["SET"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3,3))
+<<<<<<< HEAD
         self.structures["Fab"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3,3))
+=======
+        self.structures["Faraday"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3,3))
+>>>>>>> 7775d53b835ac3366603f777af6eadd768abd049
 
         for h in range(self.domain_vars['nt']):
             for i in range(self.domain_vars['nx']):
@@ -115,7 +141,11 @@ class IdealMHD_2D(object):
                     fol_b_vec = np.array([self.aux_vars["b0"][h,i,j],self.aux_vars["bx"][h,i,j],self.aux_vars["by"][h,i,j]])
                     fol_e_vec = np.tensordot( self.Levi3D, np.outer(vel,fol_b_vec), axes = ([1,2],[0,1]))
 
+<<<<<<< HEAD
                     self.structures['Fab'][h,i,j,:,:] = np.outer( fol_vel_vec,fol_e_vec) - np.outer(fol_e_vec,fol_vel_vec) -\
+=======
+                    self.structures['Faraday'][h,i,j,:,:] = np.outer( fol_vel_vec,fol_e_vec) - np.outer(fol_e_vec,fol_vel_vec) -\
+>>>>>>> 7775d53b835ac3366603f777af6eadd768abd049
                                                 np.tensordot(self.Levi3D,fol_b_vec,axes=([2],[0]))
 
     def get_var_gridpoint(self, var, point):
@@ -125,7 +155,11 @@ class IdealMHD_2D(object):
 
         Parameters:
         -----------
+<<<<<<< HEAD
         vars: string corresponding to primitive, auxiliary or structre variable
+=======
+        vars: string corresponding to primitive, auxiliary or structure variable
+>>>>>>> 7775d53b835ac3366603f777af6eadd768abd049
 
         point: list of 2+1 floats
 
@@ -267,11 +301,22 @@ class IdealHydro_2D(object):
             self.structures[str] = []
 
         #Dictionary for all vars
+<<<<<<< HEAD
         self.var_strs = self.prim_strs + self.aux_strs + self.structures_strs
         # self.vars = self.prim_vars
         # self.vars.update(self.aux_vars)
         # self.vars.update(self.structures)   
         
+=======
+        self.all_var_strs = self.prim_strs + self.aux_strs + self.structures_strs
+
+    def get_model_name(self):
+        return 'IdealHydro_2D'
+
+    def get_spatial_dims(self):
+        return self.spatial_dims
+
+>>>>>>> 7775d53b835ac3366603f777af6eadd768abd049
     def get_domain_strs(self):
         return self.domain_info_strs + self.domain_points_strs
     
@@ -282,7 +327,14 @@ class IdealHydro_2D(object):
         return self.aux_strs
     
     def get_structures_strs(self):
+<<<<<<< HEAD
         return self.get_structures_strs   
+=======
+        return self.get_structures_strs
+    
+    def get_all_var_strs(self):
+        return self.all_var_strs
+>>>>>>> 7775d53b835ac3366603f777af6eadd768abd049
 
     def setup_structures(self):
         """
@@ -426,6 +478,28 @@ class IdealHydro_2D(object):
                 print(f"{var_name} does not belong to the variables of the micro_model!")
         return res
 
+<<<<<<< HEAD
+=======
+
+# TC
+if __name__ == '__main__':
+
+    CPU_start_time = time.process_time()
+
+    FileReader = METHOD_HDF5('./Data/test_res100/')
+    micro_model = IdealMHD_2D()
+    FileReader.read_in_data(micro_model) 
+    micro_model.setup_structures()
+
+    point = [1.502,0.4,0.2]
+    vars = ['SET', 'BC']
+    for var in vars: 
+        res = micro_model.get_interpol_var(var, point)
+        res2 = micro_model.get_var_gridpoint(var, point)
+        print(f'{var}: \n {res} \n {res2} \n ********** \n ')
+
+# MH
+>>>>>>> 7775d53b835ac3366603f777af6eadd768abd049
 if __name__ == '__main__':
 
     CPU_start_time = time.process_time()

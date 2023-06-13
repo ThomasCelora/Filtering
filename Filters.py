@@ -14,7 +14,7 @@ from system.BaseFunctionality import *
 
 from MicroModels import *
 from FileReaders import *
-
+from system.BaseFunctionality import *
 
 class FindObs_flux_min(object): 
     """
@@ -43,6 +43,37 @@ class FindObs_flux_min(object):
     def set_box_length(self, bl):
         self.L = bl
         
+    def get_tetrad_from_U(self, U):
+        """
+        Build tetrad orthogonal to unit velocity with from complete velocity vector
+
+        Parameters:
+        -----------
+        U: list of d+1 floats, with d the number of spatial dimensions 
+
+        Return:
+        -------
+        list of arrays: U + d unit vectors that complete it to a orthonormal basis
+        """
+        if len(U) != 1+self.spatial_dims:
+            print('The dimension of U passed is not compatible with \
+                  micro_model dimensionality!')
+            return None
+        
+        es =[]
+        for _ in range(self.spatial_dims):
+            es.append(np.zeros(self.spatial_dims+1))
+        for i in range(len(es)):
+            es[i][i+1]  = 1    
+        tetrad = [U]
+        for i, vec in enumerate(es): #enumerate returns a tuple: so acts by value not reference!
+            vec = vec + np.multiply(Base.Mink_dot(vec, U), U)
+            for j in range(i-1,-1,-1):
+                vec = vec - np.multiply(Base.Mink_dot(vec, es[j]), es[j])
+            es[i] = np.multiply(vec, 1 / np.sqrt(Base.Mink_dot(vec, vec)))
+            tetrad += [es[i]]
+        return tetrad        
+
     def get_tetrad_from_vels(self, spatial_vels):
         """
         Build tetrad orthogonal to unit velocity with spatial velocities spatial_vels
@@ -59,20 +90,9 @@ class FindObs_flux_min(object):
             print('The number of spatial velocities passed is not compatible with \
                   micro_model dimensionality!')
             return None
-        U = Base.get_rel_vel(spatial_vels)
-        es =[]
-        for _ in range(self.spatial_dims):
-            es.append(np.zeros(self.spatial_dims+1))
-        for i in range(len(es)):
-            es[i][i+1]  = 1    
-        tetrad = [U]
-        for i, vec in enumerate(es): #enumerate returns a tuple: so acts by value not reference!
-            vec = vec + np.multiply(Base.Mink_dot(vec, U), U)
-            for j in range(i-1,-1,-1):
-                vec = vec - np.multiply(Base.Mink_dot(vec, es[j]), es[j])
-            es[i] = np.multiply(vec, 1 / np.sqrt(Base.Mink_dot(vec, vec)))
-            tetrad += [es[i]]
-        return tetrad 
+
+        U = np.array(Base.get_rel_vel(spatial_vels))
+        return self.get_tetrad_from_U(U)
 
     def flux_residual(self, spatial_vels, point, lin_spacing = 10):
         """

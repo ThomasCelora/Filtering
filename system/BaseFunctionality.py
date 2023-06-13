@@ -39,11 +39,12 @@ class Base(object):
         for i in range(1,len(vec1)):
             dot += vec1[i] * vec2[i]
         return dot
-    
+  
     @staticmethod
     def get_rel_vel(spatial_vels):
         """
-        Build unit vectors starting from spatial Cartesian components
+        Build unit vectors starting from spatial components
+        Needed as this will enter the minimization procedure
 
         Parameters:
         ----------
@@ -53,29 +54,23 @@ class Base(object):
         --------
         list of floats: the d+1 vector, normalized wrt Mink metric
         """
-
-        temp = 0
-        for i in range(len(spatial_vels)):
-            temp += spatial_vels[i]**2
-        W = 1 / np.sqrt(1 - temp)
-        U = [W]
-        for i in range(len(spatial_vels)):
-            U.append(W * spatial_vels[i])
-        return np.array(U)   
+        W = 1 / np.sqrt(1-np.sum(spatial_vels**2))
+        return W * np.insert(spatial_vels,0,1.0)
 
     @staticmethod
-    def project_tensor(self, vector1_wrt, vector2_wrt, to_project):
+    def project_tensor(vector1_wrt, vector2_wrt, to_project):
         return np.inner(vector1_wrt,np.inner(vector2_wrt,to_project))
     
     @staticmethod
-    def orthogonal_projector(self, u):
-        return self.metric + np.outer(u,u)    
-
+    def orthogonal_projector(u, metric):
+        return metric + np.outer(u,u)    
+ 
 
     """
     A pair of functions that work in conjuction (thank you stack overflow).
-    find_nearest returns the closest value to in put 'value' in 'array',
+    find_nearest returns the closest value to 'value' in 'array',
     find_nearest_cell then takes this closest value and returns its indices.
+    Should now work for any dimensional data.
     """
     @staticmethod
     def find_nearest(array, value):
@@ -125,8 +120,7 @@ class Base(object):
         for dim in range(len(point)):
             positions.append(Base.find_nearest(points[dim], point[dim]))
         return [np.where(points[i] == positions[i])[0][0] for i in range(len(positions))]
-
-
+    
     def profile(self, fnc):
         """A decorator that uses cProfile to profile a function"""
         def inner(*args, **kwargs):

@@ -8,24 +8,19 @@ Created on Mon Mar 27 18:53:53 2023
 import numpy as np
 from scipy.integrate import quad
 from multiprocessing import Process, Pool
-from itertools import product
 from system.BaseFunctionality import *
-from FileReaders import *
-from MicroModels import *
-from Filters import *  
-
-
-
+import pickle
 
 class NonIdealHydro2D(object):
 
-    def __init__(self, MicroModel, Filter):
+    def __init__(self, MicroModel, Filter, interp_method = "linear"):
         self.Filter = Filter
         self.MicroModel = MicroModel
         #self.Observers = Observers
         self.spatial_dims = 2
+        self.interp_method = interp_method
         
-        self.domain_var_strs = ('Nt','Nx','Ny','dT','dX','dY')
+        self.domain_var_strs = ('Nt','Nx','Ny','dT','dX','dY','points')
         self.domain_vars = dict.fromkeys(self.domain_var_strs)
         
         #Dictionary for 'local' variables, 
@@ -58,6 +53,10 @@ class NonIdealHydro2D(object):
         self.coefficient_strs = ("Gamma")
         self.coefficients = dict.fromkeys(self.diss_coeff_strs)
         self.coefficients['Gamma'] = 4.0/3.0
+
+        #Dictionary for all vars - useful for e.g. plotting
+        self.all_var_strs = self.filter_var_strs + self.meso_var_strs + self.deriv_var_strs\
+                        + self.diss_residual_strs + self.diss_var_strs + self.diss_coeff_strs
         
         # Stencils for finite-differencing
         self.cen_SO_stencil = [1/12, -2/3, 0, 2/3, -1/12]
@@ -82,6 +81,12 @@ class NonIdealHydro2D(object):
         else:
             print("Meso and Micro models are incompatible!")        
 
+    def get_all_var_strs(self):
+        return self.all_var_strs
+    
+    def get_model_name(self):
+        return 'NonIdealHydro2D'
+    
     def find_observers(self, num_points, ranges, spacing):
         self.meso_vars['U_coords'], self.meso_vars['U'], self.meso_vars['U_errors'] = \
             self.Filter.find_observers(num_points, ranges, spacing)[0]
@@ -89,6 +94,9 @@ class NonIdealHydro2D(object):
         self.domain_vars['dT'] = (ranges[0][-1] - ranges[0][0]) / self.domain_vars['Nt']
         self.domain_vars['dX'] = (ranges[1][-1] - ranges[1][0]) / self.domain_vars['Nx']
         self.domain_vars['dY'] = (ranges[2][-1] - ranges[2][0]) / self.domain_vars['Ny']
+        self.domain_vars['points'] = [np.linspace(ranges[0][0], ranges[0][-1], num_points[0]),\
+                                      np.linspace(ranges[1][0], ranges[1][-1], num_points[1]),\
+                                      np.linspace(ranges[2][0], ranges[2][-1], num_points[2])]
     
     def setup_variables(self):
         Nt, Nx, Ny = self.domain_vars['Nt'], self.domain_vars['Nx'], self.domain_vars['Ny']
@@ -116,7 +124,14 @@ class NonIdealHydro2D(object):
         # Single value for each coefficient (per data point) for now...
         self.diss_coeffs['Zeta'] = np.zeros((Nt, Nx, Ny)) 
         self.diss_coeffs['Kappa'] = np.zeros((Nt, Nx, Ny)) 
-        self.diss_coeffs['Eta'] = np.zeros((Nt, Nx, Ny)) 
+        self.diss_coeffs['Eta'] = np.zeros((Nt, Nx, Ny))
+        
+        self.vars = self.filter_vars
+        self.vars.update(self.meso_vars)
+        self.vars.update(self.deriv_vars)
+        self.vars.update(self.diss_residuals)
+        self.vars.update(self.diss_vars)
+        self.vars.update(self.diss_coeffs)        
         
     def p_from_EoS(self, rho, n):
         """
@@ -124,7 +139,7 @@ class NonIdealHydro2D(object):
         """
         p = (self.coefficients['Gamma']-1)*(rho-n)
         return p
-      
+       
     def filter_micro_variables(self):
         """
         'Spatially' average required variables from the micromodel w.r.t.
@@ -327,164 +342,56 @@ class NonIdealHydro2D(object):
             coeffs_handle = open(diss_coeff_str+'.pickle', 'wb')
             pickle.dump(self.diss_coeffs[diss_coeff_str], coeffs_handle, protocol=pickle.HIGHEST_PROTOCOL)       
         
+#         Notes:
+#         ------
+#         The dictionary self.filter_vars['U_successes] has as key:value pairs the following
+
+#         keys: tuples corresponding to grid points
         
+#         values: [bool, index]
         
-class resMHD2D(object):
-    """
-    Work in Progress
-    """
-    def __init__(self, micro_model, find_obs, filter):
-        self.micro_model = micro_model
-        self.find_obs = find_obs
-        self.filter = filter
+#         The bool is true/false according to whether the observer has been found at the point,
+#         the index is the tuple needed to access the observers found at the corresponding point
+#         as ' self.filter_vars['U'][index]'
+#         """
+#         Nt, Nx, Ny = self.domain_vars['Nt'], self.domain_vars['Nx'], self.domain_vars['Ny']
+#         self.filter_vars['U'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1))
+#         self.filter_vars['U_errors'] = np.zeros((Nt, Nx, Ny))
+#         self.filter_vars['U_success'] = dict()
 
-        self.spatial_dims = 2
+#         for h, t in enumerate(self.domain_vars['T']):
+#             for i, x in enumerate(self.domain_vars['X']):
+#                 for j, y in enumerate(self.domain_vars['Y']): 
+#                     point = [t,x,y]
+#                     sol = self.find_obs.find_observer(point)
+#                     if sol[0]:
+#                         self.filter_vars['U'][h,i,j] = sol[1]
+#                         self.filter_vars['U_errors'][h,i,j] = sol[2]
+#                         self.filter_vars['U_success'].update({tuple(point) : [True, (h,i,j)]})
 
-        self.meso_structures_strs  = ['SET', 'BC', 'Fab']
-        self.meso_structures = dict.fromkeys(self.meso_structures_strs) 
-        for var in self.meso_structures:
-                self.meso_structures[var] = []
-
-        self.domain_int_strs = ('Nt','Nx','Ny')
-        self.domain_float_strs = ("Tmin","Tmax","Xmin","Xmax","Ymin","Ymax","Dt","Dx","Dy")
-        self.domain_array_strs = ("T","X","Y","Points")
-        self.domain_vars = dict.fromkeys(self.domain_int_strs+self.domain_float_strs+self.domain_array_strs)
-        for var in self.domain_vars: 
-            self.domain_vars[var] = []
-
-        self.filter_vars_strs = ['U', 'U_errors', 'U_success']
-        self.filter_vars = dict.fromkeys(self.filter_vars_strs)
-        for var in self.filter_vars:
-            var = []
-
-        # Run some compatability test... 
-        compatible = True
-        error = ''
-        if self.spatial_dims != micro_model.get_spatial_dims(): 
-            compatible = False
-            error += '\nError: different dimensions.'
-        for struct in self.meso_structures_strs:
-            if struct not in self.micro_model.get_structures_strs():
-                compatible = False
-                error += f'\nError: {struct} not in micro_model!'
-
-        if not compatible:
-            print("Meso and Micro models are incompatible"+error) 
+#                     if not sol[0]: 
+#                         self.filter_vars['U_success'].update({tuple(point) : [False, (h,i,j)]})
+#                         print('Careful: obs could not be found at: ', self.domain_vars['Points'][h][i][j])
 
 
-    def setup_meso_grid(self, patch_bdrs, coarse_factor): 
-        """
-        Builds the meso_model grid using the micro_model grid points contained in 
-        the input patch (defined via 'patch_bdrs'). The method allows for coarse graining 
-        the grid in the spatial directions. 
-
-        Parameters: 
-        -----------
-        patch_bdrs: list of lists of two floats, 
-            [[tmin, tmax],[xmin,xmax],[ymin,ymax]]
-
-        coarse_factor: integer    
-        """
-        # Is the patch within the micro_model domain? 
-        conditions = patch_bdrs[0][0] < self.micro_model.domain_vars['tmin'] and \
-                    patch_bdrs[0][1] > self.micro_model.domain_vars['tmax'] and \
-                    patch_bdrs[1][0] < self.micro_model.domain_vars['xmin'] and \
-                    patch_bdrs[1][1] > self.micro_model.domain_vars['xmax'] and \
-                    patch_bdrs[2][0] < self.micro_model.domain_vars['ymin'] and \
-                    patch_bdrs[2][1] > self.micro_model.domain_vars['ymax']
-        
-        if conditions: 
-            print('The input region for filtering is larger than micro_model domain!')
-            return None
-
-        patch_min = [patch_bdrs[0][0], patch_bdrs[1][0], patch_bdrs[2][0]]
-        patch_max = [patch_bdrs[0][1], patch_bdrs[1][1], patch_bdrs[2][1]]
-        idx_mins = Base.find_nearest_cell(patch_min, micro_model.domain_vars['points'])
-        idx_maxs = Base.find_nearest_cell(patch_max, micro_model.domain_vars['points'])
-
-        self.domain_vars['Dt'] = self.micro_model.domain_vars['dt']
-        self.domain_vars['DX'] = self.micro_model.domain_vars['dx'] * coarse_factor
-        self.domain_vars['DY'] = self.micro_model.domain_vars['dy'] * coarse_factor
-
-        h, i, j = idx_mins[0], idx_mins[1], idx_mins[2]
-        while h <= idx_maxs[0]:
-            self.domain_vars['T'].append(self.micro_model.domain_vars['t'][h])
-            h += 1
-        while i <= idx_maxs[1]:
-            self.domain_vars['X'].append(self.micro_model.domain_vars['x'][i])
-            i += coarse_factor
-        while j <= idx_maxs[2]:
-            self.domain_vars['Y'].append(self.micro_model.domain_vars['x'][j])
-            j += coarse_factor
-
-        self.domain_vars['Points'] = [self.domain_vars['T'], self.domain_vars['X'], self.domain_vars['Y']]
-        self.domain_vars['Tmin'] = np.amin(self.domain_vars['T'])
-        self.domain_vars['Xmin'] = np.amin(self.domain_vars['X'])
-        self.domain_vars['Ymin'] = np.amin(self.domain_vars['Y'])
-        self.domain_vars['Tmax'] = np.amax(self.domain_vars['T'])
-        self.domain_vars['Xmax'] = np.amax(self.domain_vars['X'])
-        self.domain_vars['Ymax'] = np.amax(self.domain_vars['Y'])
-        self.domain_vars['Nt'] = len(self.domain_vars['T'])
-        self.domain_vars['Nx'] = len(self.domain_vars['X'])
-        self.domain_vars['Ny'] = len(self.domain_vars['Y'])
-
-    def build_observers(self):
-        """
-        Method to compute filtering observers at grid points built with setup_meso_grid. 
-        The observers found (and relative errors) are saved in the dictionary self.filter_vars.
-        
-        Set up a dictionary self.filter_vars['U_successes] with info on where observers have been found. 
-        
-        Notes:
-        ------
-        The dictionary self.filter_vars['U_successes] has as key:value pairs the following
-
-        keys: tuples corresponding to grid points
-        
-        values: [bool, index]
-        
-        The bool is true/false according to whether the observer has been found at the point,
-        the index is the tuple needed to access the observers found at the corresponding point
-        as ' self.filter_vars['U'][index]'
-        """
-        Nt, Nx, Ny = self.domain_vars['Nt'], self.domain_vars['Nx'], self.domain_vars['Ny']
-        self.filter_vars['U'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1))
-        self.filter_vars['U_errors'] = np.zeros((Nt, Nx, Ny))
-        self.filter_vars['U_success'] = dict()
-
-        for h, t in enumerate(self.domain_vars['T']):
-            for i, x in enumerate(self.domain_vars['X']):
-                for j, y in enumerate(self.domain_vars['Y']): 
-                    point = [t,x,y]
-                    sol = self.find_obs.find_observer(point)
-                    if sol[0]:
-                        self.filter_vars['U'][h,i,j] = sol[1]
-                        self.filter_vars['U_errors'][h,i,j] = sol[2]
-                        self.filter_vars['U_success'].update({tuple(point) : [True, (h,i,j)]})
-
-                    if not sol[0]: 
-                        self.filter_vars['U_success'].update({tuple(point) : [False, (h,i,j)]})
-                        print('Careful: obs could not be found at: ', self.domain_vars['Points'][h][i][j])
-
-
-    def compute_local(self):
+#     def compute_local(self):
         
 
-if __name__ == '__main__':
+# if __name__ == '__main__':
 
-    FileReader = METHOD_HDF5('./Data/test_res100/')
-    micro_model = IdealMHD_2D()
-    FileReader.read_in_data(micro_model) 
-    micro_model.setup_structures()
-    find_obs = FindObs_drift_root(micro_model, 0.001)
-    filter = spatial_box_filter(micro_model, 0.003)
+#     FileReader = METHOD_HDF5('./Data/test_res100/')
+#     micro_model = IdealMHD_2D()
+#     FileReader.read_in_data(micro_model) 
+#     micro_model.setup_structures()
+#     find_obs = FindObs_drift_root(micro_model, 0.001)
+#     filter = spatial_box_filter(micro_model, 0.003)
 
-    meso_model = resMHD2D(micro_model, find_obs, filter)
-    meso_model.setup_meso_grid([[1.503, 1.503],[0.37, 0.42],[0.43, 0.54]],2)
-    meso_model.build_observers()
-    for elem in meso_model.filter_vars['U_success']:
-        idx = meso_model.filter_vars['U_success'][elem][1]
-        if meso_model.filter_vars['U_success'][elem][0]: 
-            print('Success: ', elem, meso_model.filter_vars['U'][idx], meso_model.filter_vars['U_errors'][idx], '\n')
-        else:
-            print('Failed: ', elem,'\n')
+#     meso_model = resMHD2D(micro_model, find_obs, filter)
+#     meso_model.setup_meso_grid([[1.503, 1.503],[0.37, 0.42],[0.43, 0.54]],2)
+#     meso_model.build_observers()
+#     for elem in meso_model.filter_vars['U_success']:
+#         idx = meso_model.filter_vars['U_success'][elem][1]
+#         if meso_model.filter_vars['U_success'][elem][0]: 
+#             print('Success: ', elem, meso_model.filter_vars['U'][idx], meso_model.filter_vars['U_errors'][idx], '\n')
+#         else:
+#             print('Failed: ', elem,'\n')
