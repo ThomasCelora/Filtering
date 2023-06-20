@@ -13,10 +13,10 @@ import pickle
 
 class NonIdealHydro2D(object):
 
-    def __init__(self, MicroModel, Filter, interp_method = "linear"):
-        self.Filter = Filter
+    def __init__(self, MicroModel, ObsFinder, Filter, interp_method = "linear"):
         self.MicroModel = MicroModel
-        #self.Observers = Observers
+        self.ObsFinder = ObsFinder
+        self.Filter = Filter
         self.spatial_dims = 2
         self.interp_method = interp_method
         
@@ -25,11 +25,11 @@ class NonIdealHydro2D(object):
         
         #Dictionary for 'local' variables, 
         #obtained from filtering the appropriate MicroModel variables
-        self.filter_var_strs = ("n","SET")
+        self.filter_var_strs = ("BC","SET")
         self.filter_vars = dict.fromkeys(self.filter_var_strs)
 
         #Dictionary for MesoModel variables
-        self.meso_var_strs = ("U","U_coords","U_errors","T~")
+        self.meso_var_strs = ("U","U_coords","U_errors","T~","n")
         self.meso_vars = dict.fromkeys(self.meso_var_strs)
 
         #Strings for 'non-local' variables - ones we need to take derivatives of
@@ -87,9 +87,11 @@ class NonIdealHydro2D(object):
     def get_model_name(self):
         return 'NonIdealHydro2D'
     
-    def find_observers(self, num_points, ranges, spacing):
+    def find_observers(self, num_points, ranges):#, spacing):
+        # self.meso_vars['U_coords'], self.meso_vars['U'], self.meso_vars['U_errors'] = \
+        #     self.ObsFinder.find_observers(num_points, ranges, spacing)[0]
         self.meso_vars['U_coords'], self.meso_vars['U'], self.meso_vars['U_errors'] = \
-            self.Filter.find_observers(num_points, ranges, spacing)[0]
+            self.ObsFinder.find_observers_ranges(num_points, ranges)[0]
         self.domain_vars['Nt'], self.domain_vars['Nx'], self.domain_vars['Ny'] = num_points[:]
         self.domain_vars['dT'] = (ranges[0][-1] - ranges[0][0]) / self.domain_vars['Nt']
         self.domain_vars['dX'] = (ranges[1][-1] - ranges[1][0]) / self.domain_vars['Nx']
@@ -103,11 +105,12 @@ class NonIdealHydro2D(object):
         n_dims = self.spatial_dims+1
         self.meso_vars['U_coords'] = np.array(self.meso_vars['U_coords']).reshape([Nt, Nx, Ny, n_dims])
         self.meso_vars['U'] = np.array(self.meso_vars['U']).reshape([Nt, Nx, Ny, n_dims])
-        self.meso_vars['U_errors'] = np.array(self.meso_vars['U_errors']).reshape([Nt, Nx, Ny])
+        self.meso_vars['U_errors'] = np.array(self.meso_vars['U_errors']).reshape([Nt, Nx, Ny, 2])
         self.meso_vars['T~'] = np.zeros((Nt, Nx, Ny))
-
         self.filter_vars['n'] = np.zeros((Nt, Nx, Ny))
-        self.filter_vars['SET'] = np.zeros((Nt, Nx, Ny,n_dims,n_dims))
+
+        self.filter_vars['BC'] = np.zeros((Nt, Nx, Ny, n_dims))
+        self.filter_vars['SET'] = np.zeros((Nt, Nx, Ny, n_dims,n_dims))
         
         for nonlocal_var_str in self.nonlocal_var_strs:
             self.deriv_vars['dt'+nonlocal_var_str] = np.zeros_like(self.meso_vars[nonlocal_var_str])
@@ -131,7 +134,7 @@ class NonIdealHydro2D(object):
         self.vars.update(self.deriv_vars)
         self.vars.update(self.diss_residuals)
         self.vars.update(self.diss_vars)
-        self.vars.update(self.diss_coeffs)        
+        self.vars.update(self.diss_coeffs)      
         
     def p_from_EoS(self, rho, n):
         """
@@ -149,10 +152,15 @@ class NonIdealHydro2D(object):
         for h in range(self.domain_vars['Nt']):
             for i in range(self.domain_vars['Nx']):
                 for j in range(self.domain_vars['Ny']):
-                        self.filter_vars['n'][h,i,j] =\
-                            self.Filter.filter_prim_var(self.meso_vars['U_coords'][h,i,j], self.meso_vars['U'][h,i,j], 'n')
-                        self.filter_vars['SET'][h,i,j] =\
-                            self.Filter.filter_struc(self.meso_vars['U_coords'][h,i,j], self.meso_vars['U'][h,i,j], 'SET')
+                        self.filter_vars['BC'][h,i,j] = self.Filter.filter_var_point('BC', self.meso_vars['U_coords'][h,i,j],
+                                                     self.meso_vars['U'][h,i,j])
+                        self.filter_vars['SET'][h,i,j] = self.Filter.filter_var_point('SET', self.meso_vars['U_coords'][h,i,j],
+                                                     self.meso_vars['U'][h,i,j])
+
+                        # self.filter_vars['n'][h,i,j] =\
+                        #     self.Filter.filter_prim_var(self.meso_vars['U_coords'][h,i,j], self.meso_vars['U'][h,i,j], 'n')
+                        # self.filter_vars['SET'][h,i,j] =\
+                        #     self.Filter.filter_struc(self.meso_vars['U_coords'][h,i,j], self.meso_vars['U'][h,i,j], 'SET')
                     
         # Should be able to convert here to only 1 filter function... (not prim/struct)
         # for filter_var_str in self.filter_var_strs:
@@ -249,7 +257,8 @@ class NonIdealHydro2D(object):
         # Move this
         # h, i, j = indices
         # Filter the scalar fields
-        N = self.filter_vars['n'][h,i,j]
+        BC = self.filter_vars['BC'][h,i,j]
+        N = np.sqrt(-Base.Mink_dot(BC, BC))
         Id_SET = self.filter_vars['SET'][h,i,j]
         U = self.meso_vars['U'][h,i,j]
         
