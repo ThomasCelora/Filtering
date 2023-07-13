@@ -27,7 +27,7 @@ class Plotter_2D(object):
                          6 : (2,3)}
 
         
-    def get_var_data(self, model, var_str, t, x_range, y_range, interp_dims, method, component_index):
+    def get_var_data(self, model, var_str, t, x_range, y_range, interp_dims, method, component_indices):
         """
         Retrieves the required data from model to plot a variable defined by
         var_str over coordinates t, x_range, y_range, either from the model's
@@ -71,10 +71,14 @@ class Plotter_2D(object):
                 for i in range(nx):
                     for j in range(ny):
                         point = [t,xs[i],ys[j]]
+                        # print(component_indices)
+                        # print(interpn(model.domain_vars['points'],\
+                        #                     model.vars[var_str], point,\
+                        #                     method = model.interp_method)[0])#[0][component_indices])
+                        
                         data_to_plot[i,j] = interpn(model.domain_vars['points'],\
                                             model.vars[var_str], point,\
-                                            method = model.interp_method)[0][component_index]
-         
+                                            method = model.interp_method)[0][component_indices]         
             elif method == 'raw_data':
     
                 start_indices = Base.find_nearest_cell([t, x_range[0], y_range[0]], model.domain_vars['points'])
@@ -88,7 +92,11 @@ class Plotter_2D(object):
                           model.domain_vars['points'][1][i_s:i_f+1],\
                           model.domain_vars['points'][2][j_s:j_f+1]]
                 
-                data_to_plot = model.vars[var_str][h:h+1, i_s:i_f+1, j_s:j_f+1][0][:, :, component_index]
+                data_to_plot = model.vars[var_str][h:h+1, i_s:i_f+1, j_s:j_f+1][0]#[:, :, component_indices]
+                # print(data_to_plot)
+                if component_indices:
+                    for component_index in component_indices:
+                        data_to_plot = data_to_plot[:, :, component_index]
 
 
                 
@@ -102,7 +110,7 @@ class Plotter_2D(object):
     
     
     def plot_vars(self, model, var_strs, t, x_range, y_range, interp_dims=(), \
-                  method='interpolate', component_indices=None):
+                  method='interpolate', components_indices=None):
         """
         Plot variable(s) from model, defined by var_strs, over coordinates 
         t, x_range, y_range. Either from the model's raw data or by interpolating 
@@ -123,7 +131,7 @@ class Plotter_2D(object):
             defines the number of points to interpolate at in x and y directions.
         method : str
             currently either raw_data or interpolate.
-        component_indices : list of tuple(s)
+        components_indices : list of tuple(s)
             the indices of the components to pick out if the variables are vectors/tensors.
             Can be omitted is all variables are scalars, otherwise must be a list
             of tuples matching the length of var_strs that corresponds with each
@@ -145,8 +153,8 @@ class Plotter_2D(object):
         else:
             axes = axes.flatten()
             
-        for var_str, component_index, ax in zip(var_strs, component_indices, axes):  
-            data_to_plot, points = self.get_var_data(model, var_str, t, x_range, y_range, interp_dims, method, component_index)
+        for var_str, component_indices, ax in zip(var_strs, components_indices, axes):  
+            data_to_plot, points = self.get_var_data(model, var_str, t, x_range, y_range, interp_dims, method, component_indices)
             extent = [points[2][0],points[2][-1],points[1][0],points[1][-1]]
             im = ax.imshow(data_to_plot, extent=extent)
             divider = make_axes_locatable(ax)
@@ -163,7 +171,7 @@ class Plotter_2D(object):
         
  
     def plot_var_model_comparison(self, models, var_str, t, x_range, y_range, \
-                            interp_dims=(), method='interpolate', component_index=(), diff_plot=True):
+                            interp_dims=(), method='interpolate', component_indices=(), diff_plot=True):
         """
         Plot a variable from a number of models. If 2 models are given, a third
         plot of the difference will be automatically plotted, too. If 'raw_data'
@@ -185,7 +193,7 @@ class Plotter_2D(object):
             defines the number of points to interpolate at in x and y directions.
         method : str
             currently either raw_data or interpolate.
-        component_index : tuple
+        component_indices : tuple
             the indices of the component to pick out if the variable is a vector/tensor.
 
         Output
@@ -198,14 +206,14 @@ class Plotter_2D(object):
         """
         n_cols = len(models)
         if not n_cols == 2:
-            diff_plot = false # Only plot difference of 2 models...
+            diff_plot = False # Only plot difference of 2 models...
         n_rows = 1
         if diff_plot:
             n_cols+=1
         fig, axes = plt.subplots(n_rows,n_cols,sharex='row',sharey='col',figsize=(16,16))
         
         for model, ax in zip(models, axes.flatten()):
-            data_to_plot, points = self.get_var_data(model, var_str, t, x_range, y_range, interp_dims, method, component_index)
+            data_to_plot, points = self.get_var_data(model, var_str, t, x_range, y_range, interp_dims, method, component_indices)
             extent = [points[2][0],points[2][-1],points[1][0],points[1][-1]]
             im = ax.imshow(data_to_plot, extent=extent)
             divider = make_axes_locatable(ax)
@@ -217,12 +225,20 @@ class Plotter_2D(object):
 
         if diff_plot:
             ax = axes.flatten()[-1]
-            data_to_plot1, points1 = self.get_var_data(models[0], var_str, t, x_range, y_range, interp_dims, method, component_index)
-            data_to_plot2, points2 = self.get_var_data(models[1], var_str, t, x_range, y_range, interp_dims, method, component_index)
-            for point1, point2 in zip(points1, points2):
-                if not np.allclose(point1, point1):
-                    diff_plot = False
-            if diff_plot:                
+            data_to_plot1, points1 = self.get_var_data(models[0], var_str, t, x_range, y_range, interp_dims, method, component_indices)
+            data_to_plot2, points2 = self.get_var_data(models[1], var_str, t, x_range, y_range, interp_dims, method, component_indices)
+            # if len(points1) != len(points2):
+            #     diff_plot = False
+            #     pass
+            # for t_points1, t_points2 in zip(points1, points2):
+            #     print(t_points1, t_points2)
+            #     if len(t_points1) != t_points2.shape:
+            #         diff_plot = False
+            #         continue
+            #     if not np.allclose(t_points1, t_points2):
+            #         diff_plot = False
+            # if diff_plot:
+            try:                
                 extent = [points1[2][0],points1[2][-1],points1[1][0],points1[1][-1]]
                 im = ax.imshow(data_to_plot1 - data_to_plot2, extent=extent)
                 divider = make_axes_locatable(ax)
@@ -232,9 +248,9 @@ class Plotter_2D(object):
                 ax.set_title('Model Difference')
                 ax.set_xlabel(r'$y$')
                 ax.set_ylabel(r'$x$')
-            else:
+            except(ValueError):
                 print(f"Cannot plot the difference between {var_str} in the two "
-                      "models as the data coordinates do not coincide.")
+                      "models. Likely due to the data coordinates not coinciding.")
         fig.tight_layout()
         plt.show()
 

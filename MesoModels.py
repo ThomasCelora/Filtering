@@ -18,6 +18,7 @@ class NonIdealHydro2D(object):
         self.ObsFinder = ObsFinder
         self.Filter = Filter
         self.spatial_dims = 2
+        self.n_dims = self.spatial_dims + 1
         self.interp_method = interp_method
         
         self.domain_var_strs = ('Nt','Nx','Ny','dT','dX','dY','points')
@@ -126,8 +127,8 @@ class NonIdealHydro2D(object):
 
         # Single value for each coefficient (per data point) for now...
         self.diss_coeffs['Zeta'] = np.zeros((Nt, Nx, Ny)) 
-        self.diss_coeffs['Kappa'] = np.zeros((Nt, Nx, Ny)) 
-        self.diss_coeffs['Eta'] = np.zeros((Nt, Nx, Ny))
+        self.diss_coeffs['Kappa'] = np.zeros((Nt, Nx, Ny,n_dims))
+        self.diss_coeffs['Eta'] = np.zeros((Nt, Nx, Ny,n_dims,n_dims))
         
         self.vars = self.filter_vars
         self.vars.update(self.meso_vars)
@@ -348,6 +349,10 @@ class NonIdealHydro2D(object):
                       self.calculate_dissipative_residuals(h,i,j)
                       self.calculate_dissipative_variables(h,i,j)
                       self.diss_coeffs['Zeta'][h,i,j] = -self.diss_residuals['Pi'][h,i,j] / self.diss_vars['Theta'][h,i,j]
+                      for k in range(self.n_dims):
+                          self.diss_coeffs['Kappa'][h,i,j,k] = -self.diss_residuals['q'][h,i,j,k] / self.diss_vars['Omega'][h,i,j,k]
+                          for l in range(self.n_dims):
+                              self.diss_coeffs['Eta'][h,i,j,k,l] = -self.diss_residuals['pi'][h,i,j,k,l] / self.diss_vars['Sigma'][h,i,j,k,l]
                     
         for diss_coeff_str in self.diss_coeff_strs:
             coeffs_handle = open(diss_coeff_str+'.pickle', 'wb')

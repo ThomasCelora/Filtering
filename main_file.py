@@ -16,13 +16,13 @@ from Analysis import *
 if __name__ == '__main__':
     
     # Pickling Options
-    LoadMicroModelFromPickleFile = False
+    LoadMicroModelFromPickleFile = True
     MicroModelPickleLoadFile = 'IdealHydro2D.pickle'
 
     DumpMicroModelToPickleFile = True
     MicroModelPickleDumpFile = 'IdealHydro2D.pickle'
 
-    LoadMesoModelFromPickleFile = False
+    LoadMesoModelFromPickleFile = True
     MesoModelPickleLoadFile = 'NonIdealHydro2D.pickle'
     
     DumpMesoModelToPickleFile = True
@@ -32,7 +32,7 @@ if __name__ == '__main__':
     CPU_start_time = time.process_time()
 
     # Read in data from file
-    HDF5_Directory = './Data/Testing/'
+    HDF5_Directory = './Data/Testing/20x40/'
     FileReader = METHOD_HDF5(HDF5_Directory)
     # FileReader = METHOD_HDF5('../../Filtering/Data/KH/Ideal/t_998_1002/')
 
@@ -51,10 +51,15 @@ if __name__ == '__main__':
 
     # Create visualizer for plotting micro data
     visualizer = Plotter_2D()
-    # visualizer.plot_vars(micro_model, ['v1','v2','n'], t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
-    #                       interp_dims=(20,40), method='interpolate', component_indices=[(),(),()])
-    # visualizer.plot_vars(micro_model, ['BC'], t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
-    #                       interp_dims=(20,40), method='interpolate', component_indices=[(1)])
+    visualizer.plot_vars(micro_model, ['v1','v2','n'], t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
+                          interp_dims=(20,40), method='raw_data', components_indices=[(),(),()])
+    visualizer.plot_vars(micro_model, ['BC'], t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
+                          interp_dims=(20,40), method='raw_data', components_indices=[(1,)])
+
+    visualizer.plot_vars(micro_model, ['v1','v2','n'], t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
+                          interp_dims=(20,40), method='interpolate', components_indices=[(),(),()])
+    visualizer.plot_vars(micro_model, ['BC'], t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
+                          interp_dims=(20,40), method='interpolate', components_indices=[(1,)])
 
     # Create the observer-finder and filter
     ObsFinder = FindObs_drift_root(micro_model,box_len=0.001)
@@ -94,16 +99,23 @@ if __name__ == '__main__':
 
     # Plot MesoModel variables
     visualizer.plot_vars(meso_model, ['U'], t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
-                      interp_dims=(20,40), method='raw_data', component_indices=[(1)])
+                      interp_dims=(20,40), method='raw_data', components_indices=[(1,)])
             
-    # visualizer.plot_var_model_comparison([micro_model, meso_model], 'SET', \
-    #                                      t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
-    #                   interp_dims=(20,40), method='interpolate', component_index=(1,2))
-    
+    visualizer.plot_var_model_comparison([micro_model, meso_model], 'SET', \
+                                          t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
+                      interp_dims=(20,40), method='raw_data', component_indices=(1,2))
+
+    visualizer.plot_vars(meso_model, ['U'], t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
+                      interp_dims=(20,40), method='interpolate', components_indices=[(1,)])
+            
+    visualizer.plot_var_model_comparison([micro_model, meso_model], 'SET', \
+                                          t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
+                      interp_dims=(20,40), method='interpolate', component_indices=(1,2))
+        
     # Analyse coefficients of the MesoModel
     # analyzer = CoefficientAnalysis(visualizer)
     # analyzer.DistributionPlot(meso_model, 'Zeta', t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
-    #                   interp_dims=(20,40), method='raw_data', component_indices=[()])
+    #                   interp_dims=(20,40), method='raw_data', component_indices=())
         
     print(f'Total elapsed CPU time for finding is {time.process_time() - CPU_start_time}.')
     
