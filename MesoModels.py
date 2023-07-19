@@ -6,10 +6,13 @@ Created on Mon Mar 27 18:53:53 2023
 """
 
 import numpy as np
-from scipy.integrate import quad
 from multiprocessing import Process, Pool
-from system.BaseFunctionality import *
 import pickle
+
+from system.BaseFunctionality import *
+from MicroModels import * 
+from FileReaders import * 
+from Filters import *
 
 class NonIdealHydro2D(object):
 
@@ -342,3 +345,487 @@ class NonIdealHydro2D(object):
             coeffs_handle = open(diss_coeff_str+'.pickle', 'wb')
             pickle.dump(self.diss_coeffs[diss_coeff_str], coeffs_handle, protocol=pickle.HIGHEST_PROTOCOL)       
         
+class resMHD2D(object):
+    """
+    Idea: alternative meso_models (e.g. with different closures scheme) will 
+    only have to change the method model_residuals and list of non_local_vars 
+    (possibly but less likely decompose_structure_gridpoint)
+    """
+    def __init__(self, micro_model, find_obs, filter):
+        """
+        
+        """
+        self.micro_model = micro_model
+        self.find_obs = find_obs
+        self.filter = filter
+
+        self.spatial_dims = 2
+
+        self.domain_int_strs = ('Nt','Nx','Ny')
+        self.domain_float_strs = ("Tmin","Tmax","Xmin","Xmax","Ymin","Ymax","Dt","Dx","Dy")
+        self.domain_array_strs = ("T","X","Y","Points")
+        self.domain_vars = dict.fromkeys(self.domain_int_strs+self.domain_float_strs+self.domain_array_strs)
+        for var in self.domain_vars: 
+            self.domain_vars[var] = []
+
+        # This is the Levi-Civita symbol, not tensor, so be careful when using it 
+        self.Levi3D = np.array([[[ np.sign(i-j) * np.sign(j- k) * np.sign(k-i) \
+                      for k in range(3)]for j in range(3) ] for i in range(3) ])
+        
+        self.metric = np.zeros((3,3))
+        self.metric[0,0] = -1
+        self.metric[1,1] = self.metric[2,2] = +1
+
+        self.filter_vars_strs = ['U', 'U_errors', 'U_success']
+        self.filter_vars = dict.fromkeys(self.filter_vars_strs)
+        for var in self.filter_vars:
+            var = []
+
+        self.meso_structures_strs  = ['SETfl', 'SETem', 'BC', 'Fab']
+        self.meso_structures = dict.fromkeys(self.meso_structures_strs) 
+        for var in self.meso_structures:
+                self.meso_structures[var] = []
+
+
+        # self.meso_fluid_vars_strs = ['eps_tilde', 'u_tilde', 'n_tilde', 'p_tilde', 'p', 'eos_res', 'Pi_res', 'q_res', 'pi_res']
+        # self.meso_em_vars_strs = ['e', 'b', 'j', 'sigma', 'J']
+        # self.meso_vars_strs = self.meso_fluid_vars_strs + self.meso_em_vars_strs
+        # self.meso_vars = dict.fromkeys(self.meso_vars_strs)
+
+        self.meso_scalars_strs = ['eps_tilde', 'n_tilde', 'p_tilde', 'p', 'eos_res', 'Pi_res', 'sigma_tilde', 'b_tilde']
+        self.meso_vectors_strs = ['u_tilde', 'q_res', 'e_tilde', 'j', 'J_tilde']
+        self.meso_tensors_strs = ['pi_res']
+        self.meso_vars_strs = self.meso_scalars_strs + self.meso_vectors_strs + self.meso_tensors_strs
+        self.meso_vars = dict.fromkeys(self.meso_vars_strs)
+
+        # Dictionary with stencils and coefficients for finite differencing
+        self.differencing = dict.fromkeys((1, 2))
+        self.differencing[1] = dict.fromkeys(['fw', 'bw', 'cen']) 
+        self.differencing[1]['fw'] = {'coefficients' : [-1, 1] , 'stencil' : [0, 1]}
+        self.differencing[1]['bw'] = {'coefficients' : [1, -1] , 'stencil' : [0, -1]}
+        self.differencing[1]['cen'] = {'coefficients' : [-1/2., 0, 1/2.] , 'stencil' : [-1, 0, 1]}
+        self.differencing[2] = dict.fromkeys(['fw', 'bw', 'cen']) 
+        self.differencing[2]['fw'] = {'coefficients' : [-3/2., 2., -1/2.] , 'stencil' : [0, 1, 2]}
+        self.differencing[2]['bw'] = {'coefficients' : [3/2., -2., 1/2.] , 'stencil' : [0, -1, -2]}
+        self.differencing[2]['cen'] = {'coefficients' : [1/12., -2/3., 0., 2/3., -1/12.] , 'stencil' : [-2, -1, 0, 1, 2]}
+
+        self.nonlocal_vars_strs = ['u_tilde', 'Fab'] # These have to belong to either a structure or meso_vars 
+        Dstrs = ['D_' + i for i in self.nonlocal_vars_strs]
+        self.deriv_vars = dict.fromkeys(Dstrs)
+
+        # Run some compatibility test... 
+        compatible = True
+        error = ''
+        if self.spatial_dims != micro_model.get_spatial_dims(): 
+            compatible = False
+            error += '\nError: different dimensions.'
+        for struct in self.meso_structures_strs:
+            if struct not in self.micro_model.get_structures_strs():
+                compatible = False
+                error += f'\nError: {struct} not in micro_model!'
+
+        if not compatible:
+            print("Meso and Micro models are incompatible:"+error) 
+
+    def get_model_name(self):
+        return 'resMHD2D'
+    
+    def set_find_obs_method(self, find_obs):
+        self.find_obs = find_obs
+
+    def setup_meso_grid(self, patch_bdrs, coarse_factor): 
+        """
+        Builds the meso_model grid using the micro_model grid points contained in 
+        the input patch (defined via 'patch_bdrs'). The method allows for coarse graining 
+        the grid in the spatial directions ONLY. 
+
+        Parameters: 
+        -----------
+        patch_bdrs: list of lists of two floats, 
+            [[tmin, tmax],[xmin,xmax],[ymin,ymax]]
+
+        coarse_factor: integer   
+
+        Notes: 
+        ------
+        If the patch_bdrs are larger than micro_grid, the method will not set-up the meso_grid, 
+        and an error message is printed. This is extra safety measure!
+        """
+
+        # Is the patch within the micro_model domain? 
+        conditions = patch_bdrs[0][0] < self.micro_model.domain_vars['tmin'] or \
+                    patch_bdrs[0][1] > self.micro_model.domain_vars['tmax'] or \
+                    patch_bdrs[1][0] < self.micro_model.domain_vars['xmin'] or \
+                    patch_bdrs[1][1] > self.micro_model.domain_vars['xmax'] or \
+                    patch_bdrs[2][0] < self.micro_model.domain_vars['ymin'] or \
+                    patch_bdrs[2][1] > self.micro_model.domain_vars['ymax']
+        
+        if conditions: 
+            print('Error: the input region for filtering is larger than micro_model domain!')
+            return None 
+
+        #Find the nearest cell to input patch bdrs
+        patch_min = [patch_bdrs[0][0], patch_bdrs[1][0], patch_bdrs[2][0]]
+        patch_max = [patch_bdrs[0][1], patch_bdrs[1][1], patch_bdrs[2][1]]
+        idx_mins = Base.find_nearest_cell(patch_min, self.micro_model.domain_vars['points'])
+        idx_maxs = Base.find_nearest_cell(patch_max, self.micro_model.domain_vars['points'])
+
+        # Set meso_grid spacings
+        self.domain_vars['Dt'] = self.micro_model.domain_vars['dt']
+        self.domain_vars['Dx'] = self.micro_model.domain_vars['dx'] * coarse_factor
+        self.domain_vars['Dy'] = self.micro_model.domain_vars['dy'] * coarse_factor
+
+        # Building the meso_grid
+        h, i, j = idx_mins[0], idx_mins[1], idx_mins[2]
+        while h <= idx_maxs[0]:
+            t = self.micro_model.domain_vars['t'][h]
+            self.domain_vars['T'].append(t)
+            h += 1
+        while i <= idx_maxs[1]:
+            x = self.micro_model.domain_vars['x'][i]
+            self.domain_vars['X'].append(x)
+            i += coarse_factor
+        while j <= idx_maxs[2]:
+            y = self.micro_model.domain_vars['y'][j]
+            self.domain_vars['Y'].append(y)
+            j += coarse_factor
+                
+        # Saving the info about the meso_grid
+        self.domain_vars['Points'] = [self.domain_vars['T'], self.domain_vars['X'], self.domain_vars['Y']]
+        self.domain_vars['Tmin'] = np.amin(self.domain_vars['T'])
+        self.domain_vars['Xmin'] = np.amin(self.domain_vars['X'])
+        self.domain_vars['Ymin'] = np.amin(self.domain_vars['Y'])
+        self.domain_vars['Tmax'] = np.amax(self.domain_vars['T'])
+        self.domain_vars['Xmax'] = np.amax(self.domain_vars['X'])
+        self.domain_vars['Ymax'] = np.amax(self.domain_vars['Y'])
+        self.domain_vars['Nt'] = len(self.domain_vars['T'])
+        self.domain_vars['Nx'] = len(self.domain_vars['X'])
+        self.domain_vars['Ny'] = len(self.domain_vars['Y'])
+
+    def setup_variables(self):
+        """
+        Set up the arrays for meso_structures, meso_vars and filter_vars
+
+        Notes:
+        ------
+        Use after setup meso_grid
+        """
+        # Setup arrays for structures
+        Nt, Nx, Ny = self.domain_vars['Nt'], self.domain_vars['Nx'], self.domain_vars['Ny']
+        self.meso_structures['BC'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1))
+        self.meso_structures['SETfl'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1, self.spatial_dims+1))
+        self.meso_structures['SETem'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1, self.spatial_dims+1))
+        self.meso_structures['Fab'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1, self.spatial_dims+1))
+
+        # Setup arrays for meso_vars 
+        for str in self.meso_scalars_strs:
+            self.meso_vars[str] = np.zeros((Nt, Nx, Ny))
+        for str in self.meso_vectors_strs:
+            self.meso_vars[str] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1))
+        for str in self.meso_tensors_strs: 
+            self.meso_vars[str] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1, self.spatial_dims+1))
+
+        # Setup arrays for filter_vars
+        self.filter_vars['U'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1))
+        self.filter_vars['U_errors'] = np.zeros((Nt, Nx, Ny))
+        self.filter_vars['U_success'] = dict()
+
+
+        # MARCUS'S WAY 
+        # for str in self.non_local_vars_strs: 
+        #     if str in self.meso_vars:
+        #         self.deriv_vars.update({'dt'+str:np.zeros_like(self.meso_vars[str])})
+        #         self.deriv_vars.update({'dx'+str:np.zeros_like(self.meso_vars[str])})
+        #         self.deriv_vars.update({'dy'+str:np.zeros_like(self.meso_vars[str])})
+        #     if str in self.meso_structures:
+        #         self.deriv_vars.update({'dt'+str:np.zeros_like(self.meso_structures[str])})
+        #         self.deriv_vars.update({'dx'+str:np.zeros_like(self.meso_structures[str])})
+        #         self.deriv_vars.update({'dy'+str:np.zeros_like(self.meso_structures[str])})
+
+        # THOMAS'S WAY (SAVE THEM AS TENSORS)
+        self.deriv_vars['D_u_tilde'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1, self.spatial_dims+1))
+        self.deriv_vars['D_Fab'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1, self.spatial_dims+1, self.spatial_dims+1))
+
+    def find_observers(self): 
+        """
+        Method to compute filtering observers at grid points built with setup_meso_grid. 
+        The observers found (and relative errors) are saved in the dictionary self.filter_vars.
+        Set up the entry self.filter_vars['U_success'] as a dictionary with (tuples of) indices
+        on the meso_grid as keys, and bool as values (true if the observer has been found, false otherwise)
+
+        Notes:
+        ------
+        Requires setup_meso_grid() and setup_variables() to be called first. 
+        """
+        for h, t in enumerate(self.domain_vars['T']):
+            for i, x in enumerate(self.domain_vars['X']):
+                for j, y in enumerate(self.domain_vars['Y']): 
+                    point = [t,x,y]
+                    sol = self.find_obs.find_observer(point)
+                    if sol[0]:
+                        self.filter_vars['U'][h,i,j] = sol[1]
+                        self.filter_vars['U_errors'][h,i,j] = sol[2]
+                        self.filter_vars['U_success'].update({(h,i,j) : True})
+
+                    if not sol[0]: 
+                        self.filter_vars['U_success'].update({(h,i,j) : False})
+                        print('Careful: obs could not be found at: ', self.domain_vars['Points'][h][i][j])
+
+    def filter_micro_variables(self):
+        """
+        Filter all meso_model structures AND micro pressure at the grid_points built with setup_meso_grid(). 
+        This method relies on filter_var_point implemented separately for the filter, e.g. spatial_box_filter
+
+        Parameters: 
+        -----------
+
+        Notes:
+        ------
+        Requires build_observers(), setup_meso_grid() and setup_variables() to be called first.
+        """
+        for h, t in enumerate(self.domain_vars['T']):
+            for i, x in enumerate(self.domain_vars['X']):
+                for j, y in enumerate(self.domain_vars['Y']):
+                    point = [t, x, y]
+                    if self.filter_vars['U_success'][h,i,j]:
+                        obs = self.filter_vars['U'][h,i,j]
+                        for struct in self.meso_structures:
+                            self.meso_structures[struct][h,i,j] = self.filter.filter_var_point(struct, point, obs)
+                        self.meso_vars['p'][h,i,j] = self.filter.filter_var_point('p', point, obs)
+                    else: 
+                        print('Could not filter at {}: observer not found.'.format(point))
+        
+    def decompose_structures_gridpoint(self, h, i ,j): 
+        """
+        Decompose the fluid part of SET as well as Fab at grid point (h,i,j)
+
+        Parameters:
+        -----------
+        h, i, j: integers
+            the indices on the grid where the decomposition is performed. 
+
+        Returns: 
+        --------
+        None
+
+        Notes:
+        ------
+        Decomposition of fluid SET and Faraday tensor. The EM part of SET is decomposed later 
+        via non local operations (same story for the charge current).
+
+        """
+        # Computing the Favre density and velocity
+        n_tilde = np.sqrt(-Base.Mink_dot(self.meso_structures['BC'][h,i,j], self.meso_structures['BC'][h,i,j]))
+        u_tilde = np.multiply(1 / n_tilde, self.meso_structures['BC'][h,i,j])
+        self.meso_vars['n_tilde'][h,i,j] = n_tilde
+        self.meso_vars['u_tilde'][h,i,j,:] = u_tilde
+
+        # Decomposing the fluid part of the stress energy tensor
+        # To change after update to Base.project_tensor() ?
+        h_ab = Base.orthogonal_projector(u_tilde, self.metric) 
+        T_ab = self.meso_structures['SETfl'][h,i,j,:,:]
+        for l, m in np.ndindex(T_ab.shape): 
+            if l==0: 
+                T_ab[l,m] *= -1
+            if m==0: 
+                T_ab[l,m] *= -1
+        p_filt = self.meso_vars['p'][h,i,j]
+        
+        self.meso_vars['eps_tilde'][h,i,j] = np.tensordot(np.tensordot(T_ab, u_tilde, axes = ([0],[0])), u_tilde, axes = ([0],[0]))
+        self.meso_vars['Pi_res'][h,i,j] = np.tensordot(T_ab, h_ab, axes = ([0,1],[0,1])) - p_filt
+        self.meso_vars['q_res'][h,i,j:] = np.tensordot( h_ab, np.tensordot(T_ab, u_tilde, axes = ([1],[0])), axes = ([1],[0]))
+        self.meso_vars['pi_res'][h,i,j,:,:] = np.tensordot(h_ab, np.tensordot(h_ab, T_ab, axes = ([1],[0])), axes = ([1],[1]))
+        # CHANGE THIS
+        self.meso_vars['eos_res'][h,i,j] = 0 
+        # TO
+        # p_tilde =  p_from_EOS method(eps_tilde, n_tilde) 
+        # self.meso_vars['eos_res'][h,i,j] = p_filt - p_tilde
+
+
+        # Decompose the Fab
+        Fab = self.meso_structures['Fab'][h,i,j]
+        self.meso_vars['e_tilde'][h,i,j,:] = np.tensordot(Fab, u_tilde, axes = ([1],[0]))
+        self.meso_vars['b_tilde'][h,i,j] = 1/2. * np.tensordot(np.tensordot(self.Levi3D, Fab, axes = ([1,2],[0,1])), u_tilde, axes = ([0],[0]))
+
+    def decompose_structures(self):
+        """
+        Decompose structures at all points on the meso_grid where observers could be found. 
+        """
+        for h, t in enumerate(self.domain_vars['T']):
+            for i, x in enumerate(self.domain_vars['X']):
+                for j, y in enumerate(self.domain_vars['Y']): 
+                    point = [t,y,x]
+                    if self.filter_vars['U_success'][h,i,j]:
+                        self.decompose_structures_gridpoint(h,i,j)
+                    else: 
+                        print('Structures not decomposed at {}: observer could not be found.'.format(point))
+
+    def calculate_derivative_gridpoint(self, nonlocal_var_str, h, i, j, direction, order = 1): 
+        """
+        Calculate partial derivative in the input 'direction' of the variable corresponding to 'nonlocal_var_str' 
+        at the position on the grid identified by indices h,i,j. The order of the differencing scheme 
+        can also be specified, default to 1.
+
+        Parameters: 
+        -----------
+        nonlocal_var_str: string
+            quantity to be taken derivate of, must be in self.nonlocal_vars_strs()
+
+        h, i ,j: integers
+            indices for point on the meso_grid
+
+        direction: integer < self.spatial_dim + 1
+
+        order: integer, defatult to 1
+            order of the differencing scheme            
+
+        Returns: 
+        --------
+        Finite-differenced quantity at (h,i,j) 
+                
+        Notes:
+        ------
+        The method returns the value instead of storing it, so that these can be 
+        rearranged as preferred later, that is in calculate_derivatives() 
+        """
+        
+        if direction > self.spatial_dims: 
+            print('Directions are numbered from 0 up to {}'.format(self.spatial_dims))
+            return None
+        
+        if order > len(self.differencing): 
+            print('Maximum order implemented is {}: continuing with it.'.format(len(self.differencing)))
+            order = len(self.differencing)
+
+        # Forward, backward or centered differencing? 
+        k = [h,i,j][direction]
+        N = len(self.domain_vars['Points'][direction])
+
+        if k in [l for l in range(order)]:
+            coefficients = self.differencing[order]['fw']['coefficients']
+            stencil = self.differencing[order]['fw']['stencil']
+        elif k in [N-1-l for l in range(order)]:
+            coefficients = self.differencing[order]['bw']['coefficients']
+            stencil = self.differencing[order]['bw']['stencil']
+        else:
+            coefficients = self.differencing[order]['cen']['coefficients']
+            stencil = self.differencing[order]['cen']['stencil']
+
+        # Is it a structure or a meso_var?
+        if nonlocal_var_str in self.meso_vars_strs:
+            temp = 0 
+            for s, sample in enumerate(stencil):
+                idxs = [h,i,j] 
+                idxs[direction] += sample
+                temp += np.multiply( coefficients[s] / self.domain_vars['Dx'], self.meso_vars[nonlocal_var_str][tuple(idxs)] )
+                # self.deriv_vars[deriv_var_str][h,i,j] += \
+                #     np.multiply( coefficients[s] / self.domain_vars['Dx'], self.meso_vars[nonlocal_var_str][tuple(idxs)] )
+            return temp
+        else: 
+            temp = 0 
+            for s, sample in enumerate(stencil):
+                idxs = [h,i,j] 
+                idxs[direction] += sample
+                temp += np.multiply( coefficients[s] / self.domain_vars['Dx'], self.meso_structures[nonlocal_var_str][tuple(idxs)] )
+                # self.deriv_vars[deriv_var_str][h,i,j] += \
+                #     np.multiply( coefficients[s] / self.domain_vars['Dx'], self.meso_structures[nonlocal_var_str][tuple(idxs)] )
+            return temp
+
+    def calculate_derivatives(self):
+        """
+        Compute all the derivatives of the quantities corresponding to nonlocal_vars_strs, for all
+        gridpoints on the meso-grid. 
+
+        Notes: 
+        ------
+        The derived quantities are stored as 'tensors' as follows: 
+            1st three indices refer to the position on the grid 
+
+            4th index refers to the directionality of the derivative 
+
+            last indices (1 or 2) correspond to the components of the quantity to be derived 
+
+        The index corresponding to the derivative is covariant, i.e. down. 
+        
+        Example:
+
+            Fab [h,i,j,a,b] : h,i,j grid; a,b, spacetime components
+
+            D_Fab[h,i,j,c,a,b]: h,i,j grid; c direction of derivative; a,b as for Fab
+
+        """
+        for h in range(self.domain_vars['Nt']):
+            for i in range(self.domain_vars['Nx']):
+                for j in range(self.domain_vars['Ny']):
+                    for str in self.nonlocal_vars_strs:
+                        for dir in range(self.spatial_dims+1):
+                            dstr = 'D_' + str
+                            self.deriv_vars[dstr][h,i,j,dir] = self.calculate_derivative_gridpoint(str, h, i, j, dir)    
+
+    def model_residuals(self, h, i, j):
+        """
+
+        """
+        u_tilde = self.meso_vars['u_tilde'][h,i,j]
+        u_tilde_down = np.einsum('ij,i', self.metric, u_tilde)
+
+        # COMPUTING THE MESO-CURRENT AND DECOMPOSING IT WRT FAVRE_OBS
+        #Computing four-current: raise the last two indices of D_Fab and then sum over 1,3 component
+        temp = self.deriv_vars['D_Fab'][h,i,j]
+        temp = np.einsum('ij,klj->ikl', self.metric, temp)
+        temp = np.einsum('ij,klj->ikl', self.metric, temp)
+        current = np.einsum('iji->j', temp) 
+
+        # Decompose wrt u_tilde: again careful with indices up or down!
+        sigma_tilde = np.einsum('i,i', current, u_tilde_down)
+        J_tilde = current - np.multiply(sigma_tilde, u_tilde)
+
+        self.meso_vars['sigma_tilde'][h,i,j] = sigma_tilde
+        self.meso_vars['j'][h,i,j] = current
+        self.meso_vars['J_tilde'][h,i,j] = J_tilde
+    
+        print(u_tilde, '\n',u_tilde_down, '\n', current, '\n', sigma_tilde, '\n', J_tilde,'\n***********')
+
+        # MODELLING THE DISSIPATIVE TERMS IN THE FLUID SET 
+        # DECOMPOSING NABLA_U 
+        nabla_u = np.einsum('ij,jl->il', self.metric, self.deriv_vars['D_u_tilde'][h,i,j])
+        acc = np.einsum('i,ij', u_tilde_down, nabla_u)
+        should_be_zero = np.einsum('i,ji', u_tilde_down, nabla_u)
+        Daub = nabla_u + np.outer(u_tilde, acc) + np.outer(should_be_zero, u_tilde) +\
+                np.multiply(np.inner(should_be_zero, u_tilde_down), np.outer(u_tilde, u_tilde))
+        exp_rate = np.einsum('ii', np.einsum('ij,jk->ik', self.metric, Daub))
+        shear_rate = np.multiply(1/2., Daub + np.einsum('ji', Daub)) - \
+                 np.multiply( 1 / self.spatial_dims * exp_rate, Base.orthogonal_projector(u_tilde, self.metric)) 
+
+        print(Daub, '\n', exp_rate, '\n', shear_rate, '\n', should_be_zero)
+
+        # EXTRACTING THE DISSIPATIVE COEFFICIENTS
+        # LATER: SAVE THIS TO A FILE (PICKLE) AND PLOT IT --> MARCUS'S ROUTINES
+
+        # EXTRACT COEFFICIENTS COMPONENTWISE AND AVERAGE (FOR NOW)
+        # THINK WHAT TO DO WITH THE HEAT FLUX --> GRADIENTS IN T OR N AND EPS
+        # THINK ABOUT THE EM PART, WHAT COEFFICIENTS DO YOU WANT TO EXTRACT? SAVE THEM! 
+
+        
+
+if __name__ == '__main__':
+
+    FileReader = METHOD_HDF5('./Data/test_res100/')
+    micro_model = IdealMHD_2D()
+    FileReader.read_in_data(micro_model) 
+    micro_model.setup_structures()
+    find_obs = FindObs_drift_root(micro_model, 0.001)
+    filter = spatial_box_filter(micro_model, 0.003)
+
+
+    CPU_start_time = time.process_time()
+    meso_model = resMHD2D(micro_model, find_obs, filter)
+    meso_model.setup_meso_grid([[1.501, 1.505],[0.37, 0.40],[0.43, 0.46]],1)
+    meso_model.setup_variables()
+    meso_model.find_observers()
+    meso_model.filter_micro_variables()
+    meso_model.decompose_structures()
+
+    # print(meso_model.calculate_derivative('u_tilde', 1,1,0,1, order=2))
+    meso_model.calculate_derivatives()
+    meso_model.model_residuals(1,1,0)

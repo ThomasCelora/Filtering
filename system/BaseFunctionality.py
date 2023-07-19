@@ -59,10 +59,22 @@ class Base(object):
 
     @staticmethod
     def project_tensor(vector1_wrt, vector2_wrt, to_project):
+        """
+        """
         return np.inner(vector1_wrt,np.inner(vector2_wrt,to_project))
+    
     
     @staticmethod
     def orthogonal_projector(u, metric):
+        """
+        Returns: 
+        --------
+        Orthogonal projector wrt vector u
+
+        Notes:
+        ------
+        The vector u must be time-like
+        """
         return metric + np.outer(u,u)    
  
 

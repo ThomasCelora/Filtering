@@ -294,7 +294,7 @@ class FindObs_flux_min(object):
                     error += partial_error
             return abs(flux)
 
-    def find_observer(self, point, flux_str = "gauss"):
+    def find_observer(self, point, flux_str = "gauss", initial_guess = None):
         """
         Key function: minimize the flux residual and find the observer at point. 
         
@@ -305,6 +305,10 @@ class FindObs_flux_min(object):
         flux_str: string, default to "gauss"
             string for the method used to compute the flux, must be chosen within
             ['gauss', 'linear', 'inbuilt']
+
+        initial_guess: DEPRECATED, list of d floats: the spatial velocities of the initial guess
+            if the number of spatial vels passed does not match the micro_model dimensionality, the 
+            pointwise velocity is used instead. 
 
         Returns:
         --------
@@ -318,29 +322,26 @@ class FindObs_flux_min(object):
         the optional arguments in the corresponding methods.
         """
 
-        U = np.multiply(1 / self.micro_model.get_interpol_var('n', point) , self.micro_model.get_interpol_var('BC', point) )
         guess = []
-        for i in range(1, len(U)):
-            guess.append(U[i] / U[0])
-        guess = np.array(guess)
-        # try: 
-        #     sol = minimize(self.flux_methods[flux_str], x0 = guess, args = (point), bounds=((-0.8,0.8),(-0.8,0.8)),tol=1e-6)
-        #     return sol
-        # except  KeyError: 
-        #     print(f"The method you want to use for computing the flux, {flux_str}, does not exist!")
-        #     return None
+        if initial_guess is not None and len(initial_guess) == self.spatial_dims:
+            guess = initial_guess
+        else: 
+            U = np.multiply(1 / self.micro_model.get_interpol_var('n', point) , self.micro_model.get_interpol_var('BC', point) )
+            for i in range(1, len(U)):
+                guess.append(U[i] / U[0])
+            guess = np.array(guess)
 
         try: 
             sol = sol = minimize(self.flux_methods[flux_str], x0 = guess, args = (point), bounds=((-0.8,0.8),(-0.8,0.8)),tol=1e-6)
             if sol.success: 
                 observer = Base.get_rel_vel(sol.x)
                 if sol.fun > 1e-5:
-                    print(f'Warning: residual is large at {point}', avg_error)
+                    print(f'Warning: residual is large at {point}', sol.fun)
                 return sol.success, observer, sol.fun
             if not sol.success: 
                 return sol.success, point 
         except  KeyError: 
-            print(f"The method you want to use for computing the flux, {drift_str}, does not exist!")
+            print(f"The method you want to use for computing the flux, {flux_str}, does not exist!")
             return None
     
     def find_observers_points(self, points, flux_str = "gauss"):
@@ -648,7 +649,7 @@ class FindObs_drift_root(object):
     
             return drifts
 
-    def find_observer(self, point, drift_str = "gauss"):
+    def find_observer(self, point, drift_str = "gauss", initial_guess= None):
         """
         Key method: use optimize.root to find the roots of the drift function. 
 
@@ -658,6 +659,10 @@ class FindObs_drift_root(object):
 
         drift_str: string, the method used to compute the net drift
             must be either 'gauss', 'linear', 'inbuilt'
+
+        initial_guess: DEPRECATED, list of d floats: the spatial velocities of the initial guess
+            if the number of spatial vels passed does not match the micro_model dimensionality, the 
+            pointwise velocity is used instead. 
 
         Returns:
         --------
@@ -669,10 +674,13 @@ class FindObs_drift_root(object):
         Change the optional values of the corresponding drift methods to change 
         the number of points used to sample the d+1 box.
         """
-        U = np.multiply(1 / self.micro_model.get_interpol_var('n', point) , self.micro_model.get_interpol_var('BC', point) )
         guess = []
-        for i in range(1, len(U)):
-            guess.append(U[i] / U[0])
+        if initial_guess is not None and len(initial_guess) == self.spatial_dims:
+            guess = initial_guess
+        else: 
+            U = np.multiply(1 / self.micro_model.get_interpol_var('n', point) , self.micro_model.get_interpol_var('BC', point) )
+            for i in range(1, len(U)):
+                guess.append(U[i] / U[0])
         guess = np.array(guess)
 
         try: 
@@ -776,6 +784,7 @@ class FindObs_drift_root(object):
             points.append(np.array(element))
         
         return self.find_observers_points(points, drift_str)
+
 
 class spatial_box_filter(object):
     """
@@ -1056,11 +1065,11 @@ if __name__ == '__main__':
     FileReader.read_in_data(micro_model) 
     micro_model.setup_structures()
 
-    # find_obs = FindObs_drift_root(micro_model, 0.001)
-    find_obs = FindObs_flux_min(micro_model, 0.001)
+    find_obs = FindObs_drift_root(micro_model, 0.001)
+    # find_obs = FindObs_flux_min(micro_model, 0.001)
     filter = spatial_box_filter(micro_model, 0.003)
 
-    vars = ['BC','SET']
+    vars = ['BC','SETfl', 'Fab', 'SETem']
     points = [[1.502,0.3,0.5],[1.503,0.4,0.2]]
     observers = find_obs.find_observers_points(points)[0][1]
 
