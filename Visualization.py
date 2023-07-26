@@ -71,11 +71,6 @@ class Plotter_2D(object):
                 for i in range(nx):
                     for j in range(ny):
                         point = [t,xs[i],ys[j]]
-                        # print(component_indices)
-                        # print(interpn(model.domain_vars['points'],\
-                        #                     model.vars[var_str], point,\
-                        #                     method = model.interp_method)[0])#[0][component_indices])
-                        
                         data_to_plot[i,j] = interpn(model.domain_vars['points'],\
                                             model.vars[var_str], point,\
                                             method = model.interp_method)[0][component_indices]         

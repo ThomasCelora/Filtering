@@ -24,13 +24,15 @@ class CoefficientAnalysis(object):
         """
         self.visualizer = visualizer # need to re-structure this... or do I
         
-    def JointPlot(self, model, var_str, t, x_range, y_range, interp_dims, method, component_indices):
-
-        data_to_plot, points = \
-            self.visualizer.get_var_data(model, var_str, t, x_range, y_range, interp_dims, method, component_indices)
+    def JointPlot(self, model, y_var_str, x_var_str, t, x_range, y_range,\
+                  interp_dims, method, y_component_indices, x_component_indices):
+        y_data_to_plot, points = \
+            self.visualizer.get_var_data(model, y_var_str, t, x_range, y_range, interp_dims, method, y_component_indices)
+        x_data_to_plot, points = \
+            self.visualizer.get_var_data(model, x_var_str, t, x_range, y_range, interp_dims, method, x_component_indices)
         fig = plt.figure(figsize=(16,16))
-        sns.joint_plot(data_to_plot)
-        plt.title(var_str)
+        sns.jointplot(x=x_data_to_plot.flatten(), y=y_data_to_plot.flatten(), kind="hex", color="#4CB391")
+        plt.title(y_var_str+'('+x_var_str+')')
         fig.tight_layout()
         plt.show()
         
@@ -38,6 +40,8 @@ class CoefficientAnalysis(object):
 
         data_to_plot, points = \
             self.visualizer.get_var_data(model, var_str, t, x_range, y_range, interp_dims, method, component_indices)
+            
+        # print(data_to_plot)
 
         fig = plt.figure(figsize=(16,16))
         sns.displot(data_to_plot)

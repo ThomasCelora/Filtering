@@ -30,7 +30,7 @@ class NonIdealHydro2D(object):
         self.filter_vars = dict.fromkeys(self.filter_var_strs)
 
         #Dictionary for MesoModel variables
-        self.meso_var_strs = ("U","U_coords","U_errors","T~","n")
+        self.meso_var_strs = ("U","U_coords","U_errors","T~","N")
         self.meso_vars = dict.fromkeys(self.meso_var_strs)
 
         #Strings for 'non-local' variables - ones we need to take derivatives of
@@ -108,7 +108,7 @@ class NonIdealHydro2D(object):
         self.meso_vars['U'] = np.array(self.meso_vars['U']).reshape([Nt, Nx, Ny, n_dims])
         self.meso_vars['U_errors'] = np.array(self.meso_vars['U_errors']).reshape([Nt, Nx, Ny, 2])
         self.meso_vars['T~'] = np.zeros((Nt, Nx, Ny))
-        self.filter_vars['n'] = np.zeros((Nt, Nx, Ny))
+        self.meso_vars['N'] = np.zeros((Nt, Nx, Ny))
 
         self.filter_vars['BC'] = np.zeros((Nt, Nx, Ny, n_dims))
         self.filter_vars['SET'] = np.zeros((Nt, Nx, Ny, n_dims,n_dims))
@@ -120,15 +120,15 @@ class NonIdealHydro2D(object):
 
         self.diss_residuals['Pi'] = np.zeros((Nt, Nx, Ny)) 
         self.diss_vars['Theta'] = np.zeros((Nt, Nx, Ny)) 
-        self.diss_residuals['q'] = np.zeros((Nt, Nx, Ny,n_dims)) 
-        self.diss_vars['Omega'] = np.zeros((Nt, Nx, Ny,n_dims)) 
-        self.diss_residuals['pi'] = np.zeros((Nt, Nx, Ny,n_dims,n_dims)) 
-        self.diss_vars['Sigma'] = np.zeros((Nt, Nx, Ny,n_dims,n_dims)) 
+        self.diss_residuals['q'] = np.zeros((Nt, Nx, Ny, n_dims)) 
+        self.diss_vars['Omega'] = np.zeros((Nt, Nx, Ny, n_dims)) 
+        self.diss_residuals['pi'] = np.zeros((Nt, Nx, Ny, n_dims, n_dims)) 
+        self.diss_vars['Sigma'] = np.zeros((Nt, Nx, Ny, n_dims, n_dims)) 
 
         # Single value for each coefficient (per data point) for now...
         self.diss_coeffs['Zeta'] = np.zeros((Nt, Nx, Ny)) 
-        self.diss_coeffs['Kappa'] = np.zeros((Nt, Nx, Ny,n_dims))
-        self.diss_coeffs['Eta'] = np.zeros((Nt, Nx, Ny,n_dims,n_dims))
+        self.diss_coeffs['Kappa'] = np.zeros((Nt, Nx, Ny, n_dims))
+        self.diss_coeffs['Eta'] = np.zeros((Nt, Nx, Ny, n_dims, n_dims))
         
         self.vars = self.filter_vars
         self.vars.update(self.meso_vars)
@@ -183,57 +183,55 @@ class NonIdealHydro2D(object):
     
     def calculate_time_derivatives(self, nonlocal_var_str):
         deriv_var_str = 'dt'+nonlocal_var_str
+        stencil = self.cen_FO_stencil
+        samples = [-1,0,1]
         for h in range(self.domain_vars['Nt']):
             if h == 0:
                 stencil = self.fw_FO_stencil
                 samples = [0,1]
-            elif h == (self.domain_vars['Nt']-1):
+            if h == (self.domain_vars['Nt']-1):
                 stencil = self.fw_FO_stencil
                 samples = [-1,0]
-            else:
-                stencil = self.cen_FO_stencil
-                samples = [-1,0,1]
             for i in range(self.domain_vars['Nx']):
                 for j in range(self.domain_vars['Ny']):
                     for s in range(len(samples)):
                         self.deriv_vars[deriv_var_str][h,i,j] \
-                        += (stencil[s]*self.meso_var_strs[nonlocal_var_str][h+samples[s],i,j]) / self.domain_vars['dT']
+                        += (stencil[s]*self.meso_vars[nonlocal_var_str][h+samples[s],i,j]) / self.domain_vars['dT']
                         
     def calculate_x_derivatives(self, nonlocal_var_str):
         deriv_var_str = 'dx'+nonlocal_var_str
+        stencil = self.cen_FO_stencil
+        samples = [-1,0,1]
         for h in range(self.domain_vars['Nt']):
           for i in range(self.domain_vars['Nx']):
               if i == 0:
                   stencil = self.fw_FO_stencil
                   samples = [0,1]
-              elif i == (self.domain_vars['Nx']-1):
+              if i == (self.domain_vars['Nx']-1):
                   stencil = self.fw_FO_stencil
                   samples = [-1,0]
-              else:
-                  stencil = self.cen_FO_stencil
-                  samples = [-1,0,1]
               for j in range(self.domain_vars['Ny']):
                   for s in range(len(samples)):
+                      # print((stencil[s]*self.meso_vars[nonlocal_var_str][h,i+samples[s],j]) / self.domain_vars['dX'])
                       self.deriv_vars[deriv_var_str][h,i,j] \
-                      += (stencil[s]*self.meso_var_strs[nonlocal_var_str][h,i+samples[s],j]) / self.domain_vars['dX']
+                      += (stencil[s]*self.meso_vars[nonlocal_var_str][h,i+samples[s],j]) / self.domain_vars['dX']
                       
     def calculate_y_derivatives(self, nonlocal_var_str):
         deriv_var_str = 'dy'+nonlocal_var_str
+        stencil = self.cen_FO_stencil
+        samples = [-1,0,1]
         for h in range(self.domain_vars['Nt']):
             for i in range(self.domain_vars['Nx']):
                 for j in range(self.domain_vars['Ny']):
                     if j == 0:
                         stencil = self.fw_FO_stencil
                         samples = [0,1]
-                    elif j == (self.domain_vars['Ny']-1):
+                    if j == (self.domain_vars['Ny']-1):
                         stencil = self.fw_FO_stencil
                         samples = [-1,0]
-                    else:
-                        stencil = self.cen_FO_stencil
-                        samples = [-1,0,1]   
                     for s in range(len(samples)):
                         self.deriv_vars[deriv_var_str][h,i,j] \
-                        += (stencil[s]*self.meso_var_strs[nonlocal_var_str][h,i,j+samples[s]]) / self.domain_vars['dY']                  
+                        += (stencil[s]*self.meso_vars[nonlocal_var_str][h,i,j+samples[s]]) / self.domain_vars['dY']                  
 
     def calculate_dissipative_residuals(self, h, i, j):
         """
@@ -260,6 +258,7 @@ class NonIdealHydro2D(object):
         # Filter the scalar fields
         BC = self.filter_vars['BC'][h,i,j]
         N = np.sqrt(-Base.Mink_dot(BC, BC))
+        self.meso_vars['N'][h,i,j] = N
         Id_SET = self.filter_vars['SET'][h,i,j]
         U = self.meso_vars['U'][h,i,j]
         
@@ -278,6 +277,8 @@ class NonIdealHydro2D(object):
         tau_trace = np.trace(tau_res)
         Pi_res = tau_trace - p_tilde
         pi_res = tau_res - np.dot((p_tilde + Pi_res),h_mu_nu)
+        
+        # print(Pi_res, q_res, pi_res)
 
         self.diss_residuals['Pi'][h,i,j] = Pi_res
         self.diss_residuals['q'][h,i,j] = q_res
@@ -317,11 +318,13 @@ class NonIdealHydro2D(object):
         # U = self.meso_vars['U'][h,i,j][:]
         Ut, Ux, Uy = self.meso_vars['U'][h,i,j][:]
 
+        # print(Ut, Ux, Uy)
+
         # dtU = self.deriv_vars['dtU'][h,i,j]
         dtUt, dtUx, dtUy = self.deriv_vars['dtU'][h,i,j][:]
         dxUt, dxUx, dxUy = self.deriv_vars['dxU'][h,i,j][:]
         dyUt, dyUx, dyUy = self.deriv_vars['dyU'][h,i,j][:]
-        
+
         # Need to do this with Einsum...
         Theta = dtUt + dxUx + dyUy
         a = np.array([Ut*dtUt + Ux*dxUt + Uy*dyUt, Ut*dtUx + Ux*dxUx + Uy*dyUx, Ut*dtUy + Ux*dxUy + Uy*dyUy])
@@ -330,6 +333,7 @@ class NonIdealHydro2D(object):
         Sigma = np.array([[2*dtUt - (2/3)*Theta, dtUx + dxUt, dtUy + dyUt],\
                                                   [dxUt + dtUx, 2*dxUx - (2/3)*Theta, dxUy + dyUx],
                                                   [dyUt + dtUy, dyUx + dxUy, 2*dyUy - (2/3)*Theta]])
+        
         self.diss_vars['Theta'][h,i,j] = Theta
         self.diss_vars['Omega'][h,i,j] = Omega
         self.diss_vars['Sigma'][h,i,j] = Sigma
@@ -347,6 +351,12 @@ class NonIdealHydro2D(object):
             for i in range(self.domain_vars['Nx']):
                 for j in range(self.domain_vars['Ny']):
                       self.calculate_dissipative_residuals(h,i,j)
+        
+        # Derivative calculations need to be done after all residuals
+        self.calculate_derivatives()
+        for h in range(self.domain_vars['Nt']):
+            for i in range(self.domain_vars['Nx']):
+                for j in range(self.domain_vars['Ny']):                     
                       self.calculate_dissipative_variables(h,i,j)
                       self.diss_coeffs['Zeta'][h,i,j] = -self.diss_residuals['Pi'][h,i,j] / self.diss_vars['Theta'][h,i,j]
                       for k in range(self.n_dims):
