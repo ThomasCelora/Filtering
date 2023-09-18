@@ -1018,6 +1018,6 @@ if __name__ == '__main__':
     meso_model.calculate_derivatives()
     # meso_model.model_residuals_gridpoint(1,1,0)
     meso_model.model_residuals()
-    meso_model.shear_regression_test()
+    # meso_model.shear_regression_test()
 
     
