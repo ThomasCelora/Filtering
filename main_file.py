@@ -7,92 +7,150 @@ Created on Wed Mar 29 01:45:31 2023
 
 from multiprocessing import Process, Pool
 from FileReaders import *
-from Filters import *
+from Filters_TC import *
 from MicroModels import *
 from MesoModels import *
 from Visualization import *
-
-
+from Analysis import *
 
 if __name__ == '__main__':
     
+    # Pickling Options
+    LoadMicroModelFromPickleFile = False
+    MicroModelPickleLoadFile = 'IdealHydro2D.pickle'
 
+    DumpMicroModelToPickleFile = True
+    MicroModelPickleDumpFile = 'IdealHydro2D.pickle'
+
+    LoadMesoModelFromPickleFile = False
+    MesoModelPickleLoadFile = 'NonIdealHydro2D.pickle'
+    
+    DumpMesoModelToPickleFile = True
+    MesoModelPickleDumpFile = 'NonIdealHydro2D.pickle'
+    
+    t_slice_plotting = 10.0
+    x_range_plotting = [-0.2,0.2]
+    y_range_plotting = [-0.3,0.3]
+    
+    # Start timing    
     CPU_start_time = time.process_time()
 
-    FileReader = METHOD_HDF5('./Data/Testing/')
-    # FileReader = METHOD_HDF5('../../Filtering/Data/KH/Ideal/t_1998_2002/')
-    # micro_model = IdealMHD_2D()
-    micro_model = IdealHydro_2D()
-    FileReader.read_in_data(micro_model) 
-    micro_model.setup_structures()
+    # Read in data from file
+    HDF5_Directory = './Data/Testing/20x40/'
+    FileReader = METHOD_HDF5(HDF5_Directory)
+    # FileReader = METHOD_HDF5('../../Filtering/Data/KH/Ideal/t_998_1002/')
 
+    # Create and setup micromodel
+    if LoadMicroModelFromPickleFile:
+        with open(MicroModelPickleLoadFile, 'rb') as filehandle:
+            micro_model = pickle.load(filehandle) 
+    else:
+        micro_model = IdealHydro_2D()
+        FileReader.read_in_data(micro_model) 
+        micro_model.setup_structures()
+
+    if DumpMicroModelToPickleFile:
+        with open(MicroModelPickleDumpFile, 'wb') as filehandle:
+            pickle.dump(micro_model, filehandle)  
+
+    # Create visualizer for plotting micro data
     visualizer = Plotter_2D()
-    visualizer.plot_vars(micro_model, ['v1','n'], t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
-                          interp_dims=(20,40), method='interpolate', component_indices=[(),()])
+    visualizer.plot_vars(micro_model, ['v1','v2','n'], t=10.000, x_range=x_range_plotting, y_range=y_range_plotting,\
+                          interp_dims=(20,40), method='raw_data', components_indices=[(),(),()])
+    visualizer.plot_vars(micro_model, ['BC'], t=10.000, x_range=x_range_plotting, y_range=y_range_plotting,\
+                          interp_dims=(20,40), method='raw_data', components_indices=[(1,)])
+
+    visualizer.plot_vars(micro_model, ['v1','v2','n'], t=10.000, x_range=x_range_plotting, y_range=y_range_plotting,\
+                          interp_dims=(20,40), method='interpolate', components_indices=[(),(),()])
+    visualizer.plot_vars(micro_model, ['BC'], t=10.000, x_range=x_range_plotting, y_range=y_range_plotting,\
+                          interp_dims=(20,40), method='interpolate', components_indices=[(1,)])
+
+    # Create the observer-finder and filter
+    ObsFinder = FindObs_drift_root(micro_model,box_len=0.001)
+    Filter = spatial_box_filter(micro_model,filter_width=0.001)
     
-    # visualizer.plot_micro_var_2D_interpol('v1', t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2], dimensions=(20,40))
-    # visualizer.plot_micro_var_2D_rawdata('v1', t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2])
-
-    Filter = Favre_observers(micro_model,box_len=0.001)
-    
-    # tetrad = filter.get_tetrad_from_vxvy([0.5,0.73])
-    # print(type(tetrad[0]),' ',type(tetrad[1]),' ',type(tetrad[2]),'\n', tetrad[0],' ',tetrad[1],' ',tetrad[2],'\n')
-    # print(filter.Mink_dot(tetrad[0],tetrad[1]), filter.Mink_dot(tetrad[0],tetrad[2]), filter.Mink_dot(tetrad[1],tetrad[2]))
-    # print(type(tetrad))
-
-    # smart_guess = micro_model.get_interpol_prim(['vx','vy'],[0.5,0.5,0.5])
-
-    # CPU_start_time = time.process_time()
-    # res = filter.Favre_residual(smart_guess,[0.5,0.5,0.5], 10)
-    # print('Residual: ',res,f'\nElapsed CPU time is {time.process_time() - CPU_start_time} with {10**filter.spatial_dim} points per face\n')
-
-    # CPU_start_time = time.process_time()
-    # res, error = filter.Favre_residual_ib(smart_guess,[0.5,0.5,0.5])[:]
-    # print('Residual: ',res,"\nError estimate: ",error,f'\nElapsed CPU time is {time.process_time() - CPU_start_time} with the inbuilt method')
-
     CPU_start_time = time.process_time()
-    coord_range = [[10.000, 10.005],[-0.1,0.1], [-0.2,0.2]]
-    num_points = [2,5,10]
-    spacing = 10
+    coord_range = [[10.000,10.005],x_range_plotting, y_range_plotting]
+    num_points = [2,10,20]
+    # spacing = 2
 
-    meso_model = NonIdealHydro2D(micro_model, Filter)
-    meso_model.find_observers(num_points, coord_range, spacing)
+    # Create MesoModel and find special observers
+    if LoadMesoModelFromPickleFile:
+        with open(MesoModelPickleLoadFile, 'rb') as filehandle:
+            meso_model = pickle.load(filehandle) 
+    else:
+        meso_model = NonIdealHydro2D(micro_model, ObsFinder, Filter)
+        meso_model.find_observers(num_points, coord_range)
+        meso_model.setup_variables()
+        meso_model.filter_micro_variables()
+        meso_model.calculate_dissipative_coefficients()
+        
+    # CPU_start_time = time.process_time()
+    # meso_model.find_observers(num_points, coord_range, spacing)
+    # meso_model.find_observers(num_points, coord_range)
+
+    # print(f'\nElapsed CPU time for observer-finding is {time.process_time() - CPU_start_time}\
+    #       with {np.product(num_points)} and {filter.n_filter_points**filter.spatial_dim} points per face\n')
+
+    # Having found observers, setup MesoModel
     meso_model.setup_variables()
     meso_model.filter_micro_variables()
     meso_model.calculate_dissipative_coefficients()
 
-    visualizer.plot_vars(meso_model, ['U','Sigma'], t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
-                      interp_dims=(20,40), method='interpolate', component_indices=[(1),(0,1)])
+    if DumpMesoModelToPickleFile:
+        with open(MesoModelPickleDumpFile, 'wb') as filehandle:
+            pickle.dump(meso_model, filehandle) 
+
+    # Plot MesoModel variables
+    visualizer.plot_vars(meso_model, ['U'], t=10.000, x_range=x_range_plotting, y_range=y_range_plotting,\
+                      interp_dims=(20,40), method='raw_data', components_indices=[(1,)])
+            
+    # visualizer.plot_var_model_comparison([micro_model, meso_model], 'SET', \
+    #                                       t=10.000, x_range=x_range_plotting, y_range=y_range_plotting,\
+    #                   interp_dims=(20,40), method='raw_data', component_indices=(1,2))
+
+    visualizer.plot_vars(meso_model, ['U'], t=10.000, x_range=x_range_plotting, y_range=y_range_plotting,\
+                      interp_dims=(20,40), method='interpolate', components_indices=[(1,)])
             
     visualizer.plot_var_model_comparison([micro_model, meso_model], 'SET', \
-                                         t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2],\
-                      interp_dims=(20,40), method='interpolate', component_index=(1,2))
+                                          t=10.000, x_range=x_range_plotting, y_range=y_range_plotting,\
+                      interp_dims=(20,40), method='interpolate', component_indices=(1,2))
         
+    # Analyse coefficients of the MesoModel
+    analyzer = CoefficientAnalysis(visualizer)
+    # Zeta
+    visualizer.plot_vars(meso_model, ['Zeta'], t=10.000, x_range=x_range_plotting, y_range=y_range_plotting,\
+                      interp_dims=(20,40), method='raw_data', components_indices=[()])
         
-    # visualizer.set_meso_model(meso_model)
-    # visualizer.plot_meso_var_2D_rawdata('U', t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2])
-    # visualizer.plot_meso_var_2D_interpol('U', t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2], dimensions=(20,40))
+    analyzer.DistributionPlot(meso_model, 'Zeta', t=10.000, x_range=x_range_plotting, y_range=y_range_plotting,\
+                      interp_dims=(20,40), method='raw_data', component_indices=())
 
-    # visualizer.compare_micro_meso_var_interpol(micro_var_str='v1', meso_var_str='U',\
-    #            t=10.000, x_range=[-0.1,0.1], y_range=[-0.2,0.2], dimensions=(20,40))
-    
- 
-    # min_res, failed_coord = Filter.find_observers(num_points, coord_range, 10)
-    # for i in range(len(min_res[0])):
-    #     for j in range(len(min_res)):
-    #         print(min_res[j][i])
-    #     print('\n')
+    analyzer.JointPlot(meso_model, 'Zeta', 'U', t=10.000, x_range=x_range_plotting, y_range=y_range_plotting,\
+                      interp_dims=(20,40), method='raw_data', y_component_indices=(), x_component_indices=(0,))
 
-    # num_minim = 1
-    # for x in num_points: 
-    #     num_minim *= x
-    # print(f'Elapsed CPU time for finding {num_minim} observer(s) is {time.process_time() - CPU_start_time}.')
-    # print('Failed coordinates:', failed_coord)
+    # Kappa    
+    visualizer.plot_vars(meso_model, ['Kappa'], t=10.000, x_range=x_range_plotting, y_range=y_range_plotting,\
+                      interp_dims=(20,40), method='raw_data', components_indices=[(2,)])
+        
+    analyzer.DistributionPlot(meso_model, 'Kappa', t=10.000, x_range=x_range_plotting, y_range=y_range_plotting,\
+                  interp_dims=(20,40), method='raw_data', component_indices=(2,))
+
+    analyzer.JointPlot(meso_model, 'Kappa', 'T~', t=10.000, x_range=x_range_plotting, y_range=y_range_plotting,\
+                      interp_dims=(20,40), method='raw_data', y_component_indices=(2,), x_component_indices=())
+
+    # Eta
+    visualizer.plot_vars(meso_model, ['Eta'], t=10.000, x_range=x_range_plotting, y_range=y_range_plotting,\
+                      interp_dims=(20,40), method='raw_data', components_indices=[(1,2)])
+        
+    analyzer.DistributionPlot(meso_model, 'Eta', t=10.000, x_range=x_range_plotting, y_range=y_range_plotting,\
+                      interp_dims=(20,40), method='raw_data', component_indices=(1,2))
+
+    analyzer.JointPlot(meso_model, 'Eta', 'U', t=10.000, x_range=x_range_plotting, y_range=y_range_plotting,\
+                      interp_dims=(20,40), method='raw_data', y_component_indices=(1,2), x_component_indices=(0,))
+        
+    print(f'Total elapsed CPU time for finding is {time.process_time() - CPU_start_time}.')
     
-    # Filter = Box_2D(0.1)
-    #meso_model = NonIdealHydro2D(micro_model, Filter)
-    #meso_model.calculate_coefficients()
-    
+   
     
     
     

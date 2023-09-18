@@ -98,9 +98,9 @@ class IdealMHD_2D(object):
         ------
         Structures are built as multi-dim np.arrays, with the first three indices referring 
         to the grid, while the last one or two refer to space-time components.
-
+        
         The Faraday tensor is stored as a fully co-variant tensor (both indices down)
-        The stress-energy tensor is stored as a fully contra-variant tensor (both indices up)
+        The stress-energy tensor is stored as a fully contra-variant tensor (both indices up) 
         """
         self.structures["BC"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3))
         self.structures["SETfl"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3,3))
@@ -146,6 +146,10 @@ class IdealMHD_2D(object):
         # self.all_vars.update(self.aux_vars)
         # self.all_vars.update(self.structures)
 
+        self.vars = self.prim_vars
+        self.vars.update(self.aux_vars)
+        self.vars.update(self.structures)
+        
     def get_var_gridpoint(self, var, point):
         """
         Returns variable corresponding to input 'var' at gridpoint 
@@ -176,7 +180,6 @@ class IdealMHD_2D(object):
         else: 
             print(f"{var} is not a variable of IdealMHD_2D!")
             return None
-
 
     def get_interpol_var(self, var, point):
         """
@@ -253,7 +256,7 @@ class IdealHydro_2D(object):
             self.aux_vars[str] = []
 
         #Dictionary for structures
-        self.structures_strs = ("bar_vel","SET")
+        self.structures_strs = ("BC","SET")
         self.structures = dict.fromkeys(self.structures_strs)
         for str in self.structures_strs:
             self.structures[str] = []
@@ -282,36 +285,36 @@ class IdealHydro_2D(object):
         return self.aux_strs
     
     def get_structures_strs(self):
-        return self.get_structures_strs
+        return self.structures_strs
     
     def get_all_var_strs(self):
         return self.all_var_strs
 
     def setup_structures(self):
         """
-        Set up the structures (i.e baryon vel, SET and Faraday) 
+        Set up the structures (i.e baryon current, SET) 
 
-        Structures are built as multi-dim np.arrays, with the first indices referring 
-        corrensponding to their components, the last three to the grid coordinates.
+        Structures are built as multi-dim np.arrays, with the first three indices referring 
+        to the grid, while the last one or two refer to space-time components.
         """
-        self.structures["bar_vel"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3))
+        self.structures["BC"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3))
         self.structures["SET"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3,3))
 
         for h in range(self.domain_vars['nt']):
             for i in range(self.domain_vars['nx']):
                 for j in range(self.domain_vars['ny']): 
-                    self.structures["bar_vel"][h,i,j,0] = self.aux_vars['W'][h,i,j] 
-                    self.structures["bar_vel"][h,i,j,1] = self.aux_vars['W'][h,i,j] * self.prim_vars['v1'][h,i,j]
-                    self.structures["bar_vel"][h,i,j,2] = self.aux_vars['W'][h,i,j] * self.prim_vars['v2'][h,i,j]
-                    vel = np.array(self.structures["bar_vel"][h,i,j,:])
+                    vel = np.array([self.aux_vars['W'][h,i,j],self.aux_vars['W'][h,i,j] * self.prim_vars['v1'][h,i,j] ,\
+                                    self.aux_vars['W'][h,i,j] * self.prim_vars['v2'][h,i,j]])
+                    self.structures['BC'][h,i,j,:] = np.multiply(self.prim_vars['n'][h,i,j], vel )
 
-                    
+
                     self.structures["SET"][h,i,j,:,:] = (self.prim_vars["rho"][h,i,j] + self.prim_vars["p"][h,i,j]) * \
                                                     np.outer(vel,vel) + self.prim_vars["p"][h,i,j] * self.metric
 
         self.vars = self.prim_vars
         self.vars.update(self.aux_vars)
         self.vars.update(self.structures)
+      
 
     def get_interpol_prim(self, var_names, point): 
         """
@@ -388,7 +391,7 @@ class IdealHydro_2D(object):
         Interpolation gives errors when applied to boundary  
         """
         res = []
-        if var_name == "bar_vel":
+        if var_name == "BC":
             res = np.zeros(len(self.structures[var_name][:,0,0,0]))
             for a in range(len(self.structures[var_name][:,0,0,0])):
                 res[a] = interpn(self.domain_vars["points"], self.structures[var_name][a,:,:,:], point, method = self.interp_method)[0]
@@ -401,22 +404,79 @@ class IdealHydro_2D(object):
             print(f"{var} does not belong to the structures in the micro_model")
         return res    
 
-    def get_interpol_var(self, var_names, point):
+    # def get_interpol_var(self, var_names, point):
+    #     """
+    #     Returns the interpolated structure at the point
+
+    #     Parameters
+    #     ----------
+    #     var : str corresponding to one of the structures
+            
+    #     point : list of floats
+    #         ordered coordinates: t,x,y
+
+    #     Return
+    #     ------
+    #     Array with the interpolated values of any var
+    #         Empty list if var is not a structure in the micro_model
+
+    #     Notes
+    #     -----
+    #     Interpolation gives errors when applied to boundary  
+    #     """
+    #     res = []
+    #     for var_name in var_names:
+    #         try:
+    #             res.append( interpn(self.domain_vars["points"], self.vars[var_name], point, method = self.interp_method)[0])
+    #         except KeyError:
+    #             print(f"{var_name} does not belong to the variables of the micro_model!")
+    #     return res
+
+
+    def get_interpol_var(self, var, point):
         """
-        Returns the interpolated structure at the point
+        Returns the interpolated variables at the point.
 
         Parameters
         ----------
-        var : str corresponding to one of the structures
+        vars : str corresponding to primitive, auxiliary or structre variable
             
         point : list of floats
             ordered coordinates: t,x,y
 
         Return
         ------
+        Interpolated values/arrays corresponding to variable. 
+        Empty list if none of the variables is a primitive, auxiliary o structure of the micro_model
+
+        Notes
+        -----
+        Interpolation gives errors when applied to boundary 
+        """
+
+        if var in self.get_prim_strs():
+            return interpn(self.domain_vars['points'], self.prim_vars[var], point, method = self.interp_method)[0]
+        elif var in self.get_aux_strs():
+            return interpn(self.domain_vars['points'], self.aux_vars[var], point, method = self.interp_method)[0]
+        elif var in self.get_structures_strs():
+            return interpn(self.domain_vars['points'], self.structures[var], point, method = self.interp_method)[0]
+        else:
+            print(f'{var} is not a primitive, auxiliary variable or structure of the micro_model!!')
+
+
+
+        """
+        Returns the interpolated structure at the point
+        Parameters
+        ----------
+        var : str corresponding to one of the structures
+            
+        point : list of floats
+            ordered coordinates: t,x,y
+        Return
+        ------
         Array with the interpolated values of any var
             Empty list if var is not a structure in the micro_model
-
         Notes
         -----
         Interpolation gives errors when applied to boundary  
@@ -426,9 +486,8 @@ class IdealHydro_2D(object):
             try:
                 res.append( interpn(self.domain_vars["points"], self.vars[var_name], point, method = self.interp_method)[0])
             except KeyError:
-                print(f"{var_name} does not belong to the variables of the micro_model!")
+                print(f"{var_name} does not belong to the auxiliary variables of the micro_model!")
         return res
-
 
 # TC
 if __name__ == '__main__':
@@ -437,7 +496,7 @@ if __name__ == '__main__':
 
     FileReader = METHOD_HDF5('./Data/test_res100/')
     micro_model = IdealMHD_2D()
-    FileReader.read_in_data(micro_model) 
+    FileReader.read_in_data(micro_model)
     micro_model.setup_structures()
 
     point = [1.502,0.4,0.2]
