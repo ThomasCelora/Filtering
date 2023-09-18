@@ -332,7 +332,7 @@ class FindObs_flux_min(object):
             guess = np.array(guess)
 
         try: 
-            sol = sol = minimize(self.flux_methods[flux_str], x0 = guess, args = (point), bounds=((-0.8,0.8),(-0.8,0.8)),tol=1e-6)
+            sol = minimize(self.flux_methods[flux_str], x0 = guess, args = (point), bounds=((-0.8,0.8),(-0.8,0.8)),tol=1e-6)
             if sol.success: 
                 observer = Base.get_rel_vel(sol.x)
                 if sol.fun > 1e-5:

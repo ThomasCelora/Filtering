@@ -132,7 +132,7 @@ class IdealMHD_2D(object):
                     # vel_vec = np.array([self.aux_vars['W'][h,i,j],self.aux_vars['W'][h,i,j] * self.prim_vars['vx'][h,i,j] ,\
                     #                 self.aux_vars['W'][h,i,j] * self.prim_vars['vy'][h,i,j], self.aux_vars['W'][h,i,j] * self.prim_vars['vz'][h,i,j]])
 
-                    # fibr_b = [0, self.aux_vars['bx'][h,i,j], self.aux_vars['by'][h,i,j], self.aux_vars['bz'][h,i,j]] #3+1d version
+                    # fibr_b = [0, self.aux_vars['bx'][h,i,j], self.aux_vars['by'][h,i,j], self.aux_vars['bz'][h,i,j]] 
 
                     # self.structures['Fab'][h,i,j,:,:] = np.tensordot(np.tensordot(self.Levi4D, vel_vec, axes = ([2,0])), fibr_b, axes= ([2,0]))
 
@@ -153,7 +153,7 @@ class IdealMHD_2D(object):
 
         Parameters:
         -----------
-        vars: string corresponding to primitive, auxiliary or structre variable
+        vars: string corresponding to primitive, auxiliary or structure variable
 
         point: list of 2+1 floats
 
@@ -168,26 +168,15 @@ class IdealMHD_2D(object):
         """
         indices = Base.find_nearest_cell(point, self.domain_vars['points'])
         if var in self.get_prim_strs():
-            return self.prim_vars[var][tuple(indices)]
-            
+            return self.prim_vars[var][tuple(indices)]  
         elif var in self.get_aux_strs():
-            return self.aux_vars[var][tuple(indices)]
-            
+            return self.aux_vars[var][tuple(indices)]    
         elif var in self.get_structures_strs():
-            if var == "BC":
-                tmp = np.zeros(self.structures[var][0,0,0,:].shape)
-                for a in range(len(self.structures[var][0,0,0,:])):
-                    tmp[a] = self.structures[var][tuple(indices+[a])]
-                return tmp
-            else:
-                tmp = np.zeros(self.structures[var][0,0,0,:,:].shape)
-                for a in range(len(tmp[:,0])):
-                    for b in range(len(tmp[0,:])):
-                        tmp[a,b] = self.structures[var][tuple(indices+[a,b])]
-                return tmp
+            return self.structures[var][tuple(indices)]
         else: 
             print(f"{var} is not a variable of IdealMHD_2D!")
             return None
+
 
     def get_interpol_var(self, var, point):
         """
@@ -195,7 +184,7 @@ class IdealMHD_2D(object):
 
         Parameters
         ----------
-        vars : str corresponding to primitive, auxiliary or structre variable
+        var: str corresponding to primitive, auxiliary or structre variable
             
         point : list of floats
             ordered coordinates: t,x,y
@@ -453,10 +442,11 @@ if __name__ == '__main__':
 
     point = [1.502,0.4,0.2]
     vars = ['SETfl', 'BC', 'Fab', 'SETem']
+    # vars = ['BC']
     for var in vars: 
         res = micro_model.get_interpol_var(var, point)
         res2 = micro_model.get_var_gridpoint(var, point)
-        print(f'{var}: \n {res} \n {res2} \n ********** \n ')
+        print(f'{var}: \n {res} \n\n\n {res2} \n ********** \n ')
 
 # MH
 # if __name__ == '__main__':
