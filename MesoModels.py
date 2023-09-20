@@ -9,6 +9,7 @@ import numpy as np
 from scipy.interpolate import interpn 
 import pickle
 from multiprocessing import Process, Pool
+from multimethod import multimethod
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -383,7 +384,7 @@ class resMHD2D(object):
     """
     def __init__(self, micro_model, find_obs, filter, interp_method = 'linear'):
         """
-        
+        ADD DESCRIPTION OF THIS
         """
         self.micro_model = micro_model
         self.find_obs = find_obs
@@ -441,6 +442,7 @@ class resMHD2D(object):
 
         # Additional, closure-scheme specific vars must be added appropriately using model_residuals()
 
+        self.all_var_strs = self.meso_vars_strs  + Dstrs + self.meso_structures_strs
         # Run some compatibility test... 
         compatible = True
         error = ''
@@ -457,6 +459,12 @@ class resMHD2D(object):
 
     def get_all_var_strs(self): 
         return self.all_var_strs
+
+    def get_gridpoints(self): 
+        """
+        Pretty self-explanatory
+        """
+        return self.domain_vars['Points']
 
     def get_interpol_var(self, var, point):
         """
@@ -487,7 +495,40 @@ class resMHD2D(object):
         else: 
             print('{} does not belong to either meso_structures/meso_vars or deriv_vars. Check!'.format(var))
     
-    def get_var_gridpoint(self, var, point):
+    @multimethod
+    def get_var_gridpoint(self, var: str, h: object, i: object, j: object):
+        """
+        Returns variable corresponding to input 'var' at gridpoint 
+        identified by h,i,j
+
+        Parameters:
+        -----------
+        var: string corresponding to structure, meso_vars or deriv_vars
+
+        h,i,j: int
+            integers corresponding to position on the grid. 
+
+        Returns: 
+        --------
+        Values or arrays corresponding to variable evaluated at the closest 
+        grid-point to input 'point'. 
+
+        Notes:
+        ------
+        This method is useful e.g. for plotting the raw data. 
+        """
+        if var in self.meso_structures:
+            return self.meso_structures[var][h,i,j]  
+        elif var in self.meso_vars:
+            return self.meso_vars[var][h,i,j]  
+        elif var in self.deriv_vars:
+            return self.deriv_vars[var][h,i,j]
+        else: 
+            print("{} is not a variable of resMHD_2D!".format(var))
+            return None
+
+    @multimethod
+    def get_var_gridpoint(self, var: str, point: object):
         """
         Returns variable corresponding to input 'var' at gridpoint 
         closest to input 'point'.
@@ -525,7 +566,7 @@ class resMHD2D(object):
     def set_find_obs_method(self, find_obs):
         self.find_obs = find_obs
 
-    def setup_meso_grid(self, patch_bdrs, coarse_factor): 
+    def setup_meso_grid(self, patch_bdrs, coarse_factor = 1): 
         """
         Builds the meso_model grid using the micro_model grid points contained in 
         the input patch (defined via 'patch_bdrs'). The method allows for coarse graining 
@@ -682,7 +723,7 @@ class resMHD2D(object):
                     else: 
                         print('Could not filter at {}: observer not found.'.format(point))
         
-    def decompose_structures_gridpoint(self, h, i ,j): 
+    def decompose_structures_gridpoint(self, h, i, j): 
         """
         Decompose the fluid part of SET as well as Fab at grid point (h,i,j)
 
@@ -919,9 +960,10 @@ class resMHD2D(object):
                             try: 
                                 self.meso_vars[key]
                             except KeyError:
-                                print('The key {} does not belong to meso_vars, creating it!'.format(key))
+                                print('The key {} does not belong to meso_vars yet, adding it!'.format(key))
                                 shape = values[idx].shape
                                 self.meso_vars.update({key: np.zeros(([Nt, Nx, Ny] + list(shape)))})
+                                self.all_var_strs += key
                             finally: 
                                     self.meso_vars[key][h,i,j] = values[idx]
 
@@ -992,8 +1034,6 @@ class resMHD2D(object):
         # visualizer.plot_vars(self, ['pi_res', ,], t_range, x_range, y_range, interp_dims=(), method = 'interpolate', component_indices)
 
 
-
-
 if __name__ == '__main__':
 
     FileReader = METHOD_HDF5('./Data/test_res100/')
@@ -1019,5 +1059,6 @@ if __name__ == '__main__':
     # meso_model.model_residuals_gridpoint(1,1,0)
     meso_model.model_residuals()
     # meso_model.shear_regression_test()
+
 
     

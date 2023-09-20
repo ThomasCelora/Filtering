@@ -5,12 +5,16 @@ Created on Fri Mar 31 10:00:02 2023
 @author: Thomas
 """
 
-from FileReaders import *
-from scipy.interpolate import interpn 
-from system.BaseFunctionality import *
 import numpy as np
 import math
 import time
+
+from scipy.interpolate import interpn 
+from multimethod import multimethod
+
+from FileReaders import *
+from system.BaseFunctionality import *
+
 
 # These are the symbols, so be careful when using these to construct vectors!
 # levi3D = np.array([[[ np.sign(i-j) * np.sign(j- k) * np.sign(k-i) \
@@ -21,7 +25,9 @@ import time
 
 
 class IdealMHD_2D(object):
-
+    """
+    ADD SHORT DESCRIPTION OF THE CLASS AND ITS METHODS
+    """
     def __init__(self, interp_method = "linear"):
         """
         Sets up the variables and dictionaries, strings correspond to 
@@ -90,6 +96,105 @@ class IdealMHD_2D(object):
     def get_all_var_strs(self):
         return self.get_prim_strs() + self.get_aux_strs() + self.get_structures_strs()
     
+    def get_gridpoints(self): 
+        """
+        Pretty self-explanatory
+        """
+        return self.domain_vars['points']
+
+    def get_interpol_var(self, var, point):
+        """
+        Returns the interpolated variables at the point.
+
+        Parameters
+        ----------
+        var: str corresponding to primitive, auxiliary or structre variable
+            
+        point : list of floats
+            ordered coordinates: t,x,y
+
+        Return
+        ------
+        Interpolated values/arrays corresponding to variable. 
+        Empty list if none of the variables is a primitive, auxiliary o structure of the micro_model
+
+        Notes
+        -----
+        Interpolation gives errors when applied to boundary 
+        """
+
+        if var in self.get_prim_strs():
+            return interpn(self.domain_vars['points'], self.prim_vars[var], point, method = self.interp_method)[0]
+        elif var in self.get_aux_strs():
+            return interpn(self.domain_vars['points'], self.aux_vars[var], point, method = self.interp_method)[0]
+        elif var in self.get_structures_strs():
+            return interpn(self.domain_vars['points'], self.structures[var], point, method = self.interp_method)[0]
+        else:
+            print(f'{var} is not a primitive, auxiliary variable or structure of the micro_model!!')
+
+    @multimethod
+    def get_var_gridpoint(self, var: str, h: object, i: object, j: object):
+        """
+        Returns variable corresponding to input 'var' at gridpoint identified by h,i,j
+
+        Parameters: 
+        -----------
+        var: str
+            String corresponding to primitive, auxiliary or structure variable 
+
+        h,i,j: int
+            integers corresponding to position on the grid. 
+
+        Returns: 
+        --------
+        Values or arrays corresponding to variable evaluated at the closest grid-point to input 'point'. 
+
+        Notes:
+        ------
+        This method is useful e.g. for plotting the raw data. 
+        """
+        if var in self.get_prim_strs():
+            return self.prim_vars[var][h,i,j]
+        elif var in self.get_aux_strs():
+            return self.aux_vars[var][h,i,j]
+        elif var in self.get_structures_strs():
+            return self.structures[var][h,i,j]
+        else: 
+            print('{} is not a variable of model {}'.format(var, self.get_model_name()))
+            return None
+
+    @multimethod
+    def get_var_gridpoint(self, var: str, point: object):
+        """
+        Returns variable corresponding to input 'var' at gridpoint 
+        closest to input 'point'.
+
+        Parameters:
+        -----------
+        vars: string corresponding to primitive, auxiliary or structure variable
+
+        point: list of 2+1 floats
+
+        Returns: 
+        --------
+        Values or arrays corresponding to variable evaluated at the closest grid-point to input 'point'. 
+
+        Notes:
+        ------
+        This method should be used in case using interpolated values 
+        becomes too expensive. 
+        """
+        indices = Base.find_nearest_cell(point, self.domain_vars['points'])
+        if var in self.get_prim_strs():
+            return self.prim_vars[var][tuple(indices)]  
+        elif var in self.get_aux_strs():
+            return self.aux_vars[var][tuple(indices)]    
+        elif var in self.get_structures_strs():
+            return self.structures[var][tuple(indices)]
+        else: 
+            print(f"{var} is not a variable of IdealMHD_2D!")
+            return None
+
     def setup_structures(self):
         """
         Set up the structures (i.e baryon (mass) current BC, Stress-Energy and Faraday tensors 
@@ -149,67 +254,7 @@ class IdealMHD_2D(object):
         self.vars = self.prim_vars
         self.vars.update(self.aux_vars)
         self.vars.update(self.structures)
-        
-    def get_var_gridpoint(self, var, point):
-        """
-        Returns variable corresponding to input 'var' at gridpoint 
-        closest to input 'point'.
-
-        Parameters:
-        -----------
-        vars: string corresponding to primitive, auxiliary or structure variable
-
-        point: list of 2+1 floats
-
-        Returns: 
-        --------
-        Values or arrays corresponding to variable evaluated at the closest grid-point to input 'point'. 
-
-        Notes:
-        ------
-        This method should be used in case using interpolated values 
-        becomes too expensive. 
-        """
-        indices = Base.find_nearest_cell(point, self.domain_vars['points'])
-        if var in self.get_prim_strs():
-            return self.prim_vars[var][tuple(indices)]  
-        elif var in self.get_aux_strs():
-            return self.aux_vars[var][tuple(indices)]    
-        elif var in self.get_structures_strs():
-            return self.structures[var][tuple(indices)]
-        else: 
-            print(f"{var} is not a variable of IdealMHD_2D!")
-            return None
-
-    def get_interpol_var(self, var, point):
-        """
-        Returns the interpolated variables at the point.
-
-        Parameters
-        ----------
-        var: str corresponding to primitive, auxiliary or structre variable
-            
-        point : list of floats
-            ordered coordinates: t,x,y
-
-        Return
-        ------
-        Interpolated values/arrays corresponding to variable. 
-        Empty list if none of the variables is a primitive, auxiliary o structure of the micro_model
-
-        Notes
-        -----
-        Interpolation gives errors when applied to boundary 
-        """
-
-        if var in self.get_prim_strs():
-            return interpn(self.domain_vars['points'], self.prim_vars[var], point, method = self.interp_method)[0]
-        elif var in self.get_aux_strs():
-            return interpn(self.domain_vars['points'], self.aux_vars[var], point, method = self.interp_method)[0]
-        elif var in self.get_structures_strs():
-            return interpn(self.domain_vars['points'], self.structures[var], point, method = self.interp_method)[0]
-        else:
-            print(f'{var} is not a primitive, auxiliary variable or structure of the micro_model!!')
+    
 
 
 class IdealHydro_2D(object):
