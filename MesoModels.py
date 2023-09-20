@@ -1063,8 +1063,5 @@ if __name__ == '__main__':
     meso_model.model_residuals()
     # meso_model.shear_regression_test()
 
-    with open('prova_class.pickle', 'wb') as filehandle: 
-        pickle.dump(meso_model, filehandle)
-        filehandle.close()
     
 

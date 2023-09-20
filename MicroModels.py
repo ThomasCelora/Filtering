@@ -558,8 +558,8 @@ if __name__ == '__main__':
     micro_model.setup_structures()
 
     point = [1.502,0.4,0.2]
-    vars = ['SETfl', 'BC', 'Fab', 'SETem']
-    # vars = ['BC']
+    # vars = ['SETfl', 'BC', 'Fab', 'SETem']
+    vars = ['BC']
     for var in vars: 
         res = micro_model.get_interpol_var(var, point)
         res2 = micro_model.get_var_gridpoint(var, point)
