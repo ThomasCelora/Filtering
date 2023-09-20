@@ -114,6 +114,9 @@ class METHOD_HDF5(object):
         micro_model.domain_vars['points'] = [micro_model.domain_vars['t'], micro_model.domain_vars['x'], \
                                              micro_model.domain_vars['y']]
 
+
+
+
 if __name__ == '__main__':
 
     from MicroModels import * 

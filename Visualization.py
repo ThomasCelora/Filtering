@@ -300,6 +300,7 @@ if __name__ == '__main__':
     FileReader.read_in_data(micro_model)
     micro_model.setup_structures()
 
+
     visualizer = Plotter_2D([11.97, 8.36])
 
     # TESTING GET_VAR_DATA

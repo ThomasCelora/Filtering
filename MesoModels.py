@@ -1046,19 +1046,25 @@ if __name__ == '__main__':
 
     CPU_start_time = time.process_time()
     meso_model = resMHD2D(micro_model, find_obs, filter)
+
     meso_model.setup_meso_grid([[1.501, 1.503],[0.37, 0.39],[0.43, 0.45]],1)
     # print(meso_model.domain_vars['Points'])
-    
     meso_model.find_observers()
     meso_model.filter_micro_variables()
+    
     # meso_model.decompose_structures_gridpoint(1,1,1)
     meso_model.decompose_structures()
 
+    
     # print(meso_model.calculate_derivative_gridpoint('u_tilde', 0,1,0,1, order=2),)
     meso_model.calculate_derivatives()
+
     # meso_model.model_residuals_gridpoint(1,1,0)
     meso_model.model_residuals()
     # meso_model.shear_regression_test()
 
-
+    with open('prova_class.pickle', 'wb') as filehandle: 
+        pickle.dump(meso_model, filehandle)
+        filehandle.close()
     
+
