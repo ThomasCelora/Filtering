@@ -323,16 +323,16 @@ class IdealHydro_2D(object):
         return self.domain_info_strs + self.domain_points_strs
     
     def get_prim_strs(self):
-        return self.prim_strs
+        return list(self.prim_vars.keys())
     
     def get_aux_strs(self):
-        return self.aux_strs
+        return list(self.aux_vars.keys())
     
     def get_structures_strs(self):
-        return self.structures_strs
+        return list(self.structures.keys())
     
     def get_all_var_strs(self):
-        return self.all_var_strs
+        return list(self.prim_vars.keys()) + list(self.aux_vars_vars.keys()) + list(self.structures.keys())
 
     def setup_structures(self):
         """

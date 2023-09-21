@@ -19,7 +19,7 @@ from Filters import *
 
 class Plotter_2D(object):
     
-    def __init__(self, screen_size):
+    def __init__(self, screen_size = [11.97, 8.36]):
         """
         Parameters: 
         -----------
@@ -313,27 +313,28 @@ if __name__ == '__main__':
 
     # TESTING PLOT_VARS
     ###################
-    vars = ['BC', 'vx', 'vy', 'Bz', 'p', 'W']
-    components = [(0,), (), (), (), (), ()]
-    model = micro_model
+    # vars = ['BC', 'vx', 'vy', 'Bz', 'p', 'W']
+    # components = [(0,), (), (), (), (), ()]
+    # model = micro_model
     # visualizer.plot_vars(model, vars, 1.502, [0.01, 0.98], [0.01, 0.98], components_indices=components)
-    visualizer.plot_vars(model, vars, 1.502, [0.01, 0.98], [0.01, 0.98], method = 'interpolate', interp_dims=(100,100), components_indices=components)
+    # visualizer.plot_vars(model, vars, 1.502, [0.01, 0.98], [0.01, 0.98], method = 'interpolate', interp_dims=(100,100), components_indices=components)
 
 
     # TESTING PLOT_VAR_MODEL_COMPARISON
     ###################################
-    # find_obs = FindObs_drift_root(micro_model, 0.001)
-    # filter = spatial_box_filter(micro_model, 0.003)
-    # meso_model = resMHD2D(micro_model, find_obs, filter)
-    # ranges = [0.3, 0.4]
-    # meso_model.setup_meso_grid([[1.501, 1.503],ranges, ranges], coarse_factor=2)
-    # meso_model.find_observers()
-    # meso_model.filter_micro_variables()
+    find_obs = FindObs_drift_root(micro_model, 0.001)
+    filter = spatial_box_filter(micro_model, 0.003)
+    meso_model = resMHD2D(micro_model, find_obs, filter)
+    ranges = [0.3, 0.4]
+    meso_model.setup_meso_grid([[1.501, 1.503],ranges, ranges], coarse_factor=2)
+    meso_model.find_observers()
+    meso_model.filter_micro_variables()
 
-    # var = 'BC'
-    # component = (0,)
-    # models = [micro_model, meso_model]
-    # smaller_ranges = [ranges[0]+0.01, ranges[1]- 0.01] # Needed to avoid interpolation errors at boundaries
-    # # visualizer.plot_var_model_comparison(models, var, 1.502, smaller_ranges, smaller_ranges, \
-    # #                                      method='interpolate', interp_dims=(30,30), component_indices=component)
-    # visualizer.plot_var_model_comparison(models, var, 1.502, smaller_ranges, smaller_ranges, component_indices=component)
+    var = 'BC'
+    component = (0,)
+    models = [micro_model, meso_model]
+    smaller_ranges = [ranges[0]+0.01, ranges[1]- 0.01] # Needed to avoid interpolation errors at boundaries
+    # visualizer.plot_var_model_comparison(models, var, 1.502, smaller_ranges, smaller_ranges, \
+    #                                      method='interpolate', interp_dims=(30,30), component_indices=component)
+    visualizer.plot_var_model_comparison(models, var, 1.502, smaller_ranges, smaller_ranges, component_indices=component)
+

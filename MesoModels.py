@@ -442,7 +442,7 @@ class resMHD2D(object):
 
         # Additional, closure-scheme specific vars must be added appropriately using model_residuals()
 
-        self.all_var_strs = self.meso_vars_strs  + Dstrs + self.meso_structures_strs
+        # self.all_var_strs = self.meso_vars_strs  + Dstrs + self.meso_structures_strs
         # Run some compatibility test... 
         compatible = True
         error = ''
@@ -458,7 +458,7 @@ class resMHD2D(object):
             print("Meso and Micro models are incompatible:"+error) 
 
     def get_all_var_strs(self): 
-        return self.all_var_strs
+        return list(self.meso_vars.keys())  + list(self.deriv_vars.keys()) + list(self.meso_structures.keys())
 
     def get_gridpoints(self): 
         """
@@ -963,7 +963,6 @@ class resMHD2D(object):
                                 print('The key {} does not belong to meso_vars yet, adding it!'.format(key))
                                 shape = values[idx].shape
                                 self.meso_vars.update({key: np.zeros(([Nt, Nx, Ny] + list(shape)))})
-                                self.all_var_strs += key
                             finally: 
                                     self.meso_vars[key][h,i,j] = values[idx]
 
@@ -977,64 +976,60 @@ class resMHD2D(object):
         Better to use a wrapper? 
         """
         # LINEAR REGRESSION: LOOP OVER COMPONENTS AND AVERAGE
-        Nt, Nx, Ny = self.domain_vars['Nt'], self.domain_vars['Nx'], self.domain_vars['Ny']
-        shear = np.zeros((Nt, Nx, Ny, self.spatial_dims+1, self.spatial_dims+1))
-        intercepts = []
-        slopes = []
-        r_values = []
-        for components in np.ndindex(shear[0,0,0,:,:].shape):
-        # components = (1,1)
-            xs, ys = np.zeros((Nx,Ny)), np.zeros((Nx,Ny))
-            for i in range(Nx): 
-                for j in range(Ny):
-                    if self.filter_vars['U_success'][0,i,j]:
-                        shear = self.model_residuals_gridpoint(0,i,j)[1][0]
-                        xs[i,j] = shear[components]
-                        ys[i,j] = self.meso_vars['pi_res'][tuple([0,i,j]+list(components))]
 
+        shape = self.meso_vars['shear_tilde'][0,0,0].shape
+        statistics = np.zeros((tuple(list(shape)+ [3])))
+        for component_idx in np.ndindex(shape):
+            xs = self.meso_vars['shear_tilde'][0,:,:,component_idx]
+            ys = self.meso_vars['pi_res'][0,:,:,component_idx]
             xs = xs.flatten()
             ys = ys.flatten()
             sns_plot = sns.regplot(x = xs, y = ys)
             # print(scst.pearsonr(xs,ys))
-            intercept, slope, rvalue = scst.linregress(xs,ys)[:3]
-            intercepts.append(intercept)
-            slopes.append(slope)
-            r_values.append(rvalue)
-            # print(intercept, slope, rvalue)
+            statistics[component_idx] = np.array(scst.linregress(xs,ys)[:3])
 
             fig = sns_plot.get_figure()
             fig.tight_layout()
-            plt.show()
+            # plt.show()
+
+        m_statistics = np.zeros((3,))
+        for i in range(len(m_statistics)):
+            # for idx in np.ndindex(shape): 
+            idx = np.ndindex(shape)
+            m_statistics[i] = np.mean(statistics[:,:,i])
 
 
-        m_intercept = np.mean(intercepts)
-        m_slope = np.mean(slopes)
-        m_rvalue = np.mean(r_values)
-        print(m_intercept, m_slope, m_rvalue)
-
-
-        # BEFORE WORKING ON THESE: WRAPPER OF MODEL_RESIDUAL, THEN CONTINUE ON THIS 
         # PREPARING THE DATA FOR CONTRASTING RESIDUAL AND MODEL
-        eta = m_slope
-        pi_model = np.zeros(self.meso_vars['pi_res'][0,:,:,:,:].shape)
-        for i in range(Nx): 
-                for j in range(Ny):
-                    if self.filter_vars['U_success'][0,i,j]:
-                        shear = self.model_residuals_gridpoint(0,i,j)[1][0]
-                        pi_model[i,j,:,:] = np.multiply(eta, shear) # Calling the same function twice! Save data! 
-        pi_res = self.meso_vars['pi_res'][0,:,:,:,:]
+        eta = m_statistics[0]
+        # pi_model = np.zeros(self.meso_vars['pi_res'][0,:,:,:,:].shape)
 
+        # Nx, Ny = self.domain_vars['Nx'], self.domain_vars['Ny']
+        # for i in range(Nx): 
+        #         for j in range(Ny):
+        #             if self.filter_vars['U_success'][0,i,j]:
+        #                 shear = self.model_residuals_gridpoint(0,i,j)[1][0]
+        #                 pi_model[i,j,:,:] = np.multiply(eta, shear) # Calling the same function twice! Save data! 
+        # pi_res = self.meso_vars['pi_res'][0,:,:,:,:]
 
-        # SETTING UP AND PLOTTING VIA MARCUS'S ROUTINES
+        # THIS IS A TRICK: THINK ABOUT HOW TO DEAL WITH THIS. 
+        # self.meso_vars['shear_tilde'][:,:,:] = np.multiply(eta, self.meso_vars['shear_tilde'][:,:,:] )
+        for idx in np.ndindex((3,3)): 
+            self.meso_vars['shear_tilde'][:,:,:,idx]  = np.multiply(eta, self.meso_vars['shear_tilde'][:,:,:,idx])
+        
+
+        # # SETTING UP AND PLOTTING VIA MARCUS'S ROUTINES
         visualizer = Plotter_2D()
-        t_range, x_range, y_range = [self.domain_vars['Tmin'], self.domain_vars['Tmax']] ,\
-                                     [self.domain_vars['Xmin'], self.domain_vars['Xmax']] ,\
+        t = self.domain_vars['T'][0]
+        x_range, y_range = [self.domain_vars['Xmin'], self.domain_vars['Xmax']] ,\
                                      [self.domain_vars['Ymin'], self.domain_vars['Ymax']]
-        print(t_range, x_range, y_range)
-        # visualizer.plot_vars(self, ['pi_res', ,], t_range, x_range, y_range, interp_dims=(), method = 'interpolate', component_indices)
+        # print(t, x_range, y_range)
+
+        # print(visualizer.get_var_data(self, 'shear_tilde', t, x_range, y_range, component_indices=(0,0)))
+        visualizer.plot_vars(self, ['pi_res', 'shear_tilde'], t, x_range, y_range, components_indices = [(0,0),(0,0)])
 
 
 if __name__ == '__main__':
+
 
     FileReader = METHOD_HDF5('./Data/test_res100/')
     micro_model = IdealMHD_2D()
@@ -1047,8 +1042,8 @@ if __name__ == '__main__':
     CPU_start_time = time.process_time()
     meso_model = resMHD2D(micro_model, find_obs, filter)
 
-    meso_model.setup_meso_grid([[1.501, 1.503],[0.37, 0.39],[0.43, 0.45]],1)
-    # print(meso_model.domain_vars['Points'])
+    meso_model.setup_meso_grid([[1.501, 1.504],[0.1, 0.5],[0.1, 0.5]],1)
+    print(meso_model.domain_vars['Points'])
     meso_model.find_observers()
     meso_model.filter_micro_variables()
     
@@ -1061,7 +1056,7 @@ if __name__ == '__main__':
 
     # meso_model.model_residuals_gridpoint(1,1,0)
     meso_model.model_residuals()
-    # meso_model.shear_regression_test()
+    meso_model.shear_regression_test()
 
-    
+    print('Total time is {}'.format(time.process_time() - CPU_start_time))    
 
