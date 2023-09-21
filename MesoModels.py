@@ -1011,7 +1011,7 @@ class resMHD2D(object):
         #                 pi_model[i,j,:,:] = np.multiply(eta, shear) # Calling the same function twice! Save data! 
         # pi_res = self.meso_vars['pi_res'][0,:,:,:,:]
 
-        # THIS IS A TRICK: THINK ABOUT HOW TO DEAL WITH THIS. 
+        # THIS IS A TRICK: YOU WANT TO COMPARE THE RESIDUAL WITH MODEL = SHEAR x ETA 
         # self.meso_vars['shear_tilde'][:,:,:] = np.multiply(eta, self.meso_vars['shear_tilde'][:,:,:] )
         for idx in np.ndindex((3,3)): 
             self.meso_vars['shear_tilde'][:,:,:,idx]  = np.multiply(eta, self.meso_vars['shear_tilde'][:,:,:,idx])

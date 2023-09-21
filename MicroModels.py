@@ -359,7 +359,6 @@ class IdealHydro_2D(object):
         self.vars.update(self.aux_vars)
         self.vars.update(self.structures)
       
-
     def get_interpol_prim(self, var_names, point): 
         """
         Returns the interpolated variable at the point
@@ -533,19 +532,6 @@ class IdealHydro_2D(object):
                 print(f"{var_name} does not belong to the auxiliary variables of the micro_model!")
         return res
 
-
-class A(object): 
-    def __init__(self, s, i, t, d): 
-        self.s = s 
-        self.i = i 
-        self.t = t
-        self.d = d 
-    
-    def check_equality(self, B): 
-        compatible = True
-        if self.s != B.s or self.i != B.i or self.t != B.t or self.d != B.d:
-            compatible = False
-        return compatible
 
 # TC
 if __name__ == '__main__':
