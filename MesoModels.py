@@ -839,23 +839,13 @@ class resMHD2D(object):
             coefficients = self.differencing[order]['cen']['coefficients']
             stencil = self.differencing[order]['cen']['stencil']
 
-        # Is it a structure or a meso_var?
-        if nonlocal_var_str in self.meso_vars_strs:
-            temp = 0 
-            for s, sample in enumerate(stencil):
-                idxs = [h,i,j] 
-                idxs[direction] += sample
-                temp += np.multiply( coefficients[s] / self.domain_vars['Dx'], self.meso_vars[nonlocal_var_str][tuple(idxs)] )
-            return temp
-        
-        else: 
-            temp = 0 
-            for s, sample in enumerate(stencil):
-                idxs = [h,i,j] 
-                idxs[direction] += sample
-                temp += np.multiply( coefficients[s] / self.domain_vars['Dx'], self.meso_structures[nonlocal_var_str][tuple(idxs)] )
-            return temp
-
+        temp = 0 
+        for s, sample in enumerate(stencil): 
+            idxs = [h,i,j]
+            idxs[direction] += sample
+            temp += np.multiply( coefficients[s] / self.domain_vars['Dx'], self.get_var_gridpoint(nonlocal_var_str, *idxs))
+        return temp
+    
     def calculate_derivatives(self):
         """
         Compute all the derivatives of the quantities corresponding to nonlocal_vars_strs, for all
@@ -1042,7 +1032,7 @@ if __name__ == '__main__':
     CPU_start_time = time.process_time()
     meso_model = resMHD2D(micro_model, find_obs, filter)
 
-    meso_model.setup_meso_grid([[1.501, 1.504],[0.1, 0.5],[0.1, 0.5]],1)
+    meso_model.setup_meso_grid([[1.501, 1.504],[0.3, 0.4],[0.4, 0.5]],1)
     print(meso_model.domain_vars['Points'])
     meso_model.find_observers()
     meso_model.filter_micro_variables()
@@ -1051,12 +1041,12 @@ if __name__ == '__main__':
     meso_model.decompose_structures()
 
     
-    # print(meso_model.calculate_derivative_gridpoint('u_tilde', 0,1,0,1, order=2),)
+    # print(meso_model.calculate_derivative_gridpoint('u_tilde', 0,5,5,1, order=2))
     meso_model.calculate_derivatives()
 
     # meso_model.model_residuals_gridpoint(1,1,0)
     meso_model.model_residuals()
     meso_model.shear_regression_test()
 
-    print('Total time is {}'.format(time.process_time() - CPU_start_time))    
+    # print('Total time is {}'.format(time.process_time() - CPU_start_time))    
 
