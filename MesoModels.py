@@ -881,6 +881,7 @@ class resMHD2D(object):
                     else: 
                         print('Derivatives not calculated at {}: observer could not be found.'.format(point))
 
+    # closure_ingredients_gridpoint() ??
     def model_residuals_gridpoint(self, h, i, j):
         """
         Decompose quantities obatined via non_local operations (i.e. derivatives) as needed 
@@ -931,8 +932,10 @@ class resMHD2D(object):
         closure_vars_strs = ['shear_tilde', 'exp_tilde', 'acc_tilde', 'sigma_tilde', 'J_tilde']
         closure_vars = [shear_t, exp_t, acc_t, sigma_t, J_t]
 
+        # I THINK THERE'S A MISTAKE WITH THE SHEAR CALCULATION HERE, CHECK!!!
+        # PRINT IT TO CHECK IT IS REALLY SYMMETRIC AS IT SHOULD!
         return closure_vars_strs, closure_vars
-
+    #closure_ingredients ??
     def model_residuals(self): 
         """
         Wrapper of the corresponding gridpoint method. 
@@ -1016,6 +1019,30 @@ class resMHD2D(object):
 
         # print(visualizer.get_var_data(self, 'shear_tilde', t, x_range, y_range, component_indices=(0,0)))
         visualizer.plot_vars(self, ['pi_res', 'shear_tilde'], t, x_range, y_range, components_indices = [(0,0),(0,0)])
+
+    def EL_style_closure_gridpoint():
+        """
+        Compute bulk, shear via scalarization + PA trick, thermal conductivity later. 
+        At a point. 
+        Returns: one coefficient at a point.
+        """
+        pass
+
+    def EL_style_closure(): 
+        """
+        Wrapper of EL_style_closure_gridpoint()    
+        """
+        pass
+
+    def EL_style_closure_regression():
+        """
+        Takes in a list of correlation quantities (strings? The regressors needed are computed 
+        previously via closure ingredients)
+        Pass the dataset to a CoefficientAnalysis instance. 
+        Plot the correlations with the regressors and perform the regression using methods from a Coefficient 
+        Analysis instance. 
+        """
+        pass
 
 
 if __name__ == '__main__':
