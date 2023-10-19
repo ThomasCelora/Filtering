@@ -20,6 +20,7 @@ from MicroModels import *
 from FileReaders import * 
 from Filters import *
 from Visualization import *
+from Analysis import *
 
 class NonIdealHydro2D(object):
 
@@ -881,8 +882,7 @@ class resMHD2D(object):
                     else: 
                         print('Derivatives not calculated at {}: observer could not be found.'.format(point))
 
-    # closure_ingredients_gridpoint() ??
-    def model_residuals_gridpoint(self, h, i, j):
+    def closure_ingredients_gridpoint(self, h, i, j):
         """
         Decompose quantities obatined via non_local operations (i.e. derivatives) as needed 
         for the closure scheme. This is done at gridpoint (h,i,j) and then relevant values are 
@@ -905,38 +905,50 @@ class resMHD2D(object):
         dictionary is set up not on construction. 
 
         UNDER CONSTRUCTION: THE EM PART NEEDS MORE THINKING 
+
+        Rename: closure_ingredients_gridpoint() ??
+        Coefficients can be computed here directly, but more general models will require more work.
+        Do not split this, at least for now
         """
         # COMPUTING THE MESO-CURRENT AND DECOMPOSING IT WRT FAVRE_OBS    
         u_t = self.meso_vars['u_tilde'][h,i,j]
+        u_t_cov = np.einsum('ij,j->i', self.metric, u_t)
         DFab = self.deriv_vars['D_Fab'][h,i,j]
 
-        current = np.einsum('ij, kl, kjl->i', self.metric, self.metric, DFab)
-        sigma_t = np.einsum('i,ij,j->',current, self.metric, u_t)
-        J_t = current - np.multiply(sigma_t, u_t)
-
-        # MODELLING THE DISSIPATIVE TERMS IN THE FLUID SET 
+        # MODELLING THE DISSIPATIVE TERMS IN THE FLUID SET - WORKING WITH (2,0)
         nabla_u = self.deriv_vars['D_u_tilde'][h,i,j] # This is a rank (1,1) tensor
-        acc_t = np.einsum('i,ij->j',u_t, nabla_u)
-        should_be_zero = np.einsum('ij,i,kj',self.metric, u_t, nabla_u)
+        nabla_u = np.einsum('ij,jk->ik', self.metric, nabla_u) #this is a rank (2,0) tensor
+        acc_t = np.einsum('i,ij', u_t_cov, nabla_u) # vector
 
-        h_ab = np.einsum('ij,jk->ik', self.metric + np.einsum('i,j->ij', u_t, u_t), self.metric)
-        Daub = nabla_u + np.einsum('ij,j,l', self.metric, u_t, acc_t) + np.einsum('ij,j,l', self.metric, should_be_zero, u_t)
-        exp_t = np.einsum('ii->', Daub)
+        # The following two quantities should be identically zero, but numerical errors.
+        # Computing them and removing to project velocity gradients
+        unit_norm_violation = np.einsum('ij,j', nabla_u, u_t_cov) #vector
+        acc_orthogonality_violation = np.einsum('i,i->', u_t_cov, acc_t)
+        Daub = nabla_u + np.einsum('i,j->ij', u_t, acc_t) + np.einsum('i,j->ij', unit_norm_violation, u_t) +\
+            np.multiply(acc_orthogonality_violation, np.einsum('i,j->ij', u_t, u_t)) #Should be a (2,0) tensor
+        # Checking orthogonality
+        # print('Checking orthogonality of u_t with Daub. \n First component: {}\n *********\n Second component: {}'.format(np.einsum('i,ij->j', u_t_cov, Daub), \
+        #                                                                                                                   np.einsum('ij,j->i', Daub, u_t_cov)))
+        h_ab = self.metric + np.einsum('i,j->ij', u_t, u_t)
+        exp_t = np.einsum('ii->',Daub)
         shear_t = np.multiply(1/2., Daub + np.einsum('ij->ji', Daub)) - np.multiply( 1/self.spatial_dims * exp_t, h_ab) 
+        vort_t = np.multiply(1/2., Daub - np.einsum('ij->ji', Daub))
+        # print('Expansion: \n {} \n ***** \n Shear: \n {} \n ***** \n Vorticity: \n{}'.format(exp_t, shear_t, vort_t))
+    
+        # # THINK WHAT TO DO WITH THE HEAT FLUX --> GRADIENTS IN T OR N AND EPS
+        # # THINK ABOUT THE EM PART, DO YOU NEED MORE?  
+        # # COME BACK TO THIS LATER?
 
-        # THINK WHAT TO DO WITH THE HEAT FLUX --> GRADIENTS IN T OR N AND EPS
-        # THINK ABOUT THE EM PART, DO YOU NEED MORE?  
-        # COME BACK TO THIS LATER?
-        # self.meso_vars['j'][h,i,j,:] = current ?? 
+        # current = np.einsum('ij, kl, kjl->i', self.metric, self.metric, DFab)
+        # sigma_t = np.einsum('i,ij,j->',current, self.metric, u_t)
+        # J_t = current - np.multiply(sigma_t, u_t)
+        # # self.meso_vars['j'][h,i,j,:] = current ?? 
 
-        closure_vars_strs = ['shear_tilde', 'exp_tilde', 'acc_tilde', 'sigma_tilde', 'J_tilde']
-        closure_vars = [shear_t, exp_t, acc_t, sigma_t, J_t]
-
-        # I THINK THERE'S A MISTAKE WITH THE SHEAR CALCULATION HERE, CHECK!!!
-        # PRINT IT TO CHECK IT IS REALLY SYMMETRIC AS IT SHOULD!
+        closure_vars_strs = ['shear_tilde', 'exp_tilde', 'acc_tilde']
+        closure_vars = [shear_t, exp_t, acc_t]
         return closure_vars_strs, closure_vars
-    #closure_ingredients ??
-    def model_residuals(self): 
+    
+    def closure_ingredients(self): 
         """
         Wrapper of the corresponding gridpoint method. 
         Set up the dictionary for the closure variables not yet defined.
@@ -947,7 +959,7 @@ class resMHD2D(object):
             for i in range(Nx): 
                 for j in range(Ny): 
                     if self.filter_vars['U_success'][h,i,j]: 
-                        keys, values = self.model_residuals_gridpoint(h,i,j)
+                        keys, values = self.closure_ingredients_gridpoint(h,i,j)
                         # try-except block to extend the meso_vars dictionary 
                         for idx, key in enumerate(keys): 
                             try: 
@@ -1020,21 +1032,39 @@ class resMHD2D(object):
         # print(visualizer.get_var_data(self, 'shear_tilde', t, x_range, y_range, component_indices=(0,0)))
         visualizer.plot_vars(self, ['pi_res', 'shear_tilde'], t, x_range, y_range, components_indices = [(0,0),(0,0)])
 
-    def EL_style_closure_gridpoint():
+    def EL_style_closure_gridpoint(self, h, i, j):
         """
         Compute bulk, shear via scalarization + PA trick, thermal conductivity later. 
         At a point. 
-        Returns: one coefficient at a point.
+        Returns: coefficient(s) at a point.
         """
-        pass
+        coefficients_names = ['zeta']
+        zeta = self.meso_vars['Pi_res'][h,i,j] / self.meso_vars['exp_tilde'][h,i,j] 
+        coefficients = [zeta]
+        return coefficients_names, coefficients
 
-    def EL_style_closure(): 
+    def EL_style_closure(self): 
         """
         Wrapper of EL_style_closure_gridpoint()    
         """
-        pass
-
-    def EL_style_closure_regression():
+        Nt, Nx, Ny = self.domain_vars['Nt'], self.domain_vars['Nx'], self.domain_vars['Ny']
+        for h in range(Nt): 
+            for i in range(Nx): 
+                for j in range(Ny): 
+                    if self.filter_vars['U_success'][h,i,j]: 
+                        keys, values = self.EL_style_closure_gridpoint(h,i,j)
+                        # try-except block to extend the meso_vars dictionary with the dissipative coefficients
+                        for idx, key in enumerate(keys): 
+                            try: 
+                                self.meso_vars[key]
+                            except KeyError:
+                                print('The key {} does not belong to meso_vars yet, adding it!'.format(key))
+                                shape = values[idx].shape
+                                self.meso_vars.update({key: np.zeros(([Nt, Nx, Ny] + list(shape)))})
+                            finally: 
+                                    self.meso_vars[key][h,i,j] = values[idx]
+                    
+    def EL_style_closure_regression(self, CoefficientAnalysis, ranges = None, num_Points = None):
         """
         Takes in a list of correlation quantities (strings? The regressors needed are computed 
         previously via closure ingredients)
@@ -1042,7 +1072,24 @@ class resMHD2D(object):
         Plot the correlations with the regressors and perform the regression using methods from a Coefficient 
         Analysis instance. 
         """
-        pass
+        y = self.meso_vars['zeta']
+        # X = [self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
+        X = self.meso_vars['eps_tilde']
+
+        ranges = [[self.domain_vars['Tmin'], self.domain_vars['Tmax']],\
+                [self.domain_vars['Xmin'], self.domain_vars['Xmax']],\
+                [self.domain_vars['Ymin'], self.domain_vars['Ymax']]]
+        points = self.domain_vars['Points']
+        # stats_result = CoefficientAnalysis.scalar_regression(y, X, ranges, points)
+        # print(*stats_result)
+
+        # g1 = CoefficientAnalysis.visualize_correlation(X,y,'eps_tilde','zeta',ranges=ranges, model_points=points)
+
+        data=[self.meso_vars['b_tilde'], self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
+        labels=['b_tilde', 'eps_tilde', 'n_tilde']
+        g2=CoefficientAnalysis.visualize_correlations(data, labels)
+        plt.show()
+        
 
 
 if __name__ == '__main__':
@@ -1059,7 +1106,7 @@ if __name__ == '__main__':
     CPU_start_time = time.process_time()
     meso_model = resMHD2D(micro_model, find_obs, filter)
 
-    meso_model.setup_meso_grid([[1.501, 1.504],[0.3, 0.4],[0.4, 0.5]],1)
+    meso_model.setup_meso_grid([[1.501, 1.504],[0.3, 0.35],[0.4, 0.45]],1)
     print(meso_model.domain_vars['Points'])
     meso_model.find_observers()
     meso_model.filter_micro_variables()
@@ -1067,13 +1114,18 @@ if __name__ == '__main__':
     # meso_model.decompose_structures_gridpoint(1,1,1)
     meso_model.decompose_structures()
 
-    
-    # print(meso_model.calculate_derivative_gridpoint('u_tilde', 0,5,5,1, order=2))
+    # print(meso_model.calculate_derivative_gridpoint('u_tilde', 0,1,1,0))
     meso_model.calculate_derivatives()
 
     # meso_model.model_residuals_gridpoint(1,1,0)
-    meso_model.model_residuals()
-    meso_model.shear_regression_test()
+    meso_model.closure_ingredients()
+    # meso_model.shear_regression_test()
+    meso_model.EL_style_closure()
+        
+    visualizer = Plotter_2D()
+    regressor = CoefficientsAnalysis(visualizer, meso_model.spatial_dims)
+    result = meso_model.EL_style_closure_regression(regressor)
+    # print('\n {} \n ******** \n {}'.format(result[0], result[1]))
 
     # print('Total time is {}'.format(time.process_time() - CPU_start_time))    
 
