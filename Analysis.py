@@ -277,12 +277,48 @@ class CoefficientsAnalysis(object):
 
     def tensor_components_weighted_regression(self, y, X, spatial_dims, W, ranges=None, model_points=None, components=None):
         """
-        Should be a wrapper of scalar_weighted_regression()
-        Weights are computed externally by the MesoModel class
+        Wrapper of scalar_weighted_regression. If no components is passed, perform regression on each tensor component
+        independently, otherwise only on a subset of these. All the component-wise results are returned.
 
-        For now: each component has the same weight at a point, this may change in the future 
-        as data along different components may have different errors (say, if the shear components are 
-        of different odm for example.)
+        Weights computed and passed externally. 
+
+        Parameters:
+        -----------
+        y: ndarray of gridded tensorial data
+            the "measurements" of the dependent quantity
+        
+        X: list of ndarrays of gridded data 
+            the "data" for the regressors 
+
+        spatial_dims: int    
+
+        W: ndarray of gridded weights (one per gridpoint for now)
+        
+        ranges: list of lists of 2 floats
+            mins and max in each direction
+
+        model_points: list of lists containing the gridpoints in each direction
+
+        components: list of tuples
+            the tensor components to be considered for regression
+
+        Returns:
+        --------
+        list of lists. Each of these lists is built as follows:
+            [ [b1, b2, ...], [bse1, bse2, ... ]]
+            namely coefficients + errors of multivariate regressions 
+            each list correspond to a component
+
+        Notes:
+        ------
+        Gridded data and ranges are chosen at the model level, and passed here
+        as parameters, so that this external method will not change/access any 
+        model quantity. 
+
+        For now each component has the same weight at a point, although this 
+        may change in the future as data along different components may have different errors.
+
+        Works in any dimensions!
         """        
         # CHECKING THE RANK OF DATA AND REGRESSORS ARE COMPATIBLE
         l=[0 for i in range(spatial_dims+1)]
