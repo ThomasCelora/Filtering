@@ -24,10 +24,11 @@ from MesoModels import *
     
 
 
-class CoefficientsAnalysis(object): # 2D function? 
+class CoefficientsAnalysis(object): 
     """
+    Class containing a number of methods for performing statistical analysis on gridded data. 
+    Methods include: regression, visualizing correlations, PCAs
     """
-
     def __init__(self, visualizer, spatial_dims):
         """
         Nothing as yet...
@@ -37,8 +38,9 @@ class CoefficientsAnalysis(object): # 2D function?
         Also nothing...
         
         """
-        self.visualizer=visualizer # need to re-structure this... or do I
-        self.spatial_dims=spatial_dims
+        # self.visualizer=visualizer # need to re-structure this... or do I 
+        # Do you really need the visualizer here? I don't think so! 
+        # self.spatial_dims=spatial_dims
 
     def trim_data(self, data, ranges, model_points):
         """
@@ -77,31 +79,6 @@ class CoefficientsAnalysis(object): # 2D function?
                 data = np.delete(data, IdxsToRemove[i], axis=i)
 
             return data
-
-    def JointPlot(self, model, y_var_str, x_var_str, t, x_range, y_range,\
-                  interp_dims, method, y_component_indices, x_component_indices):
-        y_data_to_plot, points = \
-            self.visualizer.get_var_data(model, y_var_str, t, x_range, y_range, interp_dims, method, y_component_indices)
-        x_data_to_plot, points = \
-            self.visualizer.get_var_data(model, x_var_str, t, x_range, y_range, interp_dims, method, x_component_indices)
-        fig = plt.figure(figsize=(16,16))
-        sns.jointplot(x=x_data_to_plot.flatten(), y=y_data_to_plot.flatten(), kind="hex", color="#4CB391")
-        plt.title(y_var_str+'('+x_var_str+')')
-        fig.tight_layout()
-        plt.show()
-        
-    def DistributionPlot(self, model, var_str, t, x_range, y_range, interp_dims, method, component_indices):
-
-        data_to_plot, points = \
-            self.visualizer.get_var_data(model, var_str, t, x_range, y_range, interp_dims, method, component_indices)
-            
-        # print(data_to_plot)
-
-        fig = plt.figure(figsize=(16,16))
-        sns.displot(data_to_plot)
-        plt.title(var_str)
-        fig.tight_layout()
-        plt.show()
 
     def scalar_regression(self, y, X, ranges = None, model_points = None):
         """
@@ -206,6 +183,7 @@ class CoefficientsAnalysis(object): # 2D function?
         if ranges != None and model_points != None:
             print('Trimming dataset for regression')
             y = self.trim_data(y, ranges, model_points)
+            W = self.trim_data(W, ranges, model_points)
             for x in X: 
                 x = self.trim_data(x, ranges, model_points)
 
@@ -219,6 +197,133 @@ class CoefficientsAnalysis(object): # 2D function?
         model = sm.WLS(y, X, W)
         result = model.fit()
         return result.params, result.bse
+
+    def tensor_components_regression(self, y, X, spatial_dims, ranges=None, model_points=None, components=None):
+        """
+        Wrapper of scalar_regression: if no components is passed, perform regression on each tensor component
+        independently, otherwise only on a subset of these. All the component-wise results are returned.
+
+        Parameters:
+        -----------
+        y: ndarray of gridded tensorial data
+            the "measurements" of the dependent quantity
+        
+        X: list of ndarrays of gridded data 
+            the "data" for the regressors 
+
+        spatial_dims: int    
+        
+        ranges: list of lists of 2 floats
+            mins and max in each direction
+
+        model_points: list of lists containing the gridpoints in each direction
+
+        components: list of tuples
+            the tensor components to be considered for regression
+        Returns:
+        --------
+        list of fitted parameters
+        list of std errors associated with the fitted parameters, 
+        (i.e. parameter * std error of the corresponding regressor.)
+
+        Notes:
+        ------
+        Gridded data and ranges are chosen at the model level, and passed here
+        as parameters, so that this external method will not change/access any 
+        model quantity. 
+
+        Works in any dimensions!
+        """
+        # CHECKING THE RANK OF DATA AND REGRESSORS ARE COMPATIBLE
+        l=[0 for i in range(spatial_dims+1)]
+        dep_shape = y[tuple(l)].shape
+        for i, x in enumerate(X):
+            if x[tuple(l)].shape != dep_shape:
+                print('The {}-th regressor shape {} is not compatible with dependent shape {}. Removing it!'.format(i, x[0,0,0].shape, dep_shape))
+                X.remove(x)
+        if len(X)==0: 
+            print('None of the passed regressors is compatible with dep data. Exiting.')
+            return None
+        
+        # PREPARING COMPONENTS TO LOOP OVER: user-provided or all?     
+        if components:
+            for c in components:
+                if len(c) != len(dep_shape):
+                    print(f'The components indices passed {c} are not compatible with data. Ignoring this and moving on!')
+                    components.remove(c)
+        else:
+            components = []
+            for i in np.ndindex(dep_shape):
+                components.append(i)
+
+        # RESHAPING: now grid indices come last, needed for flattening!
+        tot_shape=y.shape
+        reshaping=[tot_shape[i] for i in range(spatial_dims+1)] 
+        reshaping=tuple(list(dep_shape)+reshaping)
+        y = y.reshape(reshaping)
+        for i in range(len(X)):
+            X[i]= X[i].reshape(reshaping) 
+
+        # SCALAR REGRESSION ON EACH COMPONENT
+        betas = []
+        bses = []
+        for c in components:
+            yc = y[c]
+            Xc = [ x[c] for x in X]
+            beta, bse = self.scalar_regression(yc, Xc, ranges, model_points)
+            betas.append(beta)
+            bses.append(bse)
+        return betas, bses
+
+    def tensor_components_weighted_regression(self, y, X, spatial_dims, W, ranges=None, model_points=None, components=None):
+        """
+        Should be a wrapper of scalar_weighted_regression()
+        Weights are computed externally by the MesoModel class
+
+        For now: each component has the same weight at a point, this may change in the future 
+        as data along different components may have different errors (say, if the shear components are 
+        of different odm for example.)
+        """        
+        # CHECKING THE RANK OF DATA AND REGRESSORS ARE COMPATIBLE
+        l=[0 for i in range(spatial_dims+1)]
+        dep_shape = y[tuple(l)].shape
+        for i, x in enumerate(X):
+            if x[tuple(l)].shape != dep_shape:
+                print('The {}-th regressor shape {} is not compatible with dependent shape {}. Removing it!'.format(i, x[0,0,0].shape, dep_shape))
+                X.remove(x)
+        if len(X)==0: 
+            print('None of the passed regressors is compatible with dep data. Exiting.')
+            return None
+        
+        # PREPARING COMPONENTS TO LOOP OVER: user-provided or all?     
+        if components:
+            for c in components:
+                if len(c) != len(dep_shape):
+                    print(f'The components indices passed {c} are not compatible with data. Ignoring this and moving on!')
+                    components.remove(c)
+        else:
+            components = []
+            for i in np.ndindex(dep_shape):
+                components.append(i)
+
+        # RESHAPING: now grid indices come last, needed for flattening!
+        tot_shape=y.shape
+        reshaping=[tot_shape[i] for i in range(spatial_dims+1)] 
+        reshaping=tuple(list(dep_shape)+reshaping)
+        y = y.reshape(reshaping)
+        for i in range(len(X)):
+            X[i]= X[i].reshape(reshaping) 
+
+        # SCALAR REGRESSION ON EACH COMPONENT
+        betas = []
+        bses = []
+        for c in components:
+            yc = y[c]
+            Xc = [ x[c] for x in X]
+            beta, bse = self.scalar_weighted_regression(yc, Xc, W, ranges, model_points)
+            betas.append(*beta)
+            bses.append(*bse)
+        return betas, bses
 
     def visualize_correlation(self, x, y, xlabel=None, ylabel=None, ranges=None, model_points=None):
         """
@@ -268,7 +373,7 @@ class CoefficientsAnalysis(object): # 2D function?
             g.fig.tight_layout()
         return g
 
-    def visualize_correlations(self, data, labels, ranges=None, model_points=None):
+    def visualize_many_correlations(self, data, labels, ranges=None, model_points=None):
         """
         Method that returns an instance of PairGrid of correlation plots for a list of vars.
         Plotted is: 
@@ -327,38 +432,6 @@ class CoefficientsAnalysis(object): # 2D function?
             g.fig.tight_layout()
         return g
 
-    def tensor_components_regression(self, y, X, weights = None, components = None):
-        """
-        JUST JOTTING DOWN IDEAS FOR NOW
-        SHOULD BE A WRAPPER OF scalar_weighted_regression()
-        """
-        if not components:
-            components = []
-            skipping_idx = tuple([0 for _ in range(self.spatial_dims)])
-            for i in np.ndindex(y[skipping_idx].shape):
-                components.append(i)
-
-        # component_regress = np.zeros((len(components), len(X)))
-        components_params = []
-        for component in components:
-            dep = y[component]
-            reg = X[component]
-            if weights:
-                ws = weights[component] 
-            # component_regress.append(self.simple_regression(dep, reg, ws))
-            components_params.append( self.simple_regression(dep, reg, ws))
-        components_params.reshape(len(X), len(y))
-
-        avg_params = np.mean(components_params)
-        return avg_params
-
-    def tensor_components_weighted_regression():
-        """
-        Should be a wrapper of scalar_weighted_regression()
-        Weights are computed externally by the MesoModel class
-        """        
-        pass
-
     def PCA_check_regressor_correlation():
         """
         Idea: pass a large list of quantities that are correlated with a residual/closure coefficient.
@@ -379,7 +452,30 @@ class CoefficientsAnalysis(object): # 2D function?
         """
         pass
         
+    # Not sure about these two methods. 
+    def JointPlot(self, model, y_var_str, x_var_str, t, x_range, y_range,\
+                  interp_dims, method, y_component_indices, x_component_indices):
+        y_data_to_plot, points = \
+            self.visualizer.get_var_data(model, y_var_str, t, x_range, y_range, interp_dims, method, y_component_indices)
+        x_data_to_plot, points = \
+            self.visualizer.get_var_data(model, x_var_str, t, x_range, y_range, interp_dims, method, x_component_indices)
+        fig = plt.figure(figsize=(16,16))
+        sns.jointplot(x=x_data_to_plot.flatten(), y=y_data_to_plot.flatten(), kind="hex", color="#4CB391")
+        plt.title(y_var_str+'('+x_var_str+')')
+        fig.tight_layout()
+        plt.show()
+        
+    def DistributionPlot(self, model, var_str, t, x_range, y_range, interp_dims, method, component_indices):
 
+        data_to_plot, points = \
+            self.visualizer.get_var_data(model, var_str, t, x_range, y_range, interp_dims, method, component_indices)
+            
+        # print(data_to_plot)
 
+        fig = plt.figure(figsize=(16,16))
+        sns.displot(data_to_plot)
+        plt.title(var_str)
+        fig.tight_layout()
+        plt.show()
 
 

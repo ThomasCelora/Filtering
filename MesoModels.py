@@ -1074,23 +1074,36 @@ class resMHD2D(object):
         """
         y = self.meso_vars['zeta']
         # X = [self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
-        X = self.meso_vars['eps_tilde']
+        X = [self.meso_vars['eps_tilde']]
 
         ranges = [[self.domain_vars['Tmin'], self.domain_vars['Tmax']],\
                 [self.domain_vars['Xmin'], self.domain_vars['Xmax']],\
                 [self.domain_vars['Ymin'], self.domain_vars['Ymax']]]
         points = self.domain_vars['Points']
+
+        # TESTING SCALAR REGRESSION ROUTINE
         # stats_result = CoefficientAnalysis.scalar_regression(y, X, ranges, points)
         # print(*stats_result)
 
-        # g1 = CoefficientAnalysis.visualize_correlation(X,y,'eps_tilde','zeta',ranges=ranges, model_points=points)
+        # TESTING TENSOR REGRESSION ROUTINE
+        # y=self.meso_vars['q_res']
+        # X=[self.meso_vars['e_tilde'], self.meso_vars['u_tilde']]
+        # # print(y.shape, X.shape)
+        # stats_result = CoefficientAnalysis.tensor_components_regression(y, X, 2,ranges, points, components=[(0,),(2,)])
+        # print(stats_result)
 
-        data=[self.meso_vars['b_tilde'], self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
-        labels=['b_tilde', 'eps_tilde', 'n_tilde']
-        g2=CoefficientAnalysis.visualize_correlations(data, labels)
-        plt.show()
+        # TESTING CORRELATION VISUALIZATION ROUTINES
+        # x = self.meso_vars['zeta']
+        # y = self.meso_vars['eps_tilde']
+        # labels = ['zeta','eps_tilde']
+        # g1=CoefficientAnalysis.visualize_correlation(x, y, labels)
+
+        # data=[self.meso_vars['b_tilde'], self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
+        # labels=['b_tilde', 'eps_tilde', 'n_tilde']
+        # g2=CoefficientAnalysis.visualize_many_correlations(data, labels)
+        # plt.show()
         
-
+        
 
 if __name__ == '__main__':
 
