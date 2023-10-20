@@ -5,6 +5,8 @@ Created on Tue Jan 24 18:02:05 2023
 @author: marcu
 """
 
+# USE !SCIKIT LEARN INSTEAD? IT'S THE PACKAGE FOR MACHINE LEARNING SO! 
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -12,6 +14,7 @@ import h5py
 import pickle
 import seaborn as sns
 import warnings
+from sklearn import linear_model
 import statsmodels.api as sm
 
 from system.BaseFunctionality import *
@@ -80,9 +83,9 @@ class CoefficientsAnalysis(object):
 
             return data
 
-    def scalar_regression(self, y, X, ranges = None, model_points = None):
+    def scalar_regression(self, y, X, ranges = None, model_points = None, weights=None, add_intercept=False):
         """
-        Routine to perform ordinary (multivariate) regression on some gridded data. 
+        Routine to perform ordinary or weighted (multivariate) regression on some gridded data. 
 
         Parameters: 
         -----------
@@ -96,6 +99,8 @@ class CoefficientsAnalysis(object):
             mins and max in each direction
 
         model_points: list of lists containing the gridpoints in each direction
+
+        weights: ndarray of gridded weights
 
         Returns:
         --------
@@ -110,6 +115,8 @@ class CoefficientsAnalysis(object):
         model quantity. 
 
         Works in any dimensions!
+
+        Intercept must be added manually: for the future, add this via true/false block.
         """
         # CHECKING ALIGNMENT OF PASSED DATA
         dep_shape = np.shape(y)
@@ -118,87 +125,64 @@ class CoefficientsAnalysis(object):
             if np.shape(X[i]) != dep_shape:
                 print(f'The {i}-th regressor data is not aligned with dependent data, removing {i}-th regressor data.')
                 X.remove(X[i])
+            if weights:
+                if np.shape(y) != np.shape(weights):
+                    print(f'The weights passed are not not aligned with data, setting these to 1')
+                    weights=np.ones(y.shape)
+
 
         # TRIMMING THE DATA TO WITHIN RANGES 
         if ranges != None and model_points != None:
             print('Trimming dataset for regression')
             y = self.trim_data(y, ranges, model_points)
+            if weights:
+                weights = self.trim_data(weights, ranges, model_points)
             for x in X: 
                 x = self.trim_data(x, ranges, model_points)
 
         # FLATTENING + FITTING
         y = y.flatten()
-        for x in X: 
-            x = x.flatten()
+        if weights:
+            weights = weights.flatten()
+
+        for i in range(len(X)): 
+            X[i] = X[i].flatten()
+
+        if add_intercept:
+            const = np.ones(y.shape)
+            X.insert(0,const)
+
         n_reg = len(X)
         n_data = len(y)
         X = np.reshape(X, (n_data, n_reg))
-        model = sm.OLS(y, X)
-        result = model.fit()
-        return result.params, result.bse
-    
-    def scalar_weighted_regression(self, y, X, W, ranges = None, model_points = None):
-        """
-        Routine to perform ordinary (multivariate) regression on some gridded data. 
-
-        Parameters: 
-        -----------
-        y: ndarray of gridded scalar data
-            the "measurements" of the dependent quantity
         
-        X: list of ndarrays of gridded data (treated as indep scalars)
-            the "data" for the regressors 
+        # VERSION USING STATSMODELS
+        # if weights:
+        #     model=sm.WLS(y, X, W)
+        #     result= model.fit()
+        #     return result.params, result.bse
+        # else:
+        #     model=sm.OLS(y, X)
+        #     result=model.fit()
+        #     return result.params, result.bse
 
-        W: ndarray of gridded weights (one per gridpoint)
+        # VERSION USING SKLEARN:
+        model=linear_model.LinearRegression(fit_intercept=False)
+        if weights:
+            model.fit(X,y,sample_weight=weights)
+        else:
+            model.fit(X,y)
+        y_hat = model.predict(X)
+        res = y - y_hat 
+        res_sum_of_sq = np.dot(res,res)
+        sigma_res_sq = res_sum_of_sq / (n_data-n_reg)
+        var_beta = np.linalg.inv(np.einsum('ji,jl->il',X,X)) * sigma_res_sq
+        bse = [var_beta[i,i]**0.5 for i in range(n_reg)]
 
-        ranges: list of lists of 2 floats
-            mins and max in each direction
+        result = [(model.coef_[i], bse[i]) for i in range(n_reg)]
+        return result
 
-        model_points: list of lists containing the gridpoints in each direction
-
-        Returns:
-        --------
-        list of fitted parameters
-        list of std errors associated with the fitted parameters, 
-        (i.e. parameter * std error of the corresponding regressor.)
-
-        Notes:
-        ------
-        For the future, is it worth coding this as a decorator? 
-        """
-        # CHECKING ALIGNMENT OF PASSED DATA
-        dep_shape = np.shape(y)
-        n_reg = len(X)
-
-        for i in range(n_reg):
-            if np.shape(X[i]) != dep_shape:
-                print(f'The {i}-th regressor data is not aligned with dependent data, removing {i}-th regressor data.')
-                X.remove(X[i])
-            elif np.shape(y) != np.shape(W):
-                print(f'The weights passed are not not aligned with data, setting these to 1')
-                W = [1 for i in range(len(W))]
-        
-
-        # TRIMMING THE DATA TO WITHIN RANGES 
-        if ranges != None and model_points != None:
-            print('Trimming dataset for regression')
-            y = self.trim_data(y, ranges, model_points)
-            W = self.trim_data(W, ranges, model_points)
-            for x in X: 
-                x = self.trim_data(x, ranges, model_points)
-
-        # FLATTENING + FITTING
-        y = y.flatten()
-        for x in X: 
-            x = x.flatten()
-        n_reg = len(X)
-        n_data = len(y)
-        X = np.reshape(X, (n_data, n_reg))
-        model = sm.WLS(y, X, W)
-        result = model.fit()
-        return result.params, result.bse
-
-    def tensor_components_regression(self, y, X, spatial_dims, ranges=None, model_points=None, components=None):
+    def tensor_components_regression(self, y, X, spatial_dims, ranges=None, model_points=None, components=None, weights=None, add_intercept=False):
         """
         Wrapper of scalar_regression: if no components is passed, perform regression on each tensor component
         independently, otherwise only on a subset of these. All the component-wise results are returned.
@@ -228,11 +212,8 @@ class CoefficientsAnalysis(object):
 
         Notes:
         ------
-        Gridded data and ranges are chosen at the model level, and passed here
-        as parameters, so that this external method will not change/access any 
-        model quantity. 
-
-        Works in any dimensions!
+        Weights are taken as the same for each component here.
+        For future: do you need to change this? 
         """
         # CHECKING THE RANK OF DATA AND REGRESSORS ARE COMPATIBLE
         l=[0 for i in range(spatial_dims+1)]
@@ -265,101 +246,12 @@ class CoefficientsAnalysis(object):
             X[i]= X[i].reshape(reshaping) 
 
         # SCALAR REGRESSION ON EACH COMPONENT
-        betas = []
-        bses = []
+        results = []
         for c in components:
             yc = y[c]
             Xc = [ x[c] for x in X]
-            beta, bse = self.scalar_regression(yc, Xc, ranges, model_points)
-            betas.append(beta)
-            bses.append(bse)
-        return betas, bses
-
-    def tensor_components_weighted_regression(self, y, X, spatial_dims, W, ranges=None, model_points=None, components=None):
-        """
-        Wrapper of scalar_weighted_regression. If no components is passed, perform regression on each tensor component
-        independently, otherwise only on a subset of these. All the component-wise results are returned.
-
-        Weights computed and passed externally. 
-
-        Parameters:
-        -----------
-        y: ndarray of gridded tensorial data
-            the "measurements" of the dependent quantity
-        
-        X: list of ndarrays of gridded data 
-            the "data" for the regressors 
-
-        spatial_dims: int    
-
-        W: ndarray of gridded weights (one per gridpoint for now)
-        
-        ranges: list of lists of 2 floats
-            mins and max in each direction
-
-        model_points: list of lists containing the gridpoints in each direction
-
-        components: list of tuples
-            the tensor components to be considered for regression
-
-        Returns:
-        --------
-        list of lists. Each of these lists is built as follows:
-            [ [b1, b2, ...], [bse1, bse2, ... ]]
-            namely coefficients + errors of multivariate regressions 
-            each list correspond to a component
-
-        Notes:
-        ------
-        Gridded data and ranges are chosen at the model level, and passed here
-        as parameters, so that this external method will not change/access any 
-        model quantity. 
-
-        For now each component has the same weight at a point, although this 
-        may change in the future as data along different components may have different errors.
-
-        Works in any dimensions!
-        """        
-        # CHECKING THE RANK OF DATA AND REGRESSORS ARE COMPATIBLE
-        l=[0 for i in range(spatial_dims+1)]
-        dep_shape = y[tuple(l)].shape
-        for i, x in enumerate(X):
-            if x[tuple(l)].shape != dep_shape:
-                print('The {}-th regressor shape {} is not compatible with dependent shape {}. Removing it!'.format(i, x[0,0,0].shape, dep_shape))
-                X.remove(x)
-        if len(X)==0: 
-            print('None of the passed regressors is compatible with dep data. Exiting.')
-            return None
-        
-        # PREPARING COMPONENTS TO LOOP OVER: user-provided or all?     
-        if components:
-            for c in components:
-                if len(c) != len(dep_shape):
-                    print(f'The components indices passed {c} are not compatible with data. Ignoring this and moving on!')
-                    components.remove(c)
-        else:
-            components = []
-            for i in np.ndindex(dep_shape):
-                components.append(i)
-
-        # RESHAPING: now grid indices come last, needed for flattening!
-        tot_shape=y.shape
-        reshaping=[tot_shape[i] for i in range(spatial_dims+1)] 
-        reshaping=tuple(list(dep_shape)+reshaping)
-        y = y.reshape(reshaping)
-        for i in range(len(X)):
-            X[i]= X[i].reshape(reshaping) 
-
-        # SCALAR REGRESSION ON EACH COMPONENT
-        betas = []
-        bses = []
-        for c in components:
-            yc = y[c]
-            Xc = [ x[c] for x in X]
-            beta, bse = self.scalar_weighted_regression(yc, Xc, W, ranges, model_points)
-            betas.append(*beta)
-            bses.append(*bse)
-        return betas, bses
+            results.append(self.scalar_regression(yc, Xc, ranges, model_points, weights, add_intercept))
+        return results
 
     def visualize_correlation(self, x, y, xlabel=None, ylabel=None, ranges=None, model_points=None):
         """

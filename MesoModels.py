@@ -1072,36 +1072,39 @@ class resMHD2D(object):
         Plot the correlations with the regressors and perform the regression using methods from a Coefficient 
         Analysis instance. 
         """
-        y = self.meso_vars['zeta']
-        # X = [self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
-        X = [self.meso_vars['eps_tilde']]
 
+        # FICTITIOUS RANGES AND POINTS TO TEST TRIM_DATA ROUTINE
         ranges = [[self.domain_vars['Tmin'], self.domain_vars['Tmax']],\
                 [self.domain_vars['Xmin'], self.domain_vars['Xmax']],\
                 [self.domain_vars['Ymin'], self.domain_vars['Ymax']]]
         points = self.domain_vars['Points']
 
         # TESTING SCALAR REGRESSION ROUTINE
+        # y = self.meso_vars['zeta']
+        # X = [self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
         # stats_result = CoefficientAnalysis.scalar_regression(y, X, ranges, points)
         # print(*stats_result)
 
         # TESTING TENSOR REGRESSION ROUTINE
         # y=self.meso_vars['q_res']
         # X=[self.meso_vars['e_tilde'], self.meso_vars['u_tilde']]
-        # # print(y.shape, X.shape)
-        # stats_result = CoefficientAnalysis.tensor_components_regression(y, X, 2,ranges, points, components=[(0,),(2,)])
-        # print(stats_result)
+        # # stats_result = CoefficientAnalysis.tensor_components_regression(y, X, 2,ranges, points, components=[(0,),(2,)])
+        # stats_result = CoefficientAnalysis.tensor_components_regression(y, X, 2,ranges, points, add_intercept=False)
+        # for i in range(len(stats_result)):
+        #     print('{}-th component: \n {} \n\n'.format(i, stats_result[i]))
 
         # TESTING CORRELATION VISUALIZATION ROUTINES
-        # x = self.meso_vars['zeta']
+        # x = self.meso_vars['n_tilde']
         # y = self.meso_vars['eps_tilde']
-        # labels = ['zeta','eps_tilde']
-        # g1=CoefficientAnalysis.visualize_correlation(x, y, labels)
+        # labels = ['n_tilde','eps_tilde']
+        # g1=CoefficientAnalysis.visualize_correlation(x, y, xlabel=labels[0], ylabel=labels[1])
+        # fig=g1.figure
+        # fig.savefig('Single_correlation_plot.pdf', format='pdf')
 
         # data=[self.meso_vars['b_tilde'], self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
         # labels=['b_tilde', 'eps_tilde', 'n_tilde']
         # g2=CoefficientAnalysis.visualize_many_correlations(data, labels)
-        # plt.show()
+        # plt.savefig('Many_correlations_plot.pdf', format='pdf')
         
         
 
@@ -1138,7 +1141,6 @@ if __name__ == '__main__':
     visualizer = Plotter_2D()
     regressor = CoefficientsAnalysis(visualizer, meso_model.spatial_dims)
     result = meso_model.EL_style_closure_regression(regressor)
-    # print('\n {} \n ******** \n {}'.format(result[0], result[1]))
 
     # print('Total time is {}'.format(time.process_time() - CPU_start_time))    
 
