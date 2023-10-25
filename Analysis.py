@@ -14,7 +14,8 @@ import h5py
 import pickle
 import seaborn as sns
 import warnings
-from sklearn import linear_model
+from sklearn.linear_model import LinearRegression
+from sklearn.decomposition import PCA 
 import statsmodels.api as sm
 
 from system.BaseFunctionality import *
@@ -26,13 +27,12 @@ from MesoModels import *
 
     
 
-
 class CoefficientsAnalysis(object): 
     """
     Class containing a number of methods for performing statistical analysis on gridded data. 
     Methods include: regression, visualizing correlations, PCAs
     """
-    def __init__(self, visualizer, spatial_dims):
+    def __init__(self): #, visualizer, spatial_dims):
         """
         Nothing as yet...
 
@@ -102,6 +102,10 @@ class CoefficientsAnalysis(object):
 
         weights: ndarray of gridded weights
 
+        add_intercept: bool
+            whether to extemd the dataset to account for a constant offset in the
+            regression model.
+
         Returns:
         --------
         list of fitted parameters
@@ -125,58 +129,62 @@ class CoefficientsAnalysis(object):
             if np.shape(X[i]) != dep_shape:
                 print(f'The {i}-th regressor data is not aligned with dependent data, removing {i}-th regressor data.')
                 X.remove(X[i])
-            if weights:
-                if np.shape(y) != np.shape(weights):
-                    print(f'The weights passed are not not aligned with data, setting these to 1')
-                    weights=np.ones(y.shape)
-
-
+        
+        if len(X)==0: 
+            print('None of the passed regressors is compatible with dep data. Exiting.')
+            return None
+        
+        if weights:
+            if np.shape(y) != np.shape(weights):
+                print(f'The weights passed are not not aligned with data, setting these to 1')
+                weights=np.ones(y.shape)
+        
         # TRIMMING THE DATA TO WITHIN RANGES 
         if ranges != None and model_points != None:
             print('Trimming dataset for regression')
-            y = self.trim_data(y, ranges, model_points)
+            Y = self.trim_data(y, ranges, model_points)
             if weights:
-                weights = self.trim_data(weights, ranges, model_points)
+                Weights = self.trim_data(weights, ranges, model_points)
+            XX = []
             for x in X: 
-                x = self.trim_data(x, ranges, model_points)
+                XX.append(self.trim_data(x, ranges, model_points))
 
         # FLATTENING + FITTING
-        y = y.flatten()
+        Y = Y.flatten()
         if weights:
-            weights = weights.flatten()
+            Weights = Weights.flatten()
 
         for i in range(len(X)): 
-            X[i] = X[i].flatten()
+            XX[i]=XX[i].flatten()
 
         if add_intercept:
-            const = np.ones(y.shape)
-            X.insert(0,const)
-
-        n_reg = len(X)
-        n_data = len(y)
-        X = np.reshape(X, (n_data, n_reg))
+            const = np.ones(Y.shape)
+            XX.insert(0,const)
+        n_reg = len(XX)
+        n_data = len(Y)
+        XX= np.reshape(XX, (n_data, n_reg))
         
         # VERSION USING STATSMODELS
         # if weights:
-        #     model=sm.WLS(y, X, W)
+        #     model=sm.WLS(y, Xfl, W)
         #     result= model.fit()
         #     return result.params, result.bse
         # else:
-        #     model=sm.OLS(y, X)
+        #     model=sm.OLS(y, Xfl)
         #     result=model.fit()
         #     return result.params, result.bse
 
         # VERSION USING SKLEARN:
-        model=linear_model.LinearRegression(fit_intercept=False)
+        model=LinearRegression(fit_intercept=False)
         if weights:
-            model.fit(X,y,sample_weight=weights)
+            model.fit(XX,Y,sample_weight=weights)
         else:
-            model.fit(X,y)
-        y_hat = model.predict(X)
-        res = y - y_hat 
+            model.fit(XX,Y)
+        Y_hat = model.predict(XX)
+        res = Y - Y_hat 
         res_sum_of_sq = np.dot(res,res)
         sigma_res_sq = res_sum_of_sq / (n_data-n_reg)
-        var_beta = np.linalg.inv(np.einsum('ji,jl->il',X,X)) * sigma_res_sq
+        var_beta = np.linalg.inv(np.einsum('ji,jl->il',XX,XX)) * sigma_res_sq
         bse = [var_beta[i,i]**0.5 for i in range(n_reg)]
 
         result = [(model.coef_[i], bse[i]) for i in range(n_reg)]
@@ -204,6 +212,11 @@ class CoefficientsAnalysis(object):
 
         components: list of tuples
             the tensor components to be considered for regression
+
+        add_intercept: bool
+            whether to extemd the dataset to account for a constant offset in the
+            regression model.
+
         Returns:
         --------
         list of fitted parameters
@@ -283,20 +296,19 @@ class CoefficientsAnalysis(object):
 
         if ranges != None and model_points != None:
             print('Trimming dataset for correlation plot')
-            x = self.trim_data(x, ranges, model_points)
-            y = self.trim_data(y, ranges, model_points)
+            X = self.trim_data(x, ranges, model_points)
+            Y = self.trim_data(y, ranges, model_points)
             
-        x=x.flatten()
-        y=y.flatten()
+        X=X.flatten()
+        Y=Y.flatten()
          
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message='is_categorical_dtype is deprecated')
             warnings.filterwarnings('ignore', message='use_inf_as_na option is deprecated')
             g=sns.JointGrid()
-            sns.scatterplot(x=x, y=y, ax=g.ax_joint)
-            sns.kdeplot(x=x, ax=g.ax_marg_x)
-            sns.histplot(y=y, ax=g.ax_marg_y, kde=True)
-        
+            sns.scatterplot(x=X, y=Y, ax=g.ax_joint)
+            sns.kdeplot(x=X, ax=g.ax_marg_x)
+            sns.histplot(y=Y, ax=g.ax_marg_y, kde=True)
             g.set_axis_labels(xlabel=xlabel, ylabel=ylabel)
             g.fig.tight_layout()
         return g
@@ -345,30 +357,108 @@ class CoefficientsAnalysis(object):
             for i in range(len(data)):
                 data[i]=self.trim_data(data[i], ranges, model_points)
 
+        Data = []
         for i in range(len(data)):
-            data[i]=data[i].flatten()
+            Data.append(data[i].flatten())
 
-        data=np.column_stack(data)
-        data_df = pd.DataFrame(data, columns=labels)
+        Data=np.column_stack(Data)
+        Data_df = pd.DataFrame(Data, columns=labels)
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message='is_categorical_dtype is deprecated')
             warnings.filterwarnings('ignore', message='use_inf_as_na option is deprecated')
-            g=sns.PairGrid(data_df)
+            g=sns.PairGrid(Data_df)
             g.map_upper(sns.scatterplot)
             g.map_lower(sns.kdeplot)
             g.map_diag(sns.histplot, kde=True)
             g.fig.tight_layout()
         return g
 
-    def PCA_check_regressor_correlation():
+    def PCA_find_regressors_subset(self, data, ranges=None, model_points=None, var_wanted = 1.):
         """
-        Idea: pass a large list of quantities that are correlated with a residual/closure coefficient.
-        Check if there is a smaller subset: pass percentage of variance as parameter, like 70%, 
-        and the # of principal components to be retained will be computed from the eigenvalues of the 
-        correlation matrix, that is the loadings. 
-        Then return the PCA weights: this will be later used as regressors for the residuals. 
+        Idea: pass a large list of quantities that are correlated with a residual/closure coeff.
+        Check if there is a smaller subset of principal components to be retained that are sufficient
+        to explain the enough of the observed variance in the dataset. 
+
+        AIM: linear dimensionality reductions for regressors
+
+        Parameters: 
+        -----------
+        data: list of gridded data
+
+        ranges: list of lists of 2 floats
+            mins and max in each direction
+
+        model_points: list of lists containing the gridpoints in each direction
+
+        var_wanted: float
+            should be a number between 0. and 1. : the percetage of variance to be retained.
+
+        Returns:
+        --------
+        comp_decomp: array of shape (n_var, n_comp)
+            Matrix whose columns contains the decomposition of the principal components 
+            written in the basis of the untransformed (original) variables. 
+
+        g: result of self.visualize_many_correlations --> show the PCs are indeed uncorrelated.
+
+        Notes:
+        ------
+        
         """
-        pass
+        # CHECKING AND PREPROCESSING THE DATA
+        ref_shape = data[0].shape
+        n_vars = len(data)
+        for i in range(1, n_vars):
+            if data[i].shape != ref_shape:
+                print(f'The {i}-th  feature passed is not aligned with the first, removing {i}-th feature.')
+                data.remove(data[i])
+
+        if len(data)==0: 
+            print('No two vars are compatible. Exiting.')
+            return None
+
+        if ranges != None and model_points != None:
+            print('Trimming dataset for PCA analysis.')
+            for i in range(len(data)):
+                data[i] = self.trim_data(data[i], ranges, model_points)
+
+        for i in range(n_vars):
+            data[i] = data[i].flatten()
+
+        #STANDARDIZING DATA TO ZERO MEAN AND UNIT VARIANCE
+        Data = []
+        for i in range(len(data)):
+            x = data[i]
+            mean = np.mean(x)
+            var = np.var(x)
+            y = np.array([x[j]-mean for j in range(len(x))])
+            Data.append(y/var)
+        Data = np.column_stack(tuple([Data[i] for i in range(n_vars)]))
+
+        # HOW MANY PRINCIPAL COMPONENTS HAVE TO BE RETAINED? 
+        pca_model = PCA().fit(Data)
+        n_comp=0
+        exp_var_sum = np.cumsum(pca_model.explained_variance_ratio_)
+        var_captured = exp_var_sum[n_comp]
+        while var_captured < var_wanted:
+            n_comp +=1
+            var_captured= exp_var_sum[n_comp]
+        n_comp = n_comp+1
+
+        # WORKING OUT THE COMPONENTS DECOMPOSITION
+        var2comp = pca_model.components_ # shape: n_comp * n_var
+        comp_decomp = []
+        for i in range(n_comp):
+            # should be the inverse but var2comp is unitary, so transpose 
+            comp_decomp.append(np.einsum('ij->ji', var2comp)[:,i])
+
+        # CREATING THE FIGURE WITH THE COMPONENTS PROFILE TO CHECK THEIR INDEP
+        pc_profiles = np.einsum('ij,kj->ik', Data, var2comp)
+        labels = [f'{i} comp' for i in range(n_comp)]
+        pc_for_plotting = [pc_profiles[:,i] for i in range(n_comp)]
+        g = self.visualize_many_correlations(pc_for_plotting, labels)
+        
+        return comp_decomp, g
 
     def PCA_find_regressors():
         """
@@ -407,3 +497,5 @@ class CoefficientsAnalysis(object):
         plt.show()
 
 
+if __name__ == '__main__':
+    pass

@@ -1064,7 +1064,7 @@ class resMHD2D(object):
                             finally: 
                                     self.meso_vars[key][h,i,j] = values[idx]
                     
-    def EL_style_closure_regression(self, CoefficientAnalysis, ranges = None, num_Points = None):
+    def EL_style_closure_regression(self, CoefficientAnalysis):
         """
         Takes in a list of correlation quantities (strings? The regressors needed are computed 
         previously via closure ingredients)
@@ -1072,7 +1072,6 @@ class resMHD2D(object):
         Plot the correlations with the regressors and perform the regression using methods from a Coefficient 
         Analysis instance. 
         """
-
         # FICTITIOUS RANGES AND POINTS TO TEST TRIM_DATA ROUTINE
         ranges = [[self.domain_vars['Tmin'], self.domain_vars['Tmax']],\
                 [self.domain_vars['Xmin'], self.domain_vars['Xmax']],\
@@ -1080,10 +1079,10 @@ class resMHD2D(object):
         points = self.domain_vars['Points']
 
         # TESTING SCALAR REGRESSION ROUTINE
-        # y = self.meso_vars['zeta']
-        # X = [self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
-        # stats_result = CoefficientAnalysis.scalar_regression(y, X, ranges, points)
-        # print(*stats_result)
+        y = self.meso_vars['zeta']
+        X = [self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
+        stats_result = CoefficientAnalysis.scalar_regression(y, X, ranges, points)
+        print(*stats_result)
 
         # TESTING TENSOR REGRESSION ROUTINE
         # y=self.meso_vars['q_res']
@@ -1106,6 +1105,13 @@ class resMHD2D(object):
         # g2=CoefficientAnalysis.visualize_many_correlations(data, labels)
         # plt.savefig('Many_correlations_plot.pdf', format='pdf')
         
+        # TESTING THE CHECK REGRESSORS ROUTINE:
+        data=[self.meso_vars['b_tilde'], self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
+        labels=['b_tilde', 'eps_tilde', 'n_tilde']
+        g1=CoefficientAnalysis.visualize_many_correlations(data, labels)
+        comps, g2 = CoefficientAnalysis.PCA_find_regressors_subset(data, ranges = ranges, model_points = points)
+        plt.show()
+
         
 
 if __name__ == '__main__':
@@ -1122,7 +1128,8 @@ if __name__ == '__main__':
     CPU_start_time = time.process_time()
     meso_model = resMHD2D(micro_model, find_obs, filter)
 
-    meso_model.setup_meso_grid([[1.501, 1.504],[0.3, 0.35],[0.4, 0.45]],1)
+    # meso_model.setup_meso_grid([[1.501, 1.504],[0.3, 0.4],[0.4, 0.5]],1)
+    meso_model.setup_meso_grid([[1.501, 1.502],[0.3, 0.35],[0.4, 0.45]],1)
     print(meso_model.domain_vars['Points'])
     meso_model.find_observers()
     meso_model.filter_micro_variables()
@@ -1137,10 +1144,8 @@ if __name__ == '__main__':
     meso_model.closure_ingredients()
     # meso_model.shear_regression_test()
     meso_model.EL_style_closure()
-        
-    visualizer = Plotter_2D()
-    regressor = CoefficientsAnalysis(visualizer, meso_model.spatial_dims)
-    result = meso_model.EL_style_closure_regression(regressor)
+    regressor = CoefficientsAnalysis()
+    meso_model.EL_style_closure_regression(regressor)
 
     # print('Total time is {}'.format(time.process_time() - CPU_start_time))    
 
