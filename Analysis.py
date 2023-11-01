@@ -433,6 +433,7 @@ class CoefficientsAnalysis(object):
             var = np.var(x)
             y = np.array([x[j]-mean for j in range(len(x))])
             Data.append(y/var)
+            # Data.append(y)
         Data = np.column_stack(tuple([Data[i] for i in range(n_vars)]))
 
         # HOW MANY PRINCIPAL COMPONENTS HAVE TO BE RETAINED? 
@@ -452,7 +453,8 @@ class CoefficientsAnalysis(object):
             # should be the inverse but var2comp is unitary, so transpose 
             comp_decomp.append(np.einsum('ij->ji', var2comp)[:,i])
 
-        # CREATING THE FIGURE WITH THE COMPONENTS PROFILE TO CHECK THEIR INDEP
+        # CREATING THE FIGURE WITH THE COMPONENTS PROFILE TO CHECK THEY'RE UNCORRELATED
+        # this block is temporary and will be removed later.
         pc_profiles = np.einsum('ij,kj->ik', Data, var2comp)
         labels = [f'{i} comp' for i in range(n_comp)]
         pc_for_plotting = [pc_profiles[:,i] for i in range(n_comp)]

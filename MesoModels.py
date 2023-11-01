@@ -418,11 +418,15 @@ class resMHD2D(object):
         for var in self.meso_structures:
                 self.meso_structures[var] = []
 
-        self.meso_scalars_strs = ['eps_tilde', 'n_tilde', 'p', 'eos_res', 'Pi_res', 'sigma_tilde', 'b_tilde']
+        self.meso_scalars_strs = ['eps_tilde', 'n_tilde', 'p_tilde', 'p_filt', 'eos_res', 'Pi_res', 'sigma_tilde', 'b_tilde', 'T_tilde']
         self.meso_vectors_strs = ['u_tilde', 'q_res', 'e_tilde', 'j', 'J_tilde']
         self.meso_r2tensors_strs = ['pi_res']
         self.meso_vars_strs = self.meso_scalars_strs + self.meso_vectors_strs + self.meso_r2tensors_strs
         self.meso_vars = dict.fromkeys(self.meso_vars_strs)
+
+        self.coefficient_strs = ["Gamma"]
+        self.coefficients = dict.fromkeys(self.coefficient_strs)
+        self.coefficients['Gamma'] = 4.0/3.0
 
         # Dictionary with stencils and coefficients for finite differencing
         self.differencing = dict.fromkeys((1, 2))
@@ -437,7 +441,8 @@ class resMHD2D(object):
 
 
         # dictionary with non-local quantities (keys must match one of meso_vars or structure)
-        self.nonlocal_vars_strs = ['u_tilde', 'Fab'] 
+        self.nonlocal_vars_strs = ['u_tilde', 'Fab', 'T_tilde'] 
+        # self.nonlocal_vars_strs = ['u_tilde', 'Fab'] 
         Dstrs = ['D_' + i for i in self.nonlocal_vars_strs]
         self.deriv_vars = dict.fromkeys(Dstrs)
 
@@ -663,6 +668,7 @@ class resMHD2D(object):
         # THOMAS'S WAY (SAVE THEM AS TENSORS)
         self.deriv_vars['D_u_tilde'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1, self.spatial_dims+1))
         self.deriv_vars['D_Fab'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1, self.spatial_dims+1, self.spatial_dims+1))
+        self.deriv_vars['D_T_tilde'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1))
 
         # MARCUS'S WAY 
         # for str in self.non_local_vars_strs: 
@@ -720,10 +726,16 @@ class resMHD2D(object):
                         obs = self.filter_vars['U'][h,i,j]
                         for struct in self.meso_structures:
                             self.meso_structures[struct][h,i,j] = self.filter.filter_var_point(struct, point, obs)
-                        self.meso_vars['p'][h,i,j] = self.filter.filter_var_point('p', point, obs)
+                        self.meso_vars['p_filt'][h,i,j] = self.filter.filter_var_point('p', point, obs)
                     else: 
                         print('Could not filter at {}: observer not found.'.format(point))
-        
+
+    def p_from_EOS(self, eps, n):
+        """
+        Compute pressure from Gamma-law EoS 
+        """
+        return (self.coefficients['Gamma']-1)*eps*n
+
     def decompose_structures_gridpoint(self, h, i, j): 
         """
         Decompose the fluid part of SET as well as Fab at grid point (h,i,j)
@@ -754,6 +766,8 @@ class resMHD2D(object):
         q_a = np.einsum('ij,jk,kl,l->i',h_ab, T_ab, self.metric, u_t)
         s_ab = np.einsum('ij,kl,jl->ik',h_ab, h_ab, T_ab)
         s = np.einsum('ii',s_ab)
+        p_t = self.p_from_EOS(eps_t, n_t) 
+    
 
         # Storing the decomposition with appropriate names. 
         self.meso_vars['n_tilde'][h,i,j] = n_t
@@ -761,12 +775,10 @@ class resMHD2D(object):
         self.meso_vars['eps_tilde'][h,i,j] = eps_t
         self.meso_vars['q_res'][h,i,j,:] = q_a
         self.meso_vars['pi_res'][h,i,j,:,:] = s_ab - np.multiply(s / self.spatial_dims , self.metric +np.outer(u_t,u_t))
-        p_filt = self.meso_vars['p'][h,i,j]
-        self.meso_vars['eos_res'][h,i,j] = 0 
-        # p_t =  p_from_EOS method(eps_t, n_t) 
-        # self.meso_vars['eos_res'][h,i,j] = p_filt - p_t
-        self.meso_vars['Pi_res'][h,i,j] = s - p_filt -self.meso_vars['eos_res'][h,i,j]
-        
+        self.meso_vars['p_tilde'][h,i,j] =  p_t
+        self.meso_vars['Pi_res'][h,i,j] = s - p_t
+        self.meso_vars['eos_res'][h,i,j] = self.meso_vars['p_filt'][h,i,j] - p_t
+        self.meso_vars['T_tilde'][h,i,j] = p_t / n_t
 
         # Repeat for the Faraday tensor (which is rank (0,2))
         Fab = self.meso_structures['Fab'][h,i,j]
@@ -789,7 +801,7 @@ class resMHD2D(object):
                     else: 
                         print('Structures not decomposed at {}: observer could not be found.'.format(point))
 
-    def calculate_derivative_gridpoint(self, nonlocal_var_str, h, i, j, direction, order = 1): 
+    def calculate_derivatives_gridpoint(self, nonlocal_var_str, h, i, j, direction, order = 1): 
         """
         Calculate partial derivative in the input 'direction' of the variable corresponding to 'nonlocal_var_str' 
         at the position on the grid identified by indices h,i,j. The order of the differencing scheme 
@@ -878,7 +890,7 @@ class resMHD2D(object):
                         for dir in range(self.spatial_dims+1):
                             for str in self.nonlocal_vars_strs: 
                                 dstr = 'D_' + str
-                                self.deriv_vars[dstr][h,i,j,dir] = self.calculate_derivative_gridpoint(str, h, i, j, dir)
+                                self.deriv_vars[dstr][h,i,j,dir] = self.calculate_derivatives_gridpoint(str, h, i, j, dir)
                     else: 
                         print('Derivatives not calculated at {}: observer could not be found.'.format(point))
 
@@ -913,39 +925,41 @@ class resMHD2D(object):
         # COMPUTING THE MESO-CURRENT AND DECOMPOSING IT WRT FAVRE_OBS    
         u_t = self.meso_vars['u_tilde'][h,i,j]
         u_t_cov = np.einsum('ij,j->i', self.metric, u_t)
-        DFab = self.deriv_vars['D_Fab'][h,i,j]
+        Nabla_Fab = self.deriv_vars['D_Fab'][h,i,j]
 
-        # MODELLING THE DISSIPATIVE TERMS IN THE FLUID SET - WORKING WITH (2,0)
+        # CLOSURE INGREDIENTS: FLUID BIT - WORKING WITH (2,0)
         nabla_u = self.deriv_vars['D_u_tilde'][h,i,j] # This is a rank (1,1) tensor
         nabla_u = np.einsum('ij,jk->ik', self.metric, nabla_u) #this is a rank (2,0) tensor
         acc_t = np.einsum('i,ij', u_t_cov, nabla_u) # vector
 
-        # The following two quantities should be identically zero, but numerical errors.
+        # The following two quantities should be identically zero, but they won't be due to numerical errors.
         # Computing them and removing to project velocity gradients
         unit_norm_violation = np.einsum('ij,j', nabla_u, u_t_cov) #vector
         acc_orthogonality_violation = np.einsum('i,i->', u_t_cov, acc_t)
         Daub = nabla_u + np.einsum('i,j->ij', u_t, acc_t) + np.einsum('i,j->ij', unit_norm_violation, u_t) +\
             np.multiply(acc_orthogonality_violation, np.einsum('i,j->ij', u_t, u_t)) #Should be a (2,0) tensor
-        # Checking orthogonality
-        # print('Checking orthogonality of u_t with Daub. \n First component: {}\n *********\n Second component: {}'.format(np.einsum('i,ij->j', u_t_cov, Daub), \
-        #                                                                                                                   np.einsum('ij,j->i', Daub, u_t_cov)))
         h_ab = self.metric + np.einsum('i,j->ij', u_t, u_t)
         exp_t = np.einsum('ii->',Daub)
         shear_t = np.multiply(1/2., Daub + np.einsum('ij->ji', Daub)) - np.multiply( 1/self.spatial_dims * exp_t, h_ab) 
         vort_t = np.multiply(1/2., Daub - np.einsum('ij->ji', Daub))
-        # print('Expansion: \n {} \n ***** \n Shear: \n {} \n ***** \n Vorticity: \n{}'.format(exp_t, shear_t, vort_t))
-    
-        # # THINK WHAT TO DO WITH THE HEAT FLUX --> GRADIENTS IN T OR N AND EPS
-        # # THINK ABOUT THE EM PART, DO YOU NEED MORE?  
-        # # COME BACK TO THIS LATER?
 
+    
+        # CLOSURE INGREDIENTS: HEAT FLUX 
+        nabla_T = self.deriv_vars['D_T_tilde'][h,i,j]
+        projector = np.zeros((3,3))
+        np.fill_diagonal(projector, 1) 
+        projector += np.einsum('i,j->ij',u_t_cov, u_t)
+        DaT = np.einsum('ij,j->i', projector, nabla_T)
+        Theta_tilde = DaT + np.multiply(self.meso_vars['T_tilde'][h,i,j], np.einsum('ij,j->i', self.metric, acc_t))
+
+        # CLOSURE INGREDIENTS: EM PART - DO YOU NEED MORE? 
         # current = np.einsum('ij, kl, kjl->i', self.metric, self.metric, DFab)
         # sigma_t = np.einsum('i,ij,j->',current, self.metric, u_t)
         # J_t = current - np.multiply(sigma_t, u_t)
         # # self.meso_vars['j'][h,i,j,:] = current ?? 
 
-        closure_vars_strs = ['shear_tilde', 'exp_tilde', 'acc_tilde']
-        closure_vars = [shear_t, exp_t, acc_t]
+        closure_vars_strs = ['shear_tilde', 'exp_tilde', 'acc_tilde', 'Theta_tilde']
+        closure_vars = [shear_t, exp_t, acc_t, Theta_tilde]
         return closure_vars_strs, closure_vars
     
     def closure_ingredients(self): 
@@ -971,76 +985,45 @@ class resMHD2D(object):
                             finally: 
                                     self.meso_vars[key][h,i,j] = values[idx]
 
-    def shear_regression_test(self):
-        """
-        WORK IN PROGRESS: A MINIMAL REGRESSION ANALYSIS ON THE COMPONENTS OF THE SHEAR TENSOR
-        NEED TO FIRST WORK ON WRAPPER OF MODEL_RESIDUALS THAT STORES ALL THE INFO AT ALL POINTS 
-        Notes:
-        ------
-        Automatic looping over all components: how to make use of the fact that the shear is symmetric? 
-        Better to use a wrapper? 
-        """
-        # LINEAR REGRESSION: LOOP OVER COMPONENTS AND AVERAGE
-
-        shape = self.meso_vars['shear_tilde'][0,0,0].shape
-        statistics = np.zeros((tuple(list(shape)+ [3])))
-        for component_idx in np.ndindex(shape):
-            xs = self.meso_vars['shear_tilde'][0,:,:,component_idx]
-            ys = self.meso_vars['pi_res'][0,:,:,component_idx]
-            xs = xs.flatten()
-            ys = ys.flatten()
-            sns_plot = sns.regplot(x = xs, y = ys)
-            # print(scst.pearsonr(xs,ys))
-            statistics[component_idx] = np.array(scst.linregress(xs,ys)[:3])
-
-            fig = sns_plot.get_figure()
-            fig.tight_layout()
-            # plt.show()
-
-        m_statistics = np.zeros((3,))
-        for i in range(len(m_statistics)):
-            # for idx in np.ndindex(shape): 
-            idx = np.ndindex(shape)
-            m_statistics[i] = np.mean(statistics[:,:,i])
-
-
-        # PREPARING THE DATA FOR CONTRASTING RESIDUAL AND MODEL
-        eta = m_statistics[0]
-        # pi_model = np.zeros(self.meso_vars['pi_res'][0,:,:,:,:].shape)
-
-        # Nx, Ny = self.domain_vars['Nx'], self.domain_vars['Ny']
-        # for i in range(Nx): 
-        #         for j in range(Ny):
-        #             if self.filter_vars['U_success'][0,i,j]:
-        #                 shear = self.model_residuals_gridpoint(0,i,j)[1][0]
-        #                 pi_model[i,j,:,:] = np.multiply(eta, shear) # Calling the same function twice! Save data! 
-        # pi_res = self.meso_vars['pi_res'][0,:,:,:,:]
-
-        # THIS IS A TRICK: YOU WANT TO COMPARE THE RESIDUAL WITH MODEL = SHEAR x ETA 
-        # self.meso_vars['shear_tilde'][:,:,:] = np.multiply(eta, self.meso_vars['shear_tilde'][:,:,:] )
-        for idx in np.ndindex((3,3)): 
-            self.meso_vars['shear_tilde'][:,:,:,idx]  = np.multiply(eta, self.meso_vars['shear_tilde'][:,:,:,idx])
-        
-
-        # # SETTING UP AND PLOTTING VIA MARCUS'S ROUTINES
-        visualizer = Plotter_2D()
-        t = self.domain_vars['T'][0]
-        x_range, y_range = [self.domain_vars['Xmin'], self.domain_vars['Xmax']] ,\
-                                     [self.domain_vars['Ymin'], self.domain_vars['Ymax']]
-        # print(t, x_range, y_range)
-
-        # print(visualizer.get_var_data(self, 'shear_tilde', t, x_range, y_range, component_indices=(0,0)))
-        visualizer.plot_vars(self, ['pi_res', 'shear_tilde'], t, x_range, y_range, components_indices = [(0,0),(0,0)])
-
     def EL_style_closure_gridpoint(self, h, i, j):
         """
         Compute bulk, shear via scalarization + PA trick, thermal conductivity later. 
         At a point. 
         Returns: coefficient(s) at a point.
         """
-        coefficients_names = ['zeta']
+        coefficients_names=[]
+        coefficients=[]
+        
+        # CALCULATING BULK VISCOUS COEFF
         zeta = self.meso_vars['Pi_res'][h,i,j] / self.meso_vars['exp_tilde'][h,i,j] 
-        coefficients = [zeta]
+        coefficients_names.append('zeta')
+        coefficients.append(zeta)
+
+        # CALCULATING SHEAR VISCOUS COEFF
+        pi_res_sq = np.einsum('ij,kl,ik,jl->', self.meso_vars['pi_res'][h,i,j], self.meso_vars['pi_res'][h,i,j], self.metric, self.metric)
+        shear_sq = np.einsum('ij,kl,ik,jl->', self.meso_vars['shear_tilde'][h,i,j], self.meso_vars['shear_tilde'][h,i,j], self.metric, self.metric)
+        eta = pi_res_sq/shear_sq
+        # Compute sign of eta by looking at the PA of pi_res with higher eigenvalue. 
+        # Change shear to the eigenbasis of pi_res (using that the matrix is unitary as pi_res is sym)
+        pi_eig, pi_eigv = np.linalg.eigh(self.meso_vars['pi_res'][h,i,j])
+        transformed_shear = np.einsum('ji,jk,kl', pi_eigv, self.meso_vars['shear_tilde'][h,i,j], pi_eigv)
+        abs_pi_eig = np.abs(pi_eig)
+        pos = list(abs_pi_eig).index(np.max(abs_pi_eig))
+        eta = eta * np.sign(pi_eig[-1] / transformed_shear[pos,pos])
+        coefficients_names.append('eta')
+        coefficients.append(eta)
+
+        # CALCULATING THE HEAT CONDUCTIVITIY
+        q_res = self.meso_vars['q_res'][h,i,j]
+        Theta_t = self.meso_vars['Theta_tilde'][h,i,j]
+        q_res_sq = np.einsum('i,ij,j', q_res, self.metric, q_res)
+        Theta_t_sq = np.einsum('i,ij,j', Theta_t, self.metric, Theta_t)
+        cos_angle = np.einsum('i,ij,j', q_res, self.metric, Theta_t) / (q_res_sq * Theta_t_sq)
+        sign = np.sign(cos_angle)
+        kappa = sign * np.sqrt(q_res_sq / Theta_t_sq)
+        coefficients_names.append('kappa')
+        coefficients.append(kappa)
+
         return coefficients_names, coefficients
 
     def EL_style_closure(self): 
@@ -1079,10 +1062,10 @@ class resMHD2D(object):
         points = self.domain_vars['Points']
 
         # TESTING SCALAR REGRESSION ROUTINE
-        y = self.meso_vars['zeta']
-        X = [self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
-        stats_result = CoefficientAnalysis.scalar_regression(y, X, ranges, points)
-        print(*stats_result)
+        # y = self.meso_vars['zeta']
+        # X = [self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
+        # stats_result = CoefficientAnalysis.scalar_regression(y, X, ranges, points)
+        # print(*stats_result)
 
         # TESTING TENSOR REGRESSION ROUTINE
         # y=self.meso_vars['q_res']
@@ -1100,17 +1083,25 @@ class resMHD2D(object):
         # fig=g1.figure
         # fig.savefig('Single_correlation_plot.pdf', format='pdf')
 
-        # data=[self.meso_vars['b_tilde'], self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
-        # labels=['b_tilde', 'eps_tilde', 'n_tilde']
+        # data=[self.meso_vars['eta'], self.meso_vars['b_tilde'], self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
+        # labels=['eta', 'b_tilde', 'eps_tilde', 'n_tilde']
         # g2=CoefficientAnalysis.visualize_many_correlations(data, labels)
-        # plt.savefig('Many_correlations_plot.pdf', format='pdf')
+
+        # data=[self.meso_vars['zeta'], self.meso_vars['b_tilde'], self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
+        # labels=['zeta', 'b_tilde', 'eps_tilde', 'n_tilde']
+        # gbis= CoefficientAnalysis.visualize_many_correlations(data, labels)
+        # # plt.savefig('Many_correlations_plot.pdf', format='pdf')
+        # plt.show()
         
         # TESTING THE CHECK REGRESSORS ROUTINE:
-        data=[self.meso_vars['b_tilde'], self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
-        labels=['b_tilde', 'eps_tilde', 'n_tilde']
-        g1=CoefficientAnalysis.visualize_many_correlations(data, labels)
-        comps, g2 = CoefficientAnalysis.PCA_find_regressors_subset(data, ranges = ranges, model_points = points)
-        plt.show()
+        # data=[self.meso_vars['b_tilde'], self.meso_vars['eps_tilde'], self.meso_vars['n_tilde']]
+        # labels=['b_tilde', 'eps_tilde', 'n_tilde']
+        # g1=CoefficientAnalysis.visualize_many_correlations(data, labels)
+        # comps, g2 = CoefficientAnalysis.PCA_find_regressors_subset(data, ranges = ranges, model_points = points)
+        # g2.fig.suptitle("Correlation between PC (standardized data)")
+        # g2.fig.subplots_adjust(top=0.94) 
+        # print(comps)
+        # plt.show()
 
         
 
@@ -1128,24 +1119,27 @@ if __name__ == '__main__':
     CPU_start_time = time.process_time()
     meso_model = resMHD2D(micro_model, find_obs, filter)
 
-    # meso_model.setup_meso_grid([[1.501, 1.504],[0.3, 0.4],[0.4, 0.5]],1)
+    # meso_model.setup_meso_grid([[1.501, 1.504],[0.3, 0.5],[0.4, 0.6]],1)
     meso_model.setup_meso_grid([[1.501, 1.502],[0.3, 0.35],[0.4, 0.45]],1)
-    print(meso_model.domain_vars['Points'])
+    # print(meso_model.domain_vars['Points'])
     meso_model.find_observers()
     meso_model.filter_micro_variables()
     
+    print('Filter stage ended')
     # meso_model.decompose_structures_gridpoint(1,1,1)
     meso_model.decompose_structures()
 
     # print(meso_model.calculate_derivative_gridpoint('u_tilde', 0,1,1,0))
     meso_model.calculate_derivatives()
 
-    # meso_model.model_residuals_gridpoint(1,1,0)
+    # meso_model.closure_ingredients_gridpoint(1,1,0)
     meso_model.closure_ingredients()
-    # meso_model.shear_regression_test()
+    # print('Derivatives and Decomposition stage ended')
+
+    # meso_model.EL_style_closure_gridpoint(1,2,3)
     meso_model.EL_style_closure()
-    regressor = CoefficientsAnalysis()
-    meso_model.EL_style_closure_regression(regressor)
+    # regressor = CoefficientsAnalysis()
+    # meso_model.EL_style_closure_regression(regressor)
 
     # print('Total time is {}'.format(time.process_time() - CPU_start_time))    
 

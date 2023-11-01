@@ -447,35 +447,6 @@ class IdealHydro_2D(object):
             print(f"{var} does not belong to the structures in the micro_model")
         return res    
 
-    # def get_interpol_var(self, var_names, point):
-    #     """
-    #     Returns the interpolated structure at the point
-
-    #     Parameters
-    #     ----------
-    #     var : str corresponding to one of the structures
-            
-    #     point : list of floats
-    #         ordered coordinates: t,x,y
-
-    #     Return
-    #     ------
-    #     Array with the interpolated values of any var
-    #         Empty list if var is not a structure in the micro_model
-
-    #     Notes
-    #     -----
-    #     Interpolation gives errors when applied to boundary  
-    #     """
-    #     res = []
-    #     for var_name in var_names:
-    #         try:
-    #             res.append( interpn(self.domain_vars["points"], self.vars[var_name], point, method = self.interp_method)[0])
-    #         except KeyError:
-    #             print(f"{var_name} does not belong to the variables of the micro_model!")
-    #     return res
-
-
     def get_interpol_var(self, var, point):
         """
         Returns the interpolated variables at the point.
