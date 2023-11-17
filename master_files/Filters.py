@@ -433,7 +433,7 @@ class FindObs_flux_min(object):
 
 class FindObs_drift_root(object):
     """
-    Class for computing the observer by minimizing the (micro) baryon current 
+    Class for computing the observer by root-finding on the net baryon current 
     drift over a box. 
     Work in any dimension, read on construction from the micro-model. 
     """

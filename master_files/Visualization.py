@@ -26,13 +26,14 @@ class Plotter_2D(object):
         screen_size = list of 2 floats 
             width and height of the screen: used to rescale plots' size.
         """
-        self.subplots_dims = {1 : (1,1),
+        self.plot_vars_subplots_dims = {1 : (1,1),
                          2 : (1,2),
                          3 : (1,3),
                          4 : (2,2),
                          5 : (2,3),
                          6 : (2,3)}
-        
+                         
+                        
         self.screen_size = np.array(screen_size)
     
     def get_var_data(self, model, var_str, t, x_range, y_range, interp_dims=None, method= 'raw_data', component_indices=()):
@@ -129,7 +130,7 @@ class Plotter_2D(object):
              print(f'{var_str} is not a plottable variable of the model!') 
              return None
 
-    def plot_vars(self, model, var_strs, t, x_range, y_range, interp_dims=None, method='raw_data', components_indices=[()]):
+    def plot_vars(self, model, var_strs, t, x_range, y_range, interp_dims=None, method='raw_data', components_indices=None): #[()]):
         """
         Plot variable(s) from model, defined by var_strs, over coordinates 
         t, x_range, y_range. Either from the model's raw data or by interpolating 
@@ -165,7 +166,7 @@ class Plotter_2D(object):
 
         """
         n_plots = len(var_strs)
-        n_rows, n_cols = self.subplots_dims[n_plots]
+        n_rows, n_cols = self.plot_vars_subplots_dims[n_plots]
 
         # Block to determine adaptively the figsize. 
         figsizes = {1 : (1/3.,1/3.),
@@ -184,6 +185,10 @@ class Plotter_2D(object):
             axes = [axes]
         else:
             axes = axes.flatten()
+
+        if not components_indices: 
+            print('No list of components indices passed: setting this to an empty list.')
+            components_indices = [ () for _ in range(len(var_strs))]
             
         for var_str, component_indices, ax in zip(var_strs, components_indices, axes):  
             # data_to_plot, points = self.get_var_data(model, var_str, t, x_range, y_range, interp_dims, method, component_indices)
@@ -193,7 +198,10 @@ class Plotter_2D(object):
             divider = make_axes_locatable(ax)
             cax = divider.append_axes('right', size='5%', pad=0.05)
             fig.colorbar(im, cax=cax, orientation='vertical')
-            ax.set_title(var_str)
+            title = var_str
+            if component_indices != ():
+                title = title + ", {}-component".format(component_indices)
+            ax.set_title(title)
             ax.set_xlabel(r'$y$') # WHY?
             ax.set_ylabel(r'$x$')
 
@@ -202,7 +210,7 @@ class Plotter_2D(object):
         # plt.show()
         return fig
         
-    def plot_var_model_comparison(self, models, var_str, t, x_range, y_range, interp_dims=None, method='raw_data', component_indices=(), diff_plot=True):
+    def plot_var_model_comparison(self, models, var_strs, t, x_range, y_range, interp_dims=None, method='raw_data', components_indices=None, diff_plot=False):
         """
         Plot a variable from a number of models. If 2 models are given, a third
         plot of the difference will be automatically plotted, too. If 'raw_data'
@@ -211,9 +219,9 @@ class Plotter_2D(object):
 
         Parameters
         ----------
-        models : Micro or Meso Models
-        var_sts : str
-            Must match entries in the models' 'vars' dictionary.
+        models : list of Micro or Meso Models
+        var_strs : list of lists of strings
+            each sublist must match entries in the models' 'vars' dictionary.
         t : float
             time coordinate (defines the foliation).
         x_range : list of 2 floats: x_start and x_end
@@ -224,8 +232,9 @@ class Plotter_2D(object):
             defines the number of points to interpolate at in x and y directions.
         method : str
             currently either raw_data or interpolate.
-        component_indices : tuple
-            the indices of the component to pick out if the variable is a vector/tensor.
+        component_indices : list of list of tuples
+            each tuple identifies the indices of the component to pick out if the variable 
+            is a vector/tensor.
 
         Output
         -------
@@ -235,60 +244,81 @@ class Plotter_2D(object):
         with the model's raw data coordinates.
 
         """
+        if len(var_strs) != len(models):
+            print("I need a list of vars to plot per model. Check!")
+            return None
+        num_vars_1st_model = len(var_strs[0])
+        for i in range(1, len(var_strs)):  
+            if len(var_strs[i]) != num_vars_1st_model:
+                print("The number of variables per model must be the same. Exiting.")
+                return None
+        
         n_cols = len(models)
-        if not n_cols == 2:
-            diff_plot = False # Only plot difference of 2 models...
-        n_rows = 1
         if diff_plot:
-            n_cols+=1
+            if len(models)!=2:
+                print("Can plot the difference between TWO models, not more.")
+            else:
+                n_cols+=1
+
+        n_rows = len(var_strs[0])
+        if len(var_strs[0])>3:
+            print("This function is meant to compare up to 3 vars. Plotting the first three.")
+            n_rows = 3
+        
+        if not components_indices: 
+            print('No list of components indices passed: setting this to an empty list.')
+            empty_tuple_components = [ () for _ in range(len(var_strs[0]))]
+            components_indices = []
+            for i in range(len(models)):
+                components_indices.append(empty_tuple_components)
 
         # Block to determine adaptively the figsize. 
-        figsize = np.array([1,2/3.]) * self.screen_size
-
-        fig, axes = plt.subplots(n_rows,n_cols,sharex='row',sharey='col',figsize=figsize)
-        
-        for model, ax in zip(models, axes.flatten()):
-            # data_to_plot, points = self.get_var_data(model, var_str, t, x_range, y_range, interp_dims, method, component_indices)
-            # extent = [points[2][0],points[2][-1],points[1][0],points[1][-1]]
-            data_to_plot, extent = self.get_var_data(model, var_str, t, x_range, y_range, interp_dims, method, component_indices)
-            im = ax.imshow(data_to_plot, extent=extent)
-            divider = make_axes_locatable(ax)
-            cax = divider.append_axes('right', size='5%', pad=0.05)
-            fig.colorbar(im, cax=cax, orientation='vertical')
-            ax.set_title(model.get_model_name())
-            ax.set_xlabel(r'$y$')
-            ax.set_ylabel(r'$x$')
-
-        if diff_plot:
-            ax = axes.flatten()[-1]
-            # data_to_plot1, points1 = self.get_var_data(models[0], var_str, t, x_range, y_range, interp_dims, method, component_indices)
-            # data_to_plot2, points2 = self.get_var_data(models[1], var_str, t, x_range, y_range, interp_dims, method, component_indices)
-            data_to_plot1, extent = self.get_var_data(models[0], var_str, t, x_range, y_range, interp_dims, method, component_indices)
-            data_to_plot2 = self.get_var_data(models[1], var_str, t, x_range, y_range, interp_dims, method, component_indices)[0]
-            # if len(points1) != len(points2):
-            #     diff_plot = False
-            #     pass
-            # for t_points1, t_points2 in zip(points1, points2):
-            #     print(t_points1, t_points2)
-            #     if len(t_points1) != t_points2.shape:
-            #         diff_plot = False
-            #         continue
-            #     if not np.allclose(t_points1, t_points2):
-            #         diff_plot = False
-            # if diff_plot:
-            try:                
-                # extent = [points1[2][0],points1[2][-1],points1[1][0],points1[1][-1]]
-                im = ax.imshow(data_to_plot1 - data_to_plot2, extent=extent)
-                divider = make_axes_locatable(ax)
+        # figsize = np.array([1,2/3.]) * self.screen_size
+        figsize = self.screen_size
+        # fig, axes = plt.subplots(n_rows,n_cols,sharex='row',sharey='col',figsize=figsize)
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize, squeeze=False)
+      
+        for j in range(len(models)):
+            for i in range(n_rows):                    
+                data_to_plot, extent = self.get_var_data(models[j], var_strs[j][i], t, x_range, y_range, interp_dims, method, components_indices[j][i])
+                # im=axes[i,j].imshow(data_to_plot, extent)
+                im=axes[i,j].imshow(data_to_plot, extent=extent)
+                divider = make_axes_locatable(axes[i,j])
                 cax = divider.append_axes('right', size='5%', pad=0.05)
                 fig.colorbar(im, cax=cax, orientation='vertical')
-                ax.set_title('Models difference')
-                ax.set_xlabel(r'$y$')
-                ax.set_ylabel(r'$x$')
-            except(ValueError):
-                print(f"Cannot plot the difference between {var_str} in the two "
+                title = models[j].get_model_name() + "\n"+var_strs[j][i]
+                if components_indices[j][i] != ():
+                    title += " {}-component".format(components_indices[j][i])
+                axes[i,j].set_title(title)
+                axes[i,j].set_xlabel(r'$y$')
+                axes[i,j].set_ylabel(r'$x$')
+
+
+        if diff_plot and len(models)==2:
+            try:
+                for i in range(len(var_strs[0])):
+                    data1, extent1 = self.get_var_data(models[0], var_strs[0][i], t, x_range, y_range, interp_dims, method, components_indices[0][i])
+                    data2, extent2 = self.get_var_data(models[1], var_strs[1][i], t, x_range, y_range, interp_dims, method, components_indices[1][i])
+                    if extent1 != extent2:
+                        print("Cannot plot the difference between the vars: data not aligned.")
+                        continue
+                    im = axes[i,2].imshow(data1-data2, extent=extent1)
+                    divider = make_axes_locatable(axes[i,2])
+                    cax = divider.append_axes('right', size='5%', pad=0.05)
+                    fig.colorbar(im, cax=cax, orientation='vertical')
+                    axes[i,2].set_title('Models difference')
+                    axes[i,2].set_xlabel(r'$y$')
+                    axes[i,2].set_ylabel(r'$x$')
+            except (ValueError):
+                print(f"Cannot plot the difference between {var_strs} in the two "+\
                       "models. Likely due to the data coordinates not coinciding.")
-        fig.suptitle('Contrasting {} against different models'.format(var_str))
+
+        models_names = [model.get_model_name() for model in models]
+        suptitle = "Comparing "
+        for i in range(len(models_names)):
+            suptitle += models_names[i] + " "
+        suptitle += "models."
+        fig.suptitle(suptitle)
         fig.tight_layout()
         # plt.show()
         return fig
@@ -296,14 +326,16 @@ class Plotter_2D(object):
 
 
 if __name__ == '__main__':
-
-    FileReader = METHOD_HDF5('./Data/test_res100/')
+    
+    FileReader = METHOD_HDF5('../Data/test_res100/')
     micro_model = IdealMHD_2D()
     FileReader.read_in_data(micro_model)
     micro_model.setup_structures()
 
 
-    visualizer = Plotter_2D([11.97, 8.36])
+    # visualizer = Plotter_2D([11.97, 8.36])
+
+    # print('Finished initializing')
 
     # TESTING GET_VAR_DATA
     ######################  
@@ -324,19 +356,21 @@ if __name__ == '__main__':
 
     # TESTING PLOT_VAR_MODEL_COMPARISON
     ###################################
-    find_obs = FindObs_drift_root(micro_model, 0.001)
-    filter = spatial_box_filter(micro_model, 0.003)
-    meso_model = resMHD2D(micro_model, find_obs, filter)
-    ranges = [0.3, 0.4]
-    meso_model.setup_meso_grid([[1.501, 1.503],ranges, ranges], coarse_factor=2)
-    meso_model.find_observers()
-    meso_model.filter_micro_variables()
+    # find_obs = FindObs_drift_root(micro_model, 0.001)
+    # filter = spatial_box_filter(micro_model, 0.003)
+    # meso_model = resMHD2D(micro_model, find_obs, filter)
+    # ranges = [0.2, 0.25]
+    # meso_model.setup_meso_grid([[1.501, 1.503],ranges, ranges], coarse_factor=2)
+    # meso_model.find_observers()
+    # meso_model.filter_micro_variables()
 
-    var = 'BC'
-    component = (0,)
-    models = [micro_model, meso_model]
-    smaller_ranges = [ranges[0]+0.01, ranges[1]- 0.01] # Needed to avoid interpolation errors at boundaries
-    # visualizer.plot_var_model_comparison(models, var, 1.502, smaller_ranges, smaller_ranges, \
-    #                                      method='interpolate', interp_dims=(30,30), component_indices=component)
-    visualizer.plot_var_model_comparison(models, var, 1.502, smaller_ranges, smaller_ranges, component_indices=component)
+    # print("Finished filtering")
+
+    # vars = [['W'],['BC']] 
+    # components = [[()],[(0,)]]
+    # models = [micro_model, meso_model]
+    # smaller_ranges = [ranges[0]+0.01, ranges[1]- 0.01] # Needed to avoid interpolation errors at boundaries
+    # # visualizer.plot_var_model_comparison(models, var, 1.502, smaller_ranges, smaller_ranges, \
+    # #                                      method='interpolate', interp_dims=(30,30), component_indices=component)
+    # visualizer.plot_var_model_comparison(models, vars, 1.502, smaller_ranges, smaller_ranges, components_indices=components, diff_plot=True)
 
