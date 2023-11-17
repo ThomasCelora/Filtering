@@ -210,12 +210,12 @@ class Plotter_2D(object):
         # plt.show()
         return fig
         
-    def plot_var_model_comparison(self, models, var_strs, t, x_range, y_range, interp_dims=None, method='raw_data', components_indices=None, diff_plot=False):
+    def plot_vars_models_comparison(self, models, var_strs, t, x_range, y_range, interp_dims=None, method='raw_data', components_indices=None, diff_plot=False):
         """
-        Plot a variable from a number of models. If 2 models are given, a third
-        plot of the difference will be automatically plotted, too. If 'raw_data'
-        is chosen as the method, will check to see if the data points in the model
-        lie at the same coordinates, which they must.
+        Plot variables from a number of models. If 2 models are given, a third
+        plot of the difference can be added too. 
+        If 'raw_data' is chosen as the method, will check to see if the data points in the model
+        lie at the same coordinates, which they must. 
 
         Parameters
         ----------
@@ -322,7 +322,6 @@ class Plotter_2D(object):
         fig.tight_layout()
         # plt.show()
         return fig
-
 
 
 if __name__ == '__main__':
