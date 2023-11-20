@@ -546,7 +546,7 @@ class IdealHD_2D(object):
             self.aux_vars[str] = []
 
         #Dictionary for structures
-        self.structures_strs = ("BC", "SET")
+        self.structures_strs = ("BC", "SET", "bar_vel")
         self.structures = dict.fromkeys(self.structures_strs)
         for str in self.structures_strs:
             self.structures[str] = []
@@ -684,6 +684,7 @@ class IdealHD_2D(object):
         The stress-energy tensor is stored as a fully contra-variant tensor (both indices up) 
         """
         self.structures["BC"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3))
+        self.structures["bar_vel"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3))
         self.structures["SET"] = np.zeros((self.domain_vars['nt'],self.domain_vars['nx'],self.domain_vars['ny'],3,3))
 
         for h in range(self.domain_vars['nt']):
@@ -691,6 +692,8 @@ class IdealHD_2D(object):
                 for j in range(self.domain_vars['ny']): 
                     vel_vec = np.array([self.aux_vars['W'][h,i,j],self.aux_vars['W'][h,i,j] * self.prim_vars['vx'][h,i,j] ,\
                                     self.aux_vars['W'][h,i,j] * self.prim_vars['vy'][h,i,j]])
+                    
+                    self.structures['bar_vel'][h,i,j,:] = vel_vec
 
                     self.structures['BC'][h,i,j,:] = np.multiply(self.prim_vars['n'][h,i,j], vel_vec )
                     
@@ -711,14 +714,16 @@ if __name__ == '__main__':
 
     CPU_start_time = time.process_time()
 
-    FileReader = METHOD_HDF5('./Data/test_res100/')
-    micro_model = IdealMHD_2D()
+    FileReader = METHOD_HDF5('../Data/test_res100/')
+    micro_model = IdealHD_2D()
     FileReader.read_in_data(micro_model)
     micro_model.setup_structures()
 
+    print('Structure strs: {}'.format(micro_model.get_structures_strs()))
+
     point = [1.502,0.4,0.2]
     # vars = ['SETfl', 'BC', 'Fab', 'SETem']
-    vars = ['BC']
+    vars = ['BC', 'bar_vel', 'n']
     for var in vars: 
         res = micro_model.get_interpol_var(var, point)
         res2 = micro_model.get_var_gridpoint(var, point)
