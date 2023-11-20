@@ -1389,6 +1389,12 @@ class resHD2D(object):
         self.filter_vars['U_errors'] = np.zeros((Nt, Nx, Ny))
         self.filter_vars['U_success'] = dict()
 
+        for h in range(Nt):
+            for i in range(Nx):
+                for j in range(Ny):
+                    self.filter_vars['U_success'].update({(h,i,j): False})
+
+
 
         # Setup arrays for derivatives of the model. 
         # THOMAS'S WAY (SAVE THEM AS TENSORS)
@@ -1406,20 +1412,68 @@ class resHD2D(object):
         #         self.deriv_vars.update({'dx'+str:np.zeros_like(self.meso_structures[str])})
         #         self.deriv_vars.update({'dy'+str:np.zeros_like(self.meso_structures[str])})
         
-    def find_observers(self): 
+    def find_observers(self, t_range=None, x_range=None, y_range=None): 
         """
         Method to compute filtering observers at grid points built with setup_meso_grid. 
         The observers found (and relative errors) are saved in the dictionary self.filter_vars.
         Set up the entry self.filter_vars['U_success'] as a dictionary with (tuples of) indices
         on the meso_grid as keys, and bool as values (true if the observer has been found, false otherwise)
 
+        Parameters:
+        -----------
+        t_range: list of two floats
+            ranges in the t-direction, used for selecting the sublist of points from meso-grid
+
+        x_range, y_range: similar to above
+
         Notes:
         ------
-        Requires setup_meso_grid() and setup_variables() to be called first. 
+        Requires setup_meso_grid() to be called first. 
         """
-        for h, t in enumerate(self.domain_vars['T']):
-            for i, x in enumerate(self.domain_vars['X']):
-                for j, y in enumerate(self.domain_vars['Y']): 
+        conditions_t = False
+        conditions_x = False
+        conditions_y = False
+
+        # If not specified, find observers at all points on meso-grid.
+        patch_min = [self.domain_vars['Tmin'], self.domain_vars['Xmin'], self.domain_vars['Ymin']]
+        patch_max = [self.domain_vars['Tmax'], self.domain_vars['Xmax'], self.domain_vars['Ymax']]
+
+        if t_range:
+            conditions_t = t_range[0] < self.domain_vars['Tmin'] or t_range[1] > self.domain_vars['Tmax'] 
+            if conditions_t:
+                print('Error: the input t_range for finding observers is larger than meso-grid.')
+            else:
+                patch_min[0] = t_range[0]
+                patch_max[0] = t_range[1]
+        if x_range:
+            conditions_x = x_range[0] < self.domain_vars['Xmin'] or x_range[1] > self.domain_vars['Xmax'] 
+            if conditions_x:
+                print('Error: the input x_range for finding observers is larger than meso-grid.')
+            else: 
+                patch_min[1] = x_range[0]
+                patch_max[1] = x_range[1]
+        if y_range:
+            conditions_y = y_range[0] < self.domain_vars['Ymin'] or y_range[1] > self.domain_vars['Ymax'] 
+            if conditions_y:
+                print('Error: the input y_range for finding observers is larger than meso-grid.')
+            else: 
+                patch_min[2] = y_range[0]
+                patch_max[2] = y_range[1]
+
+        conditions = conditions_t or conditions_x or conditions_y
+        if conditions:
+            print('Exiting from find observers routine.\n')
+            return None
+        else: 
+            idx_mins = Base.find_nearest_cell(patch_min, self.domain_vars['Points'])
+            idx_maxs = Base.find_nearest_cell(patch_max, self.domain_vars['Points'])
+
+        for h in range(idx_mins[0], idx_maxs[0]):
+            for i in range(idx_mins[1], idx_maxs[1]):
+                for j in range(idx_mins[2], idx_maxs[2]):
+                    t = self.domain_vars['T'][h]
+                    x = self.domain_vars['X'][i]
+                    y = self.domain_vars['Y'][j]
                     point = [t,x,y]
                     sol = self.find_obs.find_observer(point)
                     if sol[0]:
@@ -1428,25 +1482,76 @@ class resHD2D(object):
                         self.filter_vars['U_success'].update({(h,i,j) : True})
 
                     if not sol[0]: 
-                        self.filter_vars['U_success'].update({(h,i,j) : False})
+                        # self.filter_vars['U_success'].update({(h,i,j) : False})
+                        # No need to update the dictionary as this has been initialized to False everywhere. 
                         print('Careful: obs could not be found at: ', self.domain_vars['Points'][h][i][j])
 
-    def filter_micro_variables(self):
+    def filter_micro_variables(self, t_range=None, x_range=None, y_range=None):
         """
-        Filter all meso_model structures AND micro pressure at the grid_points built with setup_meso_grid(). 
+        Filter all meso_model structures AND micro pressure within the input ranges. 
+        If no range is provided in one direction, routine will try and filter at all points
+        on the meso-grid. Note this would require the grid to be set up wisely so to avoid
+        problems at the boundaries. 
+        
         This method relies on filter_var_point implemented separately for the filter, e.g. spatial_box_filter
 
         Parameters: 
         -----------
+        t_range: list of two floats
+            ranges in the t-direction, used for selecting the sublist of points 
+
+        x_range, y_range: similar to above. 
 
         Notes:
         ------
-        Requires find_observers() and setup_meso_grid() to be called first.
+        Requires setup_meso_grid() to be called first.
+        Also find_observers() should be called first, although not doing so won't crash it. 
         """
-        for h, t in enumerate(self.domain_vars['T']):
-            for i, x in enumerate(self.domain_vars['X']):
-                for j, y in enumerate(self.domain_vars['Y']):
-                    point = [t, x, y]
+        conditions_t = False
+        conditions_x = False
+        conditions_y = False
+
+        # If not specified, try with all points on meso-grid.
+        patch_min = [self.domain_vars['Tmin'], self.domain_vars['Xmin'], self.domain_vars['Ymin']]
+        patch_max = [self.domain_vars['Tmax'], self.domain_vars['Xmax'], self.domain_vars['Ymax']]
+
+        if t_range:
+            conditions_t = t_range[0] < self.domain_vars['Tmin'] or t_range[1] > self.domain_vars['Tmax'] 
+            if conditions_t:
+                print('Error: the input t_range for filtering is larger than meso-grid.')
+            else:
+                patch_min[0] = t_range[0]
+                patch_max[0] = t_range[1]
+        if x_range:
+            conditions_x = x_range[0] < self.domain_vars['Xmin'] or x_range[1] > self.domain_vars['Xmax'] 
+            if conditions_x:
+                print('Error: the input x_range for filtering is larger than meso-grid.')
+            else: 
+                patch_min[1] = x_range[0]
+                patch_max[1] = x_range[1]
+        if y_range:
+            conditions_y = y_range[0] < self.domain_vars['Ymin'] or y_range[1] > self.domain_vars['Ymax'] 
+            if conditions_y:
+                print('Error: the input y_range for filtering is larger than meso-grid.')
+            else: 
+                patch_min[2] = y_range[0]
+                patch_max[2] = y_range[1]
+
+        conditions = conditions_t or conditions_x or conditions_y
+        if conditions:
+            print('Exiting from filtering routine.\n')
+            return None
+        else: 
+            idx_mins = Base.find_nearest_cell(patch_min, self.domain_vars['Points'])
+            idx_maxs = Base.find_nearest_cell(patch_max, self.domain_vars['Points'])
+
+        for h in range(idx_mins[0], idx_maxs[0]):
+            for i in range(idx_mins[1], idx_maxs[1]):
+                for j in range(idx_mins[2], idx_maxs[2]):
+                    t = self.domain_vars['T'][h]
+                    x = self.domain_vars['X'][i]
+                    y = self.domain_vars['Y'][j]
+                    point = [t,x,y]
                     if self.filter_vars['U_success'][h,i,j]:
                         obs = self.filter_vars['U'][h,i,j]
                         for struct in self.meso_structures:
@@ -1818,7 +1923,7 @@ if __name__ == '__main__':
 
 
     FileReader = METHOD_HDF5('/Users/thomas/Dropbox/Work/projects/Filtering/Data/test_res100/')
-    micro_model = IdealMHD_2D()
+    micro_model = IdealHD_2D()
     FileReader.read_in_data(micro_model) 
     micro_model.setup_structures()
     find_obs = FindObs_drift_root(micro_model, 0.001)
@@ -1826,13 +1931,14 @@ if __name__ == '__main__':
 
 
     CPU_start_time = time.process_time()
-    meso_model = resMHD2D(micro_model, find_obs, filter)
+    meso_model = resHD2D(micro_model, find_obs, filter)
 
     # meso_model.setup_meso_grid([[1.501, 1.504],[0.3, 0.5],[0.4, 0.6]],1)
-    meso_model.setup_meso_grid([[1.501, 1.502],[0.3, 0.35],[0.4, 0.45]],1)
+    meso_model.setup_meso_grid([[1.501, 1.502],[0.29, 0.36],[0.39, 0.46]])
     # print(meso_model.domain_vars['Points'])
-    meso_model.find_observers()
-    meso_model.filter_micro_variables()
+    meso_model.find_observers(x_range = [0.3, 0.34], y_range=[0.4, 0.44])
+    meso_model.filter_micro_variables(x_range=[0.3, 0.34], y_range = [0.4, 0.45])
+
     
     # print('Filter stage ended')
     # meso_model.decompose_structures_gridpoint(1,1,1)
