@@ -86,7 +86,7 @@ class Plotter_2D(object):
                     print('WARNING: {} is a tensor but you passed more/fewer indices than required. Retrieving the "first component"!'.format(var_str))
                     component_indices = tuple([0 for _ in range(st2)])  
             
-            extent = [*x_range, *y_range]
+            # extent = [*x_range, *y_range]
 
             if method == 'interpolate':
                 compatible = interp_dims != None and len(interp_dims) ==2
@@ -99,6 +99,9 @@ class Plotter_2D(object):
                 xs, ys = np.linspace(x_range[0], x_range[1], nx), np.linspace(y_range[0], y_range[1], ny)
                 data_to_plot = np.zeros((nx, ny))
                 
+                points = [t, xs, ys]
+                extent = [points[2][0],points[2][-1],points[1][0],points[1][-1]]
+
                 for i in range(nx):
                     for j in range(ny):
                         point = [t, xs[i], ys[j]]   
@@ -112,12 +115,16 @@ class Plotter_2D(object):
                 i_s, i_f = start_indices[1], end_indices[1]
                 j_s, j_f = start_indices[2], end_indices[2]                     
                         
-                data_shape = (i_f+ 1- i_s, j_f+ 1- j_s)
+                gridpoints = model.get_gridpoints()
+                points = [gridpoints[0][h], gridpoints[1][i_s:i_f+1], gridpoints[2][j_s:j_f+1]]
+                extent = [points[2][0],points[2][-1],points[1][0],points[1][-1]]
+
+                data_shape = (i_f - i_s + 1, j_f - j_s + 1) 
                 data_to_plot = np.zeros(data_shape)
 
-                for i in range(i_f+ 1 - i_s): 
-                    for j in range(j_f+ 1 - j_s): 
-                        data_to_plot[i,j] = model.get_var_gridpoint(var_str, h, i, j)[component_indices]
+                for i in range(i_f - i_s + 1): 
+                    for j in range(j_f - j_s + 1): 
+                        data_to_plot[i,j] = model.get_var_gridpoint(var_str, h, i + i_s, j + j_s)[component_indices]
 
             else:
                 print('Data method is not a valid choice! Must be interpolate or raw_data.')
@@ -281,7 +288,6 @@ class Plotter_2D(object):
         for j in range(len(models)):
             for i in range(n_rows):                    
                 data_to_plot, extent = self.get_var_data(models[j], var_strs[j][i], t, x_range, y_range, interp_dims, method, components_indices[j][i])
-                # im=axes[i,j].imshow(data_to_plot, extent)
                 im=axes[i,j].imshow(data_to_plot, extent=extent)
                 divider = make_axes_locatable(axes[i,j])
                 cax = divider.append_axes('right', size='5%', pad=0.05)
