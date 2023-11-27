@@ -129,7 +129,6 @@ class Plotter_2D(object):
             else:
                 print('Data method is not a valid choice! Must be interpolate or raw_data.')
                 return None
-            
             # return data_to_plot, points
             return data_to_plot, extent
         
@@ -217,7 +216,8 @@ class Plotter_2D(object):
         # plt.show()
         return fig
         
-    def plot_vars_models_comparison(self, models, var_strs, t, x_range, y_range, interp_dims=None, method='raw_data', components_indices=None, diff_plot=False):
+    def plot_vars_models_comparison(self, models, var_strs, t, x_range, y_range, interp_dims=None, method='raw_data', \
+                                    components_indices=None, diff_plot=False, rel_diff=False):
         """
         Plot variables from a number of models. If 2 models are given, a third
         plot of the difference can be added too. 
@@ -242,6 +242,10 @@ class Plotter_2D(object):
         component_indices : list of list of tuples
             each tuple identifies the indices of the component to pick out if the variable 
             is a vector/tensor.
+        diff_plot: bool 
+            Whether to add a column to show difference between models
+        rel_diff: bool
+            Whether to plot the absolute or relative difference between models
 
         Output
         -------
@@ -262,6 +266,11 @@ class Plotter_2D(object):
         
         n_cols = len(models)
         if diff_plot:
+            if len(models)!=2:
+                print("Can plot the difference between TWO models, not more.")
+            else:
+                n_cols+=1
+        if rel_diff:
             if len(models)!=2:
                 print("Can plot the difference between TWO models, not more.")
             else:
@@ -308,7 +317,8 @@ class Plotter_2D(object):
                     if extent1 != extent2:
                         print("Cannot plot the difference between the vars: data not aligned.")
                         continue
-                    im = axes[i,2].imshow(data1-data2, extent=extent1)
+                    data_to_plot = data1 - data2
+                    im = axes[i,2].imshow(data_to_plot, extent=extent1)
                     divider = make_axes_locatable(axes[i,2])
                     cax = divider.append_axes('right', size='5%', pad=0.05)
                     fig.colorbar(im, cax=cax, orientation='vertical')
@@ -319,15 +329,43 @@ class Plotter_2D(object):
                 print(f"Cannot plot the difference between {var_strs} in the two "+\
                       "models. Likely due to the data coordinates not coinciding.")
 
+
+        if rel_diff and len(models)==2:
+            try:
+                for i in range(len(var_strs[0])):
+                    data1, extent1 = self.get_var_data(models[0], var_strs[0][i], t, x_range, y_range, interp_dims, method, components_indices[0][i])
+                    data2, extent2 = self.get_var_data(models[1], var_strs[1][i], t, x_range, y_range, interp_dims, method, components_indices[1][i])
+                    if extent1 != extent2:
+                        print("Cannot plot the difference between the vars: data not aligned.")
+                        continue
+                    ar_mean = (np.abs(data1) + np.abs(data2))/2
+                    data_to_plot = np.abs(data1 -data2)/ar_mean 
+                    if diff_plot:
+                        column = 3
+                    else:
+                        column = 2
+                    im = axes[i,column].imshow(data_to_plot, extent=extent1)
+                    divider = make_axes_locatable(axes[i,column])
+                    cax = divider.append_axes('right', size='5%', pad=0.05)
+                    fig.colorbar(im, cax=cax, orientation='vertical')
+                    axes[i,column].set_title('Relative difference')
+                    axes[i,column].set_xlabel(r'$y$')
+                    axes[i,column].set_ylabel(r'$x$')
+            except (ValueError):
+                print(f"Cannot plot the difference between {var_strs} in the two "+\
+                      "models. Likely due to the data coordinates not coinciding.")
+                
+
         models_names = [model.get_model_name() for model in models]
         suptitle = "Comparing "
         for i in range(len(models_names)):
-            suptitle += models_names[i] + " "
+            suptitle += models_names[i] + ", "
         suptitle += "models."
         fig.suptitle(suptitle)
         fig.tight_layout()
         # plt.show()
         return fig
+
 
 
 if __name__ == '__main__':
@@ -338,9 +376,8 @@ if __name__ == '__main__':
     micro_model.setup_structures()
 
 
-    # visualizer = Plotter_2D([11.97, 8.36])
-
-    # print('Finished initializing')
+    visualizer = Plotter_2D([11.97, 8.36])
+    print('Finished initializing')
 
     # TESTING GET_VAR_DATA
     ######################  
@@ -365,17 +402,17 @@ if __name__ == '__main__':
     # filter = spatial_box_filter(micro_model, 0.003)
     # meso_model = resMHD2D(micro_model, find_obs, filter)
     # ranges = [0.2, 0.25]
-    # meso_model.setup_meso_grid([[1.501, 1.503],ranges, ranges], coarse_factor=2)
+    # meso_model.setup_meso_grid([[1.501, 1.503],ranges, ranges], coarse_factor=1)
     # meso_model.find_observers()
     # meso_model.filter_micro_variables()
 
     # print("Finished filtering")
 
-    # vars = [['W'],['BC']] 
-    # components = [[()],[(0,)]]
+    # vars = [['BC'],['BC']] 
+    # components = [[(0,)],[(0,)]]
     # models = [micro_model, meso_model]
-    # smaller_ranges = [ranges[0]+0.01, ranges[1]- 0.01] # Needed to avoid interpolation errors at boundaries
+    # # smaller_ranges = [ranges[0]+0.01, ranges[1]- 0.01] # Needed to avoid interpolation errors at boundaries
     # # visualizer.plot_var_model_comparison(models, var, 1.502, smaller_ranges, smaller_ranges, \
     # #                                      method='interpolate', interp_dims=(30,30), component_indices=component)
-    # visualizer.plot_var_model_comparison(models, vars, 1.502, smaller_ranges, smaller_ranges, components_indices=components, diff_plot=True)
-
+    # visualizer.plot_vars_models_comparison(models, vars, 1.502, ranges, ranges, components_indices=components, diff_plot=True, rel_diff = False)
+    # plt.show()
