@@ -291,8 +291,9 @@ class Plotter_2D(object):
         # Block to determine adaptively the figsize. 
         # figsize = np.array([1,2/3.]) * self.screen_size
         figsize = self.screen_size
-        # fig, axes = plt.subplots(n_rows,n_cols,sharex='row',sharey='col',figsize=figsize)
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize, squeeze=False)
+        # gridspec_dict = {'wspace' : 0.3, 'hspace': 0.3}
+        # fig, axes = plt.subplots(n_rows, n_cols, squeeze=False, gridspec_kw=gridspec_dict, figsize=figsize)
+        fig, axes = plt.subplots(n_rows, n_cols, squeeze=False, figsize=figsize)
       
         for j in range(len(models)):
             for i in range(n_rows):                    
@@ -363,7 +364,7 @@ class Plotter_2D(object):
         suptitle += "models."
         fig.suptitle(suptitle)
         fig.tight_layout()
-        # plt.show()
+        # plt.subplot_tool()
         return fig
 
 
@@ -398,21 +399,21 @@ if __name__ == '__main__':
 
     # TESTING PLOT_VAR_MODEL_COMPARISON
     ###################################
-    # find_obs = FindObs_drift_root(micro_model, 0.001)
-    # filter = spatial_box_filter(micro_model, 0.003)
-    # meso_model = resMHD2D(micro_model, find_obs, filter)
-    # ranges = [0.2, 0.25]
-    # meso_model.setup_meso_grid([[1.501, 1.503],ranges, ranges], coarse_factor=1)
-    # meso_model.find_observers()
-    # meso_model.filter_micro_variables()
+    find_obs = FindObs_drift_root(micro_model, 0.001)
+    filter = spatial_box_filter(micro_model, 0.003)
+    meso_model = resMHD2D(micro_model, find_obs, filter)
+    ranges = [0.2, 0.25]
+    meso_model.setup_meso_grid([[1.501, 1.503],ranges, ranges], coarse_factor=1)
+    meso_model.find_observers()
+    meso_model.filter_micro_variables()
 
-    # print("Finished filtering")
+    print("Finished filtering")
 
-    # vars = [['BC'],['BC']] 
-    # components = [[(0,)],[(0,)]]
-    # models = [micro_model, meso_model]
-    # # smaller_ranges = [ranges[0]+0.01, ranges[1]- 0.01] # Needed to avoid interpolation errors at boundaries
-    # # visualizer.plot_var_model_comparison(models, var, 1.502, smaller_ranges, smaller_ranges, \
-    # #                                      method='interpolate', interp_dims=(30,30), component_indices=component)
-    # visualizer.plot_vars_models_comparison(models, vars, 1.502, ranges, ranges, components_indices=components, diff_plot=True, rel_diff = False)
-    # plt.show()
+    vars = [['BC', 'BC', 'BC', 'BC'],['BC', 'BC' ,'BC' ,'BC']] 
+    components = [[(0,), (0,), (0,), (0,)],[(0,), (0,), (0,), (0,)]]
+    models = [micro_model, meso_model]
+    # smaller_ranges = [ranges[0]+0.01, ranges[1]- 0.01] # Needed to avoid interpolation errors at boundaries
+    # visualizer.plot_var_model_comparison(models, var, 1.502, smaller_ranges, smaller_ranges, \
+    #                                      method='interpolate', interp_dims=(30,30), component_indices=component)
+    visualizer.plot_vars_models_comparison(models, vars, 1.502, ranges, ranges, components_indices=components, diff_plot=True, rel_diff = False)
+    plt.show()
