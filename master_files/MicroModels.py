@@ -8,6 +8,9 @@ Created on Fri Mar 31 10:00:02 2023
 import numpy as np
 import math
 import time
+import os
+import multiprocessing as mp
+from itertools import product
 
 from scipy.interpolate import interpn 
 from multimethod import multimethod
@@ -707,7 +710,42 @@ class IdealHD_2D(object):
         self.vars.update(self.aux_vars)
         self.vars.update(self.structures)
 
+    ####################################################
+    # ATTEMPT TO PARALLELIZE SETUP STRUCTURES
+    ####################################################
 
+
+    # defining it statically means no self is passed on construction, but guarantees 
+    # the method is the specific for this class! 
+    @staticmethod
+    def setting_up(W, vx, vy, n, h, p, idxs):
+            bar_vel = [W, W * vx, W * vy]
+            BC = np.multiply(n, bar_vel)
+            metric = np.zeros((3,3))
+            metric[0,0] = -1
+            metric[1,1] = metric[2,2] = +1
+            SET = n * h * np.outer(bar_vel, bar_vel) + p * metric
+            return bar_vel, BC, SET, idxs 
+    
+    
+    def setup_structures_parallel(self):
+        args_to_pass = []
+        for h in range(self.domain_vars['nt']):
+            for i in range(self.domain_vars['nx']):
+                for j in range(self.domain_vars['ny']): 
+                    args = (self.aux_vars['W'][h,i,j], self.prim_vars['vx'][h,i,j], self.prim_vars['vy'][h,i,j], \
+                            self.prim_vars['n'][h,i,j], self.aux_vars['h'][h,i,j], self.prim_vars['p'][h,i,j], (h,i,j))
+                    args_to_pass.append(args)
+
+        # chunksize = [None, 1, len(args_to_pass)/ os.cpu_count()]
+        with mp.Manager() as manager:
+            print('Running with {} processes\n'.format(os.cpu_count()))
+            with manager.Pool(os.cpu_count()) as pool:
+                for result in pool.starmap(self.setting_up, args_to_pass):
+                    bar_vel, BC, SET, grid_idxs = result[0], result[1], result[2], tuple(result[3])
+                    self.structures['bar_vel'][tuple(grid_idxs)] = bar_vel
+                    self.structures['BC'][tuple(grid_idxs)] = BC
+                    self.structures['SET'][tuple(grid_idxs)] = SET 
 
 # TC
 if __name__ == '__main__':
@@ -715,47 +753,33 @@ if __name__ == '__main__':
     CPU_start_time = time.process_time()
 
     FileReader = METHOD_HDF5('../Data/test_res100/')
+    # FileReader = METHOD_HDF5('../Data/res800/res800_t3')
     micro_model = IdealHD_2D()
     FileReader.read_in_data(micro_model)
+    # micro_model.setup_structures()
+
+    ####################################################
+    # TESTING PARALLELIZED SETUP STRUCTURE
+    ####################################################
+    CPU_start_time = time.perf_counter()
     micro_model.setup_structures()
+    serial_time= time.perf_counter() - CPU_start_time
+    print('Time taken serial: {}\n'.format(serial_time))
 
-    print('Structure strs: {}'.format(micro_model.get_structures_strs()))
+    CPU_start_time = time.perf_counter()
+    micro_model.setup_structures_parallel()
+    parallel_time = time.perf_counter() - CPU_start_time
+    print('Time taken parallel: {}\n'.format(parallel_time))    
+    print('Speed up factor: {}\n'.format(serial_time/parallel_time))
 
-    point = [1.502,0.4,0.2]
-    # vars = ['SETfl', 'BC', 'Fab', 'SETem']
-    vars = ['BC', 'bar_vel', 'n']
-    for var in vars: 
-        res = micro_model.get_interpol_var(var, point)
-        res2 = micro_model.get_var_gridpoint(var, point)
-        print(f'{var}: \n {res} \n\n\n {res2} \n ********** \n ')
-
-# MH
-# if __name__ == '__main__':
-
-#     CPU_start_time = time.process_time()
-
-#     FileReader = METHOD_HDF5('./Data/Testing/')
-#     # micro_model = IdealMHD_2D()
-#     micro_model = IdealHydro_2D()
-#     FileReader.read_in_data(micro_model) 
-#     micro_model.setup_structures()
-
-#     res = micro_model.get_interpol_var(['v1','rho'],[10.0,0.3,0.2])
-#     print(type(res),"\n", res)
-
-#     res = micro_model.get_interpol_var(['T','W'],[10.0,0.3,0.2])
-#     print(type(res),"\n", res)
-
-#     # res = micro_model.get_interpol_var(['bar_vel','SET'],[10.0,0.3,0.2])
-#     # print(type(res),"\n", res)
-#     # res = micro_model.get_interpol_aux(["b0","bx"],[0.5, 0.3,0.2])
-#     # print(type(res),"\n", res)
-
-#     # res = micro_model.get_interpol_struct("SET",[2.5, 0.3, 0.2])
-#     # print(res.shape, res[0],'\n')
-
-#     # print( micro_model.get_domain_strs() )
-
-#     CPU_end_time = time.process_time()
-#     CPU_time = CPU_end_time - CPU_start_time
-#     print(f'The CPU time is {CPU_time} seconds')
+    ####################################################
+    # Comparing speed of gridpoint vs interpol routines
+    #################################################### 
+    # print('Structure strs: {}'.format(micro_model.get_structures_strs()))
+    # point = [1.502,0.4,0.2]
+    # # vars = ['SETfl', 'BC', 'Fab', 'SETem']
+    # vars = ['BC', 'bar_vel', 'n']
+    # for var in vars: 
+    #     res = micro_model.get_interpol_var(var, point)
+    #     res2 = micro_model.get_var_gridpoint(var, point)
+    #     print(f'{var}: \n {res} \n\n\n {res2} \n ********** \n ')

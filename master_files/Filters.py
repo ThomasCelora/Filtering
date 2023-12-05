@@ -698,7 +698,7 @@ class FindObs_drift_root(object):
                 return sol.success, point 
         except  KeyError: 
             print(f"The method you want to use for computing the flux, {drift_str}, does not exist!")
-            return None
+            return None  
 
     def find_observers_points(self, points, drift_str = "gauss"):
         """
@@ -784,6 +784,128 @@ class FindObs_drift_root(object):
             points.append(np.array(element))
         
         return self.find_observers_points(points, drift_str)
+
+
+class FindObs_root_parallel(object):
+    """
+    AN ATTEMPT TO PARALLELIZE THE FINDING OBSERVERS
+    WHEN FINISHED: NEED RE-ADJUSTING METHODS WITHIN MESOMODEL.
+    """
+    def __init__(self, micro_model, box_len):
+        """
+        """
+        self.micro_model = micro_model
+        self.L = box_len
+
+    @staticmethod
+    def get_tetrad_from_vels(spatial_vels):
+        spatial_dims = len(spatial_vels)
+        U = Base.get_rel_vel(spatial_vels) 
+        es =[]
+        for _ in range(spatial_dims):
+            es.append(np.zeros(spatial_dims+1))
+        for i in range(len(es)):
+            es[i][i+1]  = 1    
+        tetrad = [U]
+        for i, vec in enumerate(es): 
+            vec = vec + np.multiply(Base.Mink_dot(vec, U), U)
+            for j in range(i-1,-1,-1):
+                vec = vec - np.multiply(Base.Mink_dot(vec, es[j]), es[j])
+            es[i] = np.multiply(vec, 1 / np.sqrt(Base.Mink_dot(vec, vec)))
+            tetrad += [es[i]]
+        return tetrad 
+    
+    @staticmethod
+    def initializer(spatial_dims, L):
+        global adapt_coords
+        global totws
+        ps1d = [0, + np.sqrt(3/5), - np.sqrt(3/5)]
+        ws1d = [8./9. , 5./9. , 5./9.]
+        xs = []
+        ws = []
+        for _ in range(spatial_dims+1):
+            xs.append(ps1d)
+            ws.append(ws1d)
+
+        adapt_coords = []
+        for element in product(*xs):
+            adapt_coords.append(np.multiply(L/2, np.array(element) ))    
+
+        totws = []
+        for element in product(*ws):
+            temp = 1.
+            for w in element:
+                temp *= w 
+            totws.append(temp)
+        # print('Initialized process in the pool', flush=True)
+
+    def find_observer_Gauss(self, point):
+        """
+        ATTEMPTS PASSING SELF AS ARGUMENT
+        """
+        # The following vars are set up upon initialization by each process in the pool
+        global adapt_coords
+        global totws
+
+        # Building the initial guess 
+        guess = []
+        U = np.multiply(1 / self.micro_model.get_interpol_var('n', point) , self.micro_model.get_interpol_var('BC', point) )
+        for i in range(1, len(U)):
+            guess.append(U[i] / U[0])
+
+        # The function for the root-finding
+        def residual_gauss(spatial_vels, point, micro_model):
+            spatial_dims = micro_model.get_spatial_dims()
+            tetrad = FindObs_root_parallel.get_tetrad_from_vels(spatial_vels)
+            coords = []
+            for coord in adapt_coords:
+                temp = np.array(point)
+                for i in range(spatial_dims+1):
+                    temp += np.multiply(coord[i], tetrad[i])
+                coords.append(temp)
+
+            integral = np.zeros(1 + spatial_dims)
+            for i, coord in enumerate(coords): 
+                integral += np.multiply(totws[i], micro_model.get_interpol_var('BC', coord))
+            integral *= (self.L /2  ) ** (spatial_dims+1)
+
+            drifts = []
+            for i in range(len(tetrad)-1):
+                drifts.append(Base.Mink_dot(integral, tetrad[i+1]))
+            return drifts
+        
+        # root-finding the observer and returning it
+        sol = root(residual_gauss, x0 = guess, args = (point, self.micro_model))
+        if sol.success: 
+            observer = Base.get_rel_vel(sol.x)
+            avg_error = np.sum(sol.fun[1])
+            avg_error /= len(sol.fun)
+            if avg_error > 1e-5: 
+                print(f'Warning: residual is large at {point}: ', avg_error)
+            return sol.success, point, observer, avg_error
+        if not sol.success: 
+            return sol.success, point 
+
+    def find_observer_parallel(self, points):
+        observers = []
+        avg_errors = []
+        success_coords = []
+        failed_coords = []
+
+        spatial_dims = self.micro_model.get_spatial_dims()
+        L = self.L
+        with mp.Pool(initializer=FindObs_root_parallel.initializer, initargs=(spatial_dims,L,)) as pool:
+        # with mp.Pool() as pool:
+            print('Running with {} processes\n'.format(os.cpu_count()), flush=True)
+            for result in pool.map(self.find_observer_Gauss, points):
+                if (result[0] == True): 
+                    success_coords.append(result[1])
+                    observers.append(result[2])
+                    avg_errors.append(result[3])
+                elif (result[0] == False):
+                    failed_coords.append(result[1])
+
+        return [success_coords, observers, avg_errors] , failed_coords
 
 
 class spatial_box_filter(object):
@@ -1058,31 +1180,81 @@ class spatial_box_filter(object):
         return np.multiply( integrand, 1 / (self.filter_width**self.spatial_dims)), error
 
 if __name__ == '__main__':
-    CPU_start_time = time.process_time()
 
-    FileReader = METHOD_HDF5('./Data/test_res100/')
-    micro_model = IdealMHD_2D()
+    ########################################################
+    # TESTING SERIAL IMPLEMENTATION
+    ######################################################## 
+    # CPU_start_time = time.process_time()
+
+    # FileReader = METHOD_HDF5('../Data/test_res100/')
+    # micro_model = IdealMHD_2D()
+    # FileReader.read_in_data(micro_model) 
+    # micro_model.setup_structures()
+
+    # find_obs = FindObs_drift_root(micro_model, 0.001)
+    # # find_obs = FindObs_flux_min(micro_model, 0.001)
+    # filter = spatial_box_filter(micro_model, 0.003)
+
+    # # vars = ['BC','SETfl', 'Fab', 'SETem']
+    # points = [[1.502,0.3,0.5],[1.503,0.4,0.2]]
+    # observers = find_obs.find_observers_points(points)[0][1]
+
+    # for i in range(len(points)):   
+    #     for  var in vars:   
+    #         CPU_start_time = time.process_time()
+    #         filtvar1 = filter.filter_var_point_inbuilt(var, points[i], observers[i])
+    #         inbuilt_time = time.process_time() - CPU_start_time
+
+    #         CPU_start_time = time.process_time()
+    #         filtvar2 = filter.filter_var_point(var, points[i], observers[i])
+    #         gauss_time = time.process_time() - CPU_start_time
+    #         print(f"CPU time speed-up to filter {var} with Gauss method at {points[i]} is {inbuilt_time/gauss_time}. ")
+    #         print(f'Filtered quantity with Gauss is \n {filtvar2}')
+    #         print(f"Difference with method based on inbuilt integration is: \n {filtvar1[0] - filtvar2}")  
+    #         print('\n************************\n')
+
+    ########################################################
+    # TESTING PARALLEL IMPLEMENTATION
+    ########################################################
+    FileReader = METHOD_HDF5('../Data/test_res100/')
+    micro_model = IdealHD_2D()
     FileReader.read_in_data(micro_model) 
     micro_model.setup_structures()
 
-    find_obs = FindObs_drift_root(micro_model, 0.001)
-    # find_obs = FindObs_flux_min(micro_model, 0.001)
-    filter = spatial_box_filter(micro_model, 0.003)
+    # setting up the points for testing - pass all the points within a range
+    t_range = [1.502, 1.504]
+    x_range = [0.5, 0.6]
+    y_range = [0.5, 0.6]
 
-    vars = ['BC','SETfl', 'Fab', 'SETem']
-    points = [[1.502,0.3,0.5],[1.503,0.4,0.2]]
-    observers = find_obs.find_observers_points(points)[0][1]
+    patch_min = [t_range[0], x_range[0], y_range[0]]
+    patch_max = [t_range[1], x_range[1], y_range[1]]
+    idx_mins = Base.find_nearest_cell(patch_min, micro_model.domain_vars['points'])
+    idx_maxs = Base.find_nearest_cell(patch_max, micro_model.domain_vars['points'])
 
-    for i in range(len(points)):   
-        for  var in vars:   
-            CPU_start_time = time.process_time()
-            filtvar1 = filter.filter_var_point_inbuilt(var, points[i], observers[i])
-            inbuilt_time = time.process_time() - CPU_start_time
+    ts = micro_model.domain_vars['t'][idx_mins[0]:idx_maxs[0]]
+    xs = micro_model.domain_vars['x'][idx_mins[1]:idx_maxs[1]]
+    ys = micro_model.domain_vars['y'][idx_mins[2]:idx_maxs[2]]
+    
+    points = []
+    for elem in product(ts,xs,ys):
+        points.append(list(elem))
+    print('Number of points: {}'.format(len(points)))
 
-            CPU_start_time = time.process_time()
-            filtvar2 = filter.filter_var_point(var, points[i], observers[i])
-            gauss_time = time.process_time() - CPU_start_time
-            print(f"CPU time speed-up to filter {var} with Gauss method at {points[i]} is {inbuilt_time/gauss_time}. ")
-            print(f'Filtered quantity with Gauss is \n {filtvar2}')
-            print(f"Difference with method based on inbuilt integration is: \n {filtvar1[0] - filtvar2}")  
-            print('\n************************\n')
+    # Now find observers - serial version
+    start_time = time.perf_counter()
+    find_obs_serial = FindObs_drift_root(micro_model, 0.001)
+    observers = find_obs_serial.find_observers_points(points)
+    serial_time = time.perf_counter() - start_time
+    print('Serial time: {}\n'.format(serial_time))
+
+    # Now find observers - parallel version
+    start_time = time.perf_counter()
+    find_obs_parallel = FindObs_root_parallel(micro_model, 0.001)
+    point = points[0]
+    result, failed = find_obs_parallel.find_observer_parallel(points)
+    print('Number of points failed: {}'.format(len(failed)))
+    parallel_time = time.perf_counter() - start_time
+    print('Parallel time: {}\n'.format(parallel_time))
+    print('Speed-up factor: {}\n'.format(serial_time/parallel_time))
+
+
