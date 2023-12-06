@@ -788,17 +788,34 @@ class FindObs_drift_root(object):
 
 class FindObs_root_parallel(object):
     """
-    AN ATTEMPT TO PARALLELIZE THE FINDING OBSERVERS
-    WHEN FINISHED: NEED RE-ADJUSTING METHODS WITHIN MESOMODEL.
+    Parallel version (streamlined) of FindObs_drift_root
+    Currently: based on gauss-quadrature with order 3 
+               interpolation of quantities from micro_model.
     """
     def __init__(self, micro_model, box_len):
         """
+        Parameters:
+        -----------
+        micro_model: instance of micro_model, the micro data to be filtered
+        
+        box_len: float, side of the box for computing drift
         """
         self.micro_model = micro_model
         self.L = box_len
 
     @staticmethod
     def get_tetrad_from_vels(spatial_vels):
+        """
+        Build tetrad orthogonal to unit velocity with spatial velocities spatial_vels
+
+        Parameters:
+        -----------
+        spatial_vels: list of d floats 
+
+        Return:
+        -------
+        list of arrays: U + d unit vectors that complete it to a orthonormal basis
+        """
         spatial_dims = len(spatial_vels)
         U = Base.get_rel_vel(spatial_vels) 
         es =[]
@@ -817,6 +834,21 @@ class FindObs_root_parallel(object):
     
     @staticmethod
     def initializer(spatial_dims, L):
+        """
+        Initializer for processes in pool. 
+        Build the adapted coordinates and weights: this is independent of specific point
+        so can be done once for all workers within a process managed by pool.
+
+        Parameters:
+        -----------
+        spatial dimensions: int 
+        L: float
+
+        Notes:
+        ------
+        As this is built as static method, spatial_dims and L cannot be read 
+        from the specific instance of class
+        """
         global adapt_coords
         global totws
         ps1d = [0, + np.sqrt(3/5), - np.sqrt(3/5)]
@@ -839,15 +871,37 @@ class FindObs_root_parallel(object):
             totws.append(temp)
         # print('Initialized process in the pool', flush=True)
 
-    def find_observer_Gauss(self, point):
+    def find_observer_Gauss(self, point_pos):
         """
-        ATTEMPTS PASSING SELF AS ARGUMENT
+        CPU-bound task to be run in parralel. 
+        The routine combines what has been split into many in the serial 
+        version of this class. 
+
+        Parameters:
+        -----------
+        point_pos: list
+            point_pos[0] contains the coordinates of point where to find observer
+
+            point_pos[1] contains the position in a larger list passed to pool.map()
+
+        Returns:
+        --------
+        Successful root-finding: Boolean True, position of point in list passed to pool.map(),
+                                observer, avg error
+
+        Failed minimization: Boolean False, position of point in list passed to pool.map() 
+
+        Notes:
+        ------
+        To be combined with method in MesoModel.find_obsevers_parallel()
         """
         # The following vars are set up upon initialization by each process in the pool
         global adapt_coords
         global totws
 
         # Building the initial guess 
+        point = point_pos[0]
+        pos_in_list_points = point_pos[1]
         guess = []
         U = np.multiply(1 / self.micro_model.get_interpol_var('n', point) , self.micro_model.get_interpol_var('BC', point) )
         for i in range(1, len(U)):
@@ -882,30 +936,50 @@ class FindObs_root_parallel(object):
             avg_error /= len(sol.fun)
             if avg_error > 1e-5: 
                 print(f'Warning: residual is large at {point}: ', avg_error)
-            return sol.success, point, observer, avg_error
+            return sol.success, pos_in_list_points, observer, avg_error
         if not sol.success: 
-            return sol.success, point 
+            return sol.success, pos_in_list_points
 
-    def find_observer_parallel(self, points):
+    def find_observers_parallel(self, points):
+        """
+        Method to run find_observer_Gauss in parallel on a list of points
+
+        Parameters:
+        -----------
+        points: list of d+1 float, d is the spatial dimension of micro_model
+
+        Returns:
+        --------
+
+        successes: list of lists
+            successes[0]: positions of point in input list of points
+            successes[1]: observers found at successful points
+            successes[2]: average error 
+
+        failures: list (typically empty)
+            position of failed points in input list of points
+        """
         observers = []
         avg_errors = []
-        success_coords = []
-        failed_coords = []
+        success_pos = []
+        failed_pos = []
 
         spatial_dims = self.micro_model.get_spatial_dims()
         L = self.L
+        args_for_pool = [ [points[i], i] for i in range(len(points))]
+
         with mp.Pool(initializer=FindObs_root_parallel.initializer, initargs=(spatial_dims,L,)) as pool:
         # with mp.Pool() as pool:
             print('Running with {} processes\n'.format(os.cpu_count()), flush=True)
-            for result in pool.map(self.find_observer_Gauss, points):
+            for result in pool.map(self.find_observer_Gauss, args_for_pool):
                 if (result[0] == True): 
-                    success_coords.append(result[1])
+                    success_pos.append(result[1])
                     observers.append(result[2])
                     avg_errors.append(result[3])
                 elif (result[0] == False):
-                    failed_coords.append(result[1])
+                    failed_pos.append(result[1])
 
-        return [success_coords, observers, avg_errors] , failed_coords
+        return [success_pos, observers, avg_errors] , failed_pos
 
 
 class spatial_box_filter(object):
@@ -1179,6 +1253,44 @@ class spatial_box_filter(object):
         
         return np.multiply( integrand, 1 / (self.filter_width**self.spatial_dims)), error
 
+
+class box_filter_parallel(object):
+    """
+    UNFINISHED ATTEMPT TO PARALLELIZE THE FILTERING
+    WHEN FINISHED: NEED RE-ADJUSTING METHODS WITHIN MESOMODEL.
+    """
+    def __init__(self, micro_model, filter_width):
+        self.micro_model = micro_model
+        self.spatial_dims = micro_model.get_spatial_dims()
+        self.filter_width = filter_width
+
+    @staticmethod
+    def complete_U_tetrad(U, spatial_dims):
+        es =[]
+        for _ in range(spatial_dims):
+            es.append(np.zeros(spatial_dims+1))
+        for i in range(len(es)):
+            es[i][i+1]  = 1.
+        triad = []
+        for i, vec in enumerate(es): #enumerate returns a tuple: so acts by value not reference!
+            vec = vec + np.multiply(Base.Mink_dot(vec, U), U)
+            for j in range(i-1,-1,-1):
+                vec = vec - np.multiply(Base.Mink_dot(vec, es[j]), es[j])
+            es[i] = np.multiply(vec, 1/np.sqrt(Base.Mink_dot(vec, vec)))
+            triad += [es[i]]
+        return triad
+
+    def filter_var():
+            """
+            Need thinking: The observer above is passed from an external class
+            Option 1) Pass it and assume this is provided. Require starmaps to pass both point and observer
+            Option 2) Make one single class with the streamlined methods
+
+            Problem with option 2) is that the class above does not store the grid so.  
+            """
+            pass 
+
+
 if __name__ == '__main__':
 
     ########################################################
@@ -1223,8 +1335,8 @@ if __name__ == '__main__':
 
     # setting up the points for testing - pass all the points within a range
     t_range = [1.502, 1.504]
-    x_range = [0.5, 0.6]
-    y_range = [0.5, 0.6]
+    x_range = [0.05, 0.95]
+    y_range = [0.05, 0.95]
 
     patch_min = [t_range[0], x_range[0], y_range[0]]
     patch_max = [t_range[1], x_range[1], y_range[1]]
@@ -1251,7 +1363,7 @@ if __name__ == '__main__':
     start_time = time.perf_counter()
     find_obs_parallel = FindObs_root_parallel(micro_model, 0.001)
     point = points[0]
-    result, failed = find_obs_parallel.find_observer_parallel(points)
+    result, failed = find_obs_parallel.find_observers_parallel(points)
     print('Number of points failed: {}'.format(len(failed)))
     parallel_time = time.perf_counter() - start_time
     print('Parallel time: {}\n'.format(parallel_time))

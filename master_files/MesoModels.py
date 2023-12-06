@@ -1445,6 +1445,48 @@ class resHD2D(object):
                         # No need to update the dictionary as this has been initialized to False everywhere. 
                         print('Careful: obs could not be found at: ', self.domain_vars['Points'][h][i][j])
 
+    def find_observers_parallel(self):
+        """
+        Method to find observers at all points on meso-grid, parallelized version. 
+        The observers found (and relative errors) are saved in the dictionary self.filter_vars.
+        Set up the entry self.filter_vars['U_success'] as a dictionary with (tuples of) indices
+        on the meso_grid as keys, and bool as values (true if the observer has been found, false otherwise)
+
+        Notes:
+        ------
+        This method relies on the routine find_obs.find_observers_parallel().
+        So meso_class must be constructed passing parallelized class for finding observers. 
+        """
+        ts = self.domain_vars['T']
+        xs = self.domain_vars['X']
+        ys = self.domain_vars['Y']
+
+        t_idxs = np.arange(len(ts))
+        x_idxs = np.arange(len(xs))
+        y_idxs = np.arange(len(ys))
+
+        points = []
+        for elem in product(ts,xs,ys):
+            points.append(list(elem))
+
+        indices_meso_grid = []
+        for elem in product(t_idxs, x_idxs, y_idxs):
+            indices_meso_grid.append(elem)
+
+        successes, failures = self.find_obs.find_observers_parallel(points)
+
+        for i in range(len(successes[0])):
+            point_indxs_meso_grid = indices_meso_grid[successes[0][i]]
+            self.filter_vars['U'][point_indxs_meso_grid] = successes[1][i]
+            self.filter_vars['U_errors'][point_indxs_meso_grid] = successes[2][i]
+            self.filter_vars['U_success'].update({(point_indxs_meso_grid): True})
+
+        if len(failures)!=0:
+            print('Observers could not be found at the following points:\n')
+            for i in range(len(failures)):
+                failed_idxs_meso_grid = indices_meso_grid[failures[i]]
+                print('{}\n'.format(failed_idxs_meso_grid))
+
     def filter_micro_variables(self):
         """
         Filter all meso_model structures AND micro pressure within the input ranges. 
@@ -1847,44 +1889,87 @@ class resHD2D(object):
 if __name__ == '__main__':
 
 
-    FileReader = METHOD_HDF5('/Users/thomas/Dropbox/Work/projects/Filtering/Data/test_res100/')
+    ########################################################
+    # TESTING SERIAL IMPLEMENTATION
+    ######################################################## 
+    # FileReader = METHOD_HDF5('/Users/thomas/Dropbox/Work/projects/Filtering/Data/test_res100/')
+    # micro_model = IdealHD_2D()
+    # FileReader.read_in_data(micro_model) 
+    # micro_model.setup_structures()
+    # find_obs = FindObs_drift_root(micro_model, 0.001)
+    # filter = spatial_box_filter(micro_model, 0.003)
+
+
+    # CPU_start_time = time.process_time()
+    # meso_model = resHD2D(micro_model, find_obs, filter)
+
+    # # print(micro_model.domain_vars['tmin'], micro_model.domain_vars['tmax'])
+
+    # t_range = [1.502, 1.505]
+    # x_range = [0.29, 0.36]
+    # y_range = [0.39, 0.46]
+
+    # meso_model.setup_meso_grid([t_range, x_range, y_range])
+    # meso_model.find_observers()
+    # meso_model.filter_micro_variables()
+
+    
+    # print('Filter stage ended')
+    # # # meso_model.decompose_structures_gridpoint(1,1,1)
+    # meso_model.decompose_structures()
+
+    # print('Decomposition stage ended') 
+    # # print(meso_model.calculate_derivative_gridpoint('u_tilde', 0,1,1,0))
+    # meso_model.calculate_derivatives()
+
+    # # meso_model.closure_ingredients_gridpoint(1,1,0)
+    # # meso_model.closure_ingredients()
+    # # print('Derivatives and Decomposition stage ended')
+
+    # # meso_model.EL_style_closure_gridpoint(1,2,3)
+    # # meso_model.EL_style_closure()
+    # # regressor = CoefficientsAnalysis()
+    # # meso_model.EL_style_closure_regression(regressor)
+
+    # # print('Total time is {}'.format(time.process_time() - CPU_start_time))    
+
+
+    ########################################################
+    # TESTING PARALLEL IMPLEMENTATION
+    ######################################################## 
+    FileReader = METHOD_HDF5('../Data/test_res100/')
     micro_model = IdealHD_2D()
     FileReader.read_in_data(micro_model) 
     micro_model.setup_structures()
+
+    t_range = [1.502, 1.504]
+    x_range = [0.05, 0.95]
+    y_range = [0.05, 0.95]
+
+    start_time = time.perf_counter()
     find_obs = FindObs_drift_root(micro_model, 0.001)
     filter = spatial_box_filter(micro_model, 0.003)
-
-
-    CPU_start_time = time.process_time()
     meso_model = resHD2D(micro_model, find_obs, filter)
-
-    # print(micro_model.domain_vars['tmin'], micro_model.domain_vars['tmax'])
-
-    t_range = [1.502, 1.505]
-    x_range = [0.29, 0.36]
-    y_range = [0.39, 0.46]
-
     meso_model.setup_meso_grid([t_range, x_range, y_range])
+
+    num_points = meso_model.domain_vars['Nt'] * meso_model.domain_vars['Nx'] * meso_model.domain_vars['Ny']
+    print(f'Testing parallelization with {num_points} points\n')
+
     meso_model.find_observers()
-    meso_model.filter_micro_variables()
+    serial_time = time.perf_counter() - start_time
+    print('Serial execution time: {}\n'.format(serial_time))
 
-    
-    print('Filter stage ended')
-    # # meso_model.decompose_structures_gridpoint(1,1,1)
-    meso_model.decompose_structures()
 
-    print('Decomposition stage ended') 
-    # print(meso_model.calculate_derivative_gridpoint('u_tilde', 0,1,1,0))
-    meso_model.calculate_derivatives()
+    start_time = time.perf_counter()
+    find_obs = FindObs_root_parallel(micro_model, 0.001)
+    filter = spatial_box_filter(micro_model, 0.003)
+    meso_model = resHD2D(micro_model, find_obs, filter)
+    meso_model.setup_meso_grid([t_range, x_range, y_range])
+    meso_model.find_observers_parallel()
+    parallel_time = time.perf_counter() - start_time
+    print('Parallel execution time: {}'.format(parallel_time))
+    print('Speed-up factor: {}'.format(serial_time/parallel_time))
 
-    # meso_model.closure_ingredients_gridpoint(1,1,0)
-    # meso_model.closure_ingredients()
-    # print('Derivatives and Decomposition stage ended')
 
-    # meso_model.EL_style_closure_gridpoint(1,2,3)
-    # meso_model.EL_style_closure()
-    # regressor = CoefficientsAnalysis()
-    # meso_model.EL_style_closure_regression(regressor)
 
-    # print('Total time is {}'.format(time.process_time() - CPU_start_time))    
 
