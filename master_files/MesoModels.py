@@ -1186,6 +1186,12 @@ class resHD2D(object):
         if not compatible:
             print("Meso and Micro models are incompatible:"+error) 
 
+    def set_find_obs(self, find_obs):
+        self.find_obs = find_obs
+
+    def set_filter(self, filter):
+        self.filter = filter
+
     def get_all_var_strs(self): 
         return list(self.meso_vars.keys())  + list(self.deriv_vars.keys()) + list(self.meso_structures.keys()) + \
             list(self.filter_vars.keys())
@@ -1419,13 +1425,6 @@ class resHD2D(object):
         Set up the entry self.filter_vars['U_success'] as a dictionary with (tuples of) indices
         on the meso_grid as keys, and bool as values (true if the observer has been found, false otherwise)
 
-        Parameters:
-        -----------
-        t_range: list of two floats
-            ranges in the t-direction, used for selecting the sublist of points from meso-grid
-
-        x_range, y_range: similar to above
-
         Notes:
         ------
         Requires setup_meso_grid() to be called first. 
@@ -1496,13 +1495,6 @@ class resHD2D(object):
         
         This method relies on filter_var_point implemented separately for the filter, e.g. spatial_box_filter
 
-        Parameters: 
-        -----------
-        t_range: list of two floats
-            ranges in the t-direction, used for selecting the sublist of points 
-
-        x_range, y_range: similar to above. 
-
         Notes:
         ------
         Requires setup_meso_grid() to be called first.
@@ -1520,6 +1512,57 @@ class resHD2D(object):
                     else: 
                         print('Could not filter at {}: observer not found.'.format(point))
 
+    def filter_micro_vars_parallel(self):
+        """
+        Filter all meso_model structures AND micro pressure. 
+        Routine will try and filter at all points on the meso-grid. 
+        Note this would require the grid to be set up wisely so to avoid
+        problems at the boundaries. 
+        
+        This method relies on filter_vars_parallel implemented separately for the 
+        filter class, e.g. as in box_filter_parallel
+
+        Notes:
+        ------
+        Requires setup_meso_grid() to be called first.
+        Also find_observers() should be called first, although not doing so won't crash it. 
+        """
+        ts = self.domain_vars['T']
+        xs = self.domain_vars['X']
+        ys = self.domain_vars['Y']
+
+        t_idxs = np.arange(len(ts))
+        x_idxs = np.arange(len(xs))
+        y_idxs = np.arange(len(ys))
+
+        points = []
+        for elem in product(ts,xs,ys):
+            points.append(list(elem))
+
+        indices_meso_grid = []
+        for elem in product(t_idxs, x_idxs, y_idxs):
+            indices_meso_grid.append(elem)
+
+        observers = []
+        for elem in product(t_idxs, x_idxs, y_idxs):
+            if self.filter_vars['U_success'][elem]:
+                observers.append(self.filter_vars['U'][elem])
+            else:
+                print('Observers are not computed on (parts of) the grid!')
+                return None
+
+        vars = ['BC', 'SET', 'p']
+        args_for_filtering_parallel = []
+        for i in range(len(points)):
+            args_for_filtering_parallel.append([points[i], observers[i], vars])
+
+        positions, filtered_vars = self.filter.filter_vars_parallel(args_for_filtering_parallel)
+        for i in range(len(positions)):
+            point_indxs_meso_grid = indices_meso_grid[positions[i]]
+            self.meso_structures['BC'][point_indxs_meso_grid] = filtered_vars[i][0]
+            self.meso_structures['SET'][point_indxs_meso_grid] = filtered_vars[i][1]
+            self.meso_vars['p_filt'][point_indxs_meso_grid] = filtered_vars[i][2]
+        
     def p_from_EOS(self, eps, n):
         """
         Compute pressure from Gamma-law EoS 
@@ -1946,20 +1989,21 @@ if __name__ == '__main__':
     x_range = [0.05, 0.95]
     y_range = [0.05, 0.95]
 
-    start_time = time.perf_counter()
+    
+    # find obs - serial 
+    # start_time = time.perf_counter()
     find_obs = FindObs_drift_root(micro_model, 0.001)
     filter = spatial_box_filter(micro_model, 0.003)
     meso_model = resHD2D(micro_model, find_obs, filter)
     meso_model.setup_meso_grid([t_range, x_range, y_range])
+    # meso_model.find_observers()
+    # serial_time = time.perf_counter() - start_time
+    # print('Serial execution time: {}\n'.format(serial_time))
 
     num_points = meso_model.domain_vars['Nt'] * meso_model.domain_vars['Nx'] * meso_model.domain_vars['Ny']
     print(f'Testing parallelization with {num_points} points\n')
 
-    meso_model.find_observers()
-    serial_time = time.perf_counter() - start_time
-    print('Serial execution time: {}\n'.format(serial_time))
-
-
+    # fin obs - parallel
     start_time = time.perf_counter()
     find_obs = FindObs_root_parallel(micro_model, 0.001)
     filter = spatial_box_filter(micro_model, 0.003)
@@ -1967,9 +2011,22 @@ if __name__ == '__main__':
     meso_model.setup_meso_grid([t_range, x_range, y_range])
     meso_model.find_observers_parallel()
     parallel_time = time.perf_counter() - start_time
-    print('Parallel execution time: {}'.format(parallel_time))
+    print('Finished finding observers in parallel, execution time: {}\n'.format(parallel_time))
+    # print('Speed-up factor: {}'.format(serial_time/parallel_time))
+
+
+    # now filtering serial
+    start_time = time.perf_counter()
+    meso_model.filter_micro_variables()
+    serial_time = time.perf_counter() - start_time
+    print('Finished filtering in serial, time taken {}\n'.format(serial_time))
+
+    # now filtering in parallel
+    parallel_filter = box_filter_parallel(micro_model, 0.003)
+    meso_model.set_filter(parallel_filter)
+    start_time = time.perf_counter()
+    meso_model.filter_micro_vars_parallel()
+    parallel_time = time.perf_counter() - start_time
+    print('Finished filtering in parallel, time taken {}\n'.format(parallel_time))
     print('Speed-up factor: {}'.format(serial_time/parallel_time))
-
-
-
 
