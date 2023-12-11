@@ -6,6 +6,7 @@
 #SBATCH --output=outputs/slurm-%A.out        
 #SBATCH --nodes=1      
 #SBATCH --ntasks=40                 
+# #SBATCH -cpus-per-task 
 #SBATCH --time=00:30:00 
 
 #SBATCH --mail-type=begin        
