@@ -1275,6 +1275,20 @@ class box_filter_parallel(object):
         self.spatial_dims = micro_model.get_spatial_dims()
         self.filter_width = filter_width
 
+    def set_filter_width(self, filter_width):
+        """
+        Method to change the width of the filter. 
+
+        Parameters:
+        -----------
+        filter_width: float
+
+        Returns:
+        --------
+        None
+        """
+        self.filter_width = filter_width
+        
     @staticmethod
     def complete_U_tetrad(U):
         """

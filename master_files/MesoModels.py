@@ -2015,11 +2015,11 @@ if __name__ == '__main__':
     # print('Speed-up factor: {}'.format(serial_time/parallel_time))
 
 
-    # now filtering serial
-    start_time = time.perf_counter()
-    meso_model.filter_micro_variables()
-    serial_time = time.perf_counter() - start_time
-    print('Finished filtering in serial, time taken {}\n'.format(serial_time))
+    # # now filtering serial
+    # start_time = time.perf_counter()
+    # meso_model.filter_micro_variables()
+    # serial_time = time.perf_counter() - start_time
+    # print('Finished filtering in serial, time taken {}\n'.format(serial_time))
 
     # now filtering in parallel
     parallel_filter = box_filter_parallel(micro_model, 0.003)

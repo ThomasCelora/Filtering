@@ -20,8 +20,7 @@ class METHOD_HDF5(object):
         ----------
         directory: string 
             the filenames in the directory have to be incremental (sorted is used)
-        """
-
+        """ 
         hdf5_filenames = sorted( glob.glob(directory+str('*.hdf5')))
         self.hdf5_files = []
         for filename in hdf5_filenames:
