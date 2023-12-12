@@ -13,7 +13,7 @@ if __name__ == '__main__':
     # READING DATA FORM CHECKPOINT, SETTING UP MICOR AND PICKLING
     CPU_start_time = time.perf_counter()
     # directory = "/Users/thomas/Dropbox/Work/projects/Filtering/Data/ET_2_4_6_8/10_dx_after/METHOD_output/80X80/ET_02"
-    directory = "/scratch/tc2m23/KHIRandom/hydro/ET_1_2_2.5_3_3.5/10dx_after/METHOD_output/400X400/"
+    directory = "/scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/METHOD_output/800X800/"
     ET=str(sys.argv[1])
     names = directory + "ET_" + ET
     print(names)
@@ -26,9 +26,9 @@ if __name__ == '__main__':
     print('Time to set up micro model (ET: {}): {}'.format(ET, time_taken))
 
     # Pickle save 
-    directory = "/scratch/tc2m23/KHIRandom/hydro/ET_1_2_2.5_3_3.5/10dx_after/pickled_files/400X400/"
+    directory = "/scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/pickled_files/800X800/"
     CPU_start_time = time.perf_counter()
-    MicroModelPickleDumpFile = directory + "IdealHD_2D_ET_" + ET + "_micro.pickle"
+    MicroModelPickleDumpFile = directory + "HD_2D_ET_" + ET + "_micro.pickle"
     with open(MicroModelPickleDumpFile, 'wb') as filehandle: 
         pickle.dump(micro_model, filehandle)
     time_taken = int((time.perf_counter() - CPU_start_time) * 100)/100.
