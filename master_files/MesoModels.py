@@ -1106,7 +1106,7 @@ class resHD2D(object):
     """
     CUT AND PAST OF resMHD_2D --> removing the magnetic bits
     """
-    def __init__(self, micro_model, find_obs, filter, interp_method = 'linear'):
+    def __init__(self, micro_model, find_obs, filter, interp_method = 'linear', local_or_slurm = True):
         """
         ADD DESCRIPTION OF THIS
         """
@@ -1115,6 +1115,11 @@ class resHD2D(object):
         self.filter = filter
         self.spatial_dims = 2
         self.interp_method = interp_method
+
+        if local_or_slurm:
+            self.n_cpus = int(os.cpu_count())
+        else:
+            self.n_cpus = int(os.environ['SLURM_CPUS_PER_TASK'])
 
         self.domain_int_strs = ('Nt','Nx','Ny')
         self.domain_float_strs = ("Tmin","Tmax","Xmin","Xmax","Ymin","Ymax","Dt","Dx","Dy")
@@ -1191,6 +1196,12 @@ class resHD2D(object):
 
     def set_filter(self, filter):
         self.filter = filter
+
+    def set_n_cps(self, n_cpus):
+        """
+        Set the number of processes to run in parallel on. 
+        """
+        self.n_cpus = n_cpus
 
     def get_all_var_strs(self): 
         return list(self.meso_vars.keys())  + list(self.deriv_vars.keys()) + list(self.meso_structures.keys()) + \
@@ -1444,12 +1455,19 @@ class resHD2D(object):
                         # No need to update the dictionary as this has been initialized to False everywhere. 
                         print('Careful: obs could not be found at: ', self.domain_vars['Points'][h][i][j])
 
-    def find_observers_parallel(self):
+    def find_observers_parallel(self, n_cpus = None):
         """
         Method to find observers at all points on meso-grid, parallelized version. 
         The observers found (and relative errors) are saved in the dictionary self.filter_vars.
         Set up the entry self.filter_vars['U_success'] as a dictionary with (tuples of) indices
         on the meso_grid as keys, and bool as values (true if the observer has been found, false otherwise)
+
+        Parameters:
+        -----------
+
+        n_cpus: int
+            If not passed explicitely this is set to self.n_cpus (initalized upon 
+            construction)
 
         Notes:
         ------
@@ -1472,7 +1490,11 @@ class resHD2D(object):
         for elem in product(t_idxs, x_idxs, y_idxs):
             indices_meso_grid.append(elem)
 
-        successes, failures = self.find_obs.find_observers_parallel(points)
+        num_processes = self.n_cpus
+        if n_cpus:
+            num_processes = n_cpus
+            
+        successes, failures = self.find_obs.find_observers_parallel(points, num_processes)
 
         for i in range(len(successes[0])):
             point_indxs_meso_grid = indices_meso_grid[successes[0][i]]
@@ -1512,7 +1534,7 @@ class resHD2D(object):
                     else: 
                         print('Could not filter at {}: observer not found.'.format(point))
 
-    def filter_micro_vars_parallel(self):
+    def filter_micro_vars_parallel(self, n_cpus = None):
         """
         Filter all meso_model structures AND micro pressure. 
         Routine will try and filter at all points on the meso-grid. 
@@ -1521,6 +1543,13 @@ class resHD2D(object):
         
         This method relies on filter_vars_parallel implemented separately for the 
         filter class, e.g. as in box_filter_parallel
+        
+        Parameters:
+        -----------
+
+        n_cpus: int
+            If not passed explicitely this is set to self.n_cpus (initalized upon 
+            construction)
 
         Notes:
         ------
@@ -1556,7 +1585,11 @@ class resHD2D(object):
         for i in range(len(points)):
             args_for_filtering_parallel.append([points[i], observers[i], vars])
 
-        positions, filtered_vars = self.filter.filter_vars_parallel(args_for_filtering_parallel)
+        num_processes = self.n_cpus
+        if n_cpus:
+            num_processes = n_cpus
+            
+        positions, filtered_vars = self.filter.filter_vars_parallel(args_for_filtering_parallel, num_processes)
         for i in range(len(positions)):
             point_indxs_meso_grid = indices_meso_grid[positions[i]]
             self.meso_structures['BC'][point_indxs_meso_grid] = filtered_vars[i][0]
@@ -1596,7 +1629,7 @@ class resHD2D(object):
         # Computing the decomposition at each point
         eps_t = np.einsum('i,j,ik,jl,kl', u_t, u_t, self.metric, self.metric, T_ab)
         h_ab = np.einsum('ij,jk->ik', self.metric + np.einsum('i,j->ij', u_t, u_t), self.metric) # This is a rank (1,1) tensor, i.e. a real projector.
-        q_a = np.einsum('ij,jk,kl,l->i',h_ab, T_ab, self.metric, u_t)
+        q_a = np.einsum('ij,jk,kl,l->i',h_ab, T_ab, self.metric, u_t) # There might be missing a minus sign here?
         s_ab = np.einsum('ij,kl,jl->ik',h_ab, h_ab, T_ab)
         s = np.einsum('ii',s_ab)
         p_t = self.p_from_EOS(eps_t, n_t) 
@@ -1613,7 +1646,7 @@ class resHD2D(object):
         self.meso_vars['eos_res'][h,i,j] = self.meso_vars['p_filt'][h,i,j] - p_t
         self.meso_vars['T_tilde'][h,i,j] = p_t / n_t
 
-    def decompose_structures(self, t_range=None, x_range=None, y_range=None):
+    def decompose_structures(self):
         """
         Decompose structures at all points on the meso_grid where observers could be found. 
 
@@ -1632,6 +1665,78 @@ class resHD2D(object):
                         self.decompose_structures_gridpoint(h,i,j)
                     else: 
                         print('Structures not decomposed at {}: observer could not be found.'.format(point))
+
+    @staticmethod
+    def p_Gamma_law(eps, n, Gamma):
+        return (Gamma-1)* eps*n
+
+    @staticmethod
+    def decompose_structures_task(BC, SET , p_filt, h, i, j):
+        """
+        work in progress
+        """
+        # As this is staticmethod, no access to self.metric
+        metric = np.zeros((3,3))
+        metric[0,0] = -1.
+        metric[1,1] = metric[2,2] = 1.
+
+        # Computing the Favre density and velocity
+        n_t = np.sqrt(-Base.Mink_dot(BC, BC))
+        u_t = np.multiply(1./ n_t, BC)
+
+        # remember SET is a rank (2,0) tensor
+        # Computing the SET decomposition at each point
+        eps_t = np.einsum('i,j,ik,jl,kl', u_t, u_t, metric, metric, SET)
+        h_ab = np.einsum('ij,jk->ik', metric + np.einsum('i,j->ij', u_t, u_t), metric) # This is a rank (1,1) tensor, i.e. a real projector.
+        q_a = np.einsum('ij,jk,kl,l->i', h_ab, SET, metric, u_t) # There might be missing a minus sign here
+        s_ab = np.einsum('ij,kl,jl->ik',h_ab, h_ab, SET)
+        s = np.einsum('ii',s_ab)
+        p_t = resHD2D.p_Gamma_law(eps_t, n_t, 4.0/3.0) 
+
+        # Additional quantities needed for residuals
+        Pi_res = s - p_t
+        s_ab_tracefree = s_ab - np.multiply(s/2., metric + np.einsum('i,j->ij', u_t, u_t)) 
+        T_t = p_t/n_t
+        EOS_res = p_filt - p_t
+    
+        return [n_t, u_t, eps_t, q_a, s_ab_tracefree, p_t, Pi_res, EOS_res, T_t], [h,i,j]
+
+    def decompose_structures_parallel(self, n_cpus = None):
+        """
+        work in progress
+
+        Parameters:
+        -----------
+        n_cpus: int
+            If not passed explicitely this is set to the value on construction
+        """
+        # Preparing arguments for pool 
+        args_for_pool=[]
+        for h in range(len(self.domain_vars['T'])):
+            for i in range(len(self.domain_vars['X'])):
+                for j in range(len(self.domain_vars['Y'])):
+                    BC = self.meso_structures['BC'][h,i,j]
+                    SET = self.meso_structures['SET'][h,i,j]
+                    p_filt = self.meso_vars['p_filt'][h,i,j]
+                    args_for_pool.append((BC, SET, p_filt, h,i,j))
+
+        num_processes = self.n_cpus
+        if n_cpus:
+            num_processes = n_cpus
+
+        with mp.Pool(processes=num_processes) as pool:
+            print('Running with {} processes\n'.format(num_processes), flush=True)
+            for result in pool.starmap(resHD2D.decompose_structures_task, args_for_pool):
+                h,i,j = result[1]
+                self.meso_vars['n_tilde'][h,i,j] = result[0][0]
+                self.meso_vars['u_tilde'][h,i,j,:] = result[0][1]
+                self.meso_vars['eps_tilde'][h,i,j] = result[0][2]
+                self.meso_vars['q_res'][h,i,j,:] = result[0][3]
+                self.meso_vars['pi_res'][h,i,j,:,:] = result[0][4]
+                self.meso_vars['p_tilde'][h,i,j] =  result[0][5]
+                self.meso_vars['Pi_res'][h,i,j] = result[0][6]
+                self.meso_vars['eos_res'][h,i,j] = result[0][7]
+                self.meso_vars['T_tilde'][h,i,j] = result[0][8]
 
     def calculate_derivatives_gridpoint(self, nonlocal_var_str, h, i, j, direction, order = 1): 
         """
@@ -1977,58 +2082,105 @@ if __name__ == '__main__':
     # # print('Total time is {}'.format(time.process_time() - CPU_start_time))    
 
 
+    # ########################################################
+    # # TESTING PARALLEL IMPLEMENTATION FOR FINDING OBS AND FILTER
+    # ######################################################## 
+    # FileReader = METHOD_HDF5('../Data/test_res100/')
+    # micro_model = IdealHD_2D()
+    # FileReader.read_in_data(micro_model) 
+    # micro_model.setup_structures()
+
+    # t_range = [1.502, 1.504]
+    # x_range = [0.05, 0.95]
+    # y_range = [0.05, 0.95]
+
+    
+    # # find obs - serial 
+    # start_time = time.perf_counter()
+    # find_obs = FindObs_drift_root(micro_model, 0.001)
+    # filter = spatial_box_filter(micro_model, 0.003)
+    # meso_model = resHD2D(micro_model, find_obs, filter)
+    # meso_model.setup_meso_grid([t_range, x_range, y_range])
+
+    # num_points = meso_model.domain_vars['Nt'] * meso_model.domain_vars['Nx'] * meso_model.domain_vars['Ny']
+    # print(f'Testing parallelization with {num_points} points\n')
+    
+    # meso_model.find_observers()
+    # serial_time = time.perf_counter() - start_time
+    # print('Serial execution time: {}\n'.format(serial_time))
+
+    
+    # # fin obs - parallel
+    # start_time = time.perf_counter()
+    # find_obs = FindObs_root_parallel(micro_model, 0.001)
+    # filter = spatial_box_filter(micro_model, 0.003)
+    # meso_model = resHD2D(micro_model, find_obs, filter)
+    # meso_model.setup_meso_grid([t_range, x_range, y_range])
+    # meso_model.find_observers_parallel()
+    # parallel_time = time.perf_counter() - start_time
+    # print('Finished finding observers in parallel, execution time: {}\n'.format(parallel_time))
+    # print('Speed-up factor: {}'.format(serial_time/parallel_time))
+
+
+    # # now filtering serial
+    # start_time = time.perf_counter()
+    # meso_model.filter_micro_variables()
+    # serial_time = time.perf_counter() - start_time
+    # print('Finished filtering in serial, time taken {}\n'.format(serial_time))
+
+    # # now filtering in parallel
+    # parallel_filter = box_filter_parallel(micro_model, 0.003)
+    # meso_model.set_filter(parallel_filter)
+    # start_time = time.perf_counter()
+    # meso_model.filter_micro_vars_parallel()
+    # parallel_time = time.perf_counter() - start_time
+    # print('Finished filtering in parallel, time taken {}\n'.format(parallel_time))
+    # print('Speed-up factor: {}'.format(serial_time/parallel_time))
+
+
     ########################################################
-    # TESTING PARALLEL IMPLEMENTATION
+    # TESTING PARALLEL IMPLEMENTATION: meso routines
     ######################################################## 
-    FileReader = METHOD_HDF5('../Data/test_res100/')
+    directory = '../Data/test_res100/'
+    FileReader = METHOD_HDF5(directory)
     micro_model = IdealHD_2D()
     FileReader.read_in_data(micro_model) 
     micro_model.setup_structures()
 
     t_range = [1.502, 1.504]
-    x_range = [0.05, 0.95]
-    y_range = [0.05, 0.95]
+    x_range = [0.05, 0.15]
+    y_range = [0.05, 0.15]
 
-    
-    # find obs - serial 
-    start_time = time.perf_counter()
-    find_obs = FindObs_drift_root(micro_model, 0.001)
-    filter = spatial_box_filter(micro_model, 0.003)
-    meso_model = resHD2D(micro_model, find_obs, filter)
+    # set up meso model and grid
+    find_obs = FindObs_root_parallel(micro_model, 0.001)
+    filter = box_filter_parallel(micro_model, 0.003)
+    meso_model = resHD2D(micro_model, find_obs, filter, local_or_slurm=False)
     meso_model.setup_meso_grid([t_range, x_range, y_range])
 
     num_points = meso_model.domain_vars['Nt'] * meso_model.domain_vars['Nx'] * meso_model.domain_vars['Ny']
     print(f'Testing parallelization with {num_points} points\n')
-    
-    meso_model.find_observers()
-    serial_time = time.perf_counter() - start_time
-    print('Serial execution time: {}\n'.format(serial_time))
 
-    
     # fin obs - parallel
     start_time = time.perf_counter()
-    find_obs = FindObs_root_parallel(micro_model, 0.001)
-    filter = spatial_box_filter(micro_model, 0.003)
-    meso_model = resHD2D(micro_model, find_obs, filter)
-    meso_model.setup_meso_grid([t_range, x_range, y_range])
     meso_model.find_observers_parallel()
     parallel_time = time.perf_counter() - start_time
     print('Finished finding observers in parallel, execution time: {}\n'.format(parallel_time))
-    print('Speed-up factor: {}'.format(serial_time/parallel_time))
-
-
-    # now filtering serial
-    start_time = time.perf_counter()
-    meso_model.filter_micro_variables()
-    serial_time = time.perf_counter() - start_time
-    print('Finished filtering in serial, time taken {}\n'.format(serial_time))
 
     # now filtering in parallel
-    parallel_filter = box_filter_parallel(micro_model, 0.003)
-    meso_model.set_filter(parallel_filter)
     start_time = time.perf_counter()
     meso_model.filter_micro_vars_parallel()
     parallel_time = time.perf_counter() - start_time
     print('Finished filtering in parallel, time taken {}\n'.format(parallel_time))
-    print('Speed-up factor: {}'.format(serial_time/parallel_time))
 
+    # now testing serial vs parallel decomposition
+    start_time = time.perf_counter()
+    meso_model.decompose_structures()
+    serial_time = time.perf_counter() - start_time
+    print('Finished decomposing in serial, time taken {}\n'.format(serial_time))
+
+    start_time = time.perf_counter()
+    meso_model.decompose_structures_parallel()
+    parallel_time = time.perf_counter() - start_time
+    print('Finished decomposing in parallel, time taken {}\n'.format(parallel_time))
+    print('Speed-up factor: {}'.format(serial_time/parallel_time))
+    

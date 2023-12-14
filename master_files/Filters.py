@@ -942,13 +942,16 @@ class FindObs_root_parallel(object):
         if not sol.success: 
             return sol.success, pos_in_list_points
 
-    def find_observers_parallel(self, points):
+    def find_observers_parallel(self, points, n_cpus):
         """
         Method to run find_observer_Gauss in parallel on a list of points
 
         Parameters:
         -----------
         points: list of d+1 float, d is the spatial dimension of micro_model
+
+        n_cpus: int
+            number of processes
 
         Returns:
         --------
@@ -960,6 +963,9 @@ class FindObs_root_parallel(object):
 
         failures: list (typically empty)
             position of failed points in input list of points
+
+        there is no default value for n_cpus so that this has to be passed 
+        explicitely in the tests below, or decided at the MesoModel level. 
         """
         observers = []
         avg_errors = []
@@ -972,7 +978,6 @@ class FindObs_root_parallel(object):
         
         init = FindObs_root_parallel.initializer
         initargs = (spatial_dims, L)
-        n_cpus = int(os.environ['SLURM_CPUS_PER_TASK'])
 
         with mp.Pool(initializer=init, initargs=initargs, processes=n_cpus) as pool:
         # with mp.Pool() as pool:
@@ -1417,7 +1422,7 @@ class box_filter_parallel(object):
         # Safer to return a dictionary: check redux in performance though.
         return pos, filtered_vars
 
-    def filter_vars_parallel(self, list_packed_args):
+    def filter_vars_parallel(self, list_packed_args, n_cpus):
         """
         Method to run filter_vars_point_gauss in parallel given a list of points, 
         observers and vars. 
@@ -1434,6 +1439,9 @@ class box_filter_parallel(object):
             [vars_to_be_filtered]: list of strs
                 each item must much a var in micromodel
 
+        n_cpus: int
+            number of processes
+
         Returns:
         --------
         position_in_list: list of integers
@@ -1441,6 +1449,9 @@ class box_filter_parallel(object):
             Required as pool.map not necessarily returns processes in order
 
         filtered_vars: list of lists containing filtered vars
+
+        there is no default value for n_cpus so that this has to be passed 
+        explicitely in the tests below, or decided at the MesoModel level. 
         """
         position_in_list = []
         filtered_vars = []
@@ -1448,8 +1459,6 @@ class box_filter_parallel(object):
 
         init = box_filter_parallel.initializer
         initargs=(self.spatial_dims, self.filter_width)
-        n_cpus = int(os.environ['SLURM_CPUS_PER_TASK'])
-
 
         with mp.Pool(initializer=init, initargs=initargs, processes=n_cpus) as pool:
             print('Running with {} processes\n'.format(n_cpus), flush=True)
@@ -1504,8 +1513,8 @@ if __name__ == '__main__':
 
     # setting up the points for testing - pass all the points within a range
     t_range = [1.502, 1.504]
-    x_range = [0.05, 0.95]
-    y_range = [0.05, 0.95]
+    x_range = [0.05, 0.15]
+    y_range = [0.05, 0.15]
 
     patch_min = [t_range[0], x_range[0], y_range[0]]
     patch_max = [t_range[1], x_range[1], y_range[1]]
@@ -1530,10 +1539,11 @@ if __name__ == '__main__':
     # print('Serial time: {}\n'.format(serial_time))
 
     # Now find observers - parallel version
+    n_cpus = os.cpu_count()
     start_time = time.perf_counter()
     find_obs_parallel = FindObs_root_parallel(micro_model, 0.001)
     point = points[0]
-    result, failed = find_obs_parallel.find_observers_parallel(points)
+    result, failed = find_obs_parallel.find_observers_parallel(points, n_cpus)
     print('Number of points failed: {}'.format(len(failed)))
     parallel_time = time.perf_counter() - start_time
     print('Parallel time: {}\n'.format(parallel_time))
@@ -1557,7 +1567,7 @@ if __name__ == '__main__':
 
     start_time = time.perf_counter()
     parallel_filter = box_filter_parallel(micro_model, 0.003)
-    parallel_filter.filter_vars_parallel(args_list)
+    parallel_filter.filter_vars_parallel(args_list, n_cpus)
     parallel_time = time.perf_counter() - start_time
     print('Finished filtering in parallel, time-taken: {}'.format(parallel_time))
     # print('Speed-up factor: {}\n'.format(serial_time/parallel_time))

@@ -29,5 +29,5 @@ conda activate myenv
 # LAUNCHING THE JOBS
 ####################################
 
-python3 -u Filters.py 
-# python3 -u MesoModels.py
+# python3 -u Filters.py 
+python3 -u MesoModels.py
