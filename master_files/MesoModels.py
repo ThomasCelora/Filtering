@@ -7,7 +7,7 @@ Created on Mon Mar 27 18:53:53 2023
 
 import numpy as np
 from scipy.interpolate import interpn 
-from multiprocessing import Process, Pool
+import multiprocessing as mp
 from multimethod import multimethod
 
 import matplotlib.pyplot as plt
@@ -1991,18 +1991,20 @@ if __name__ == '__main__':
 
     
     # find obs - serial 
-    # start_time = time.perf_counter()
+    start_time = time.perf_counter()
     find_obs = FindObs_drift_root(micro_model, 0.001)
     filter = spatial_box_filter(micro_model, 0.003)
     meso_model = resHD2D(micro_model, find_obs, filter)
     meso_model.setup_meso_grid([t_range, x_range, y_range])
-    # meso_model.find_observers()
-    # serial_time = time.perf_counter() - start_time
-    # print('Serial execution time: {}\n'.format(serial_time))
 
     num_points = meso_model.domain_vars['Nt'] * meso_model.domain_vars['Nx'] * meso_model.domain_vars['Ny']
     print(f'Testing parallelization with {num_points} points\n')
+    
+    meso_model.find_observers()
+    serial_time = time.perf_counter() - start_time
+    print('Serial execution time: {}\n'.format(serial_time))
 
+    
     # fin obs - parallel
     start_time = time.perf_counter()
     find_obs = FindObs_root_parallel(micro_model, 0.001)
@@ -2012,14 +2014,14 @@ if __name__ == '__main__':
     meso_model.find_observers_parallel()
     parallel_time = time.perf_counter() - start_time
     print('Finished finding observers in parallel, execution time: {}\n'.format(parallel_time))
-    # print('Speed-up factor: {}'.format(serial_time/parallel_time))
+    print('Speed-up factor: {}'.format(serial_time/parallel_time))
 
 
-    # # now filtering serial
-    # start_time = time.perf_counter()
-    # meso_model.filter_micro_variables()
-    # serial_time = time.perf_counter() - start_time
-    # print('Finished filtering in serial, time taken {}\n'.format(serial_time))
+    # now filtering serial
+    start_time = time.perf_counter()
+    meso_model.filter_micro_variables()
+    serial_time = time.perf_counter() - start_time
+    print('Finished filtering in serial, time taken {}\n'.format(serial_time))
 
     # now filtering in parallel
     parallel_filter = box_filter_parallel(micro_model, 0.003)

@@ -4,9 +4,9 @@
 ####################################
 
 #SBATCH --output=outputs/slurm-%A.out        
-#SBATCH --nodes=1      
-#SBATCH --ntasks=40                 
-# #SBATCH -cpus-per-task 
+#SBATCH --nodes=1           
+#SBATCH --ntasks=1 #number of MPI processes         
+#SBATCH --cpus-per-task=40 #number of threads per MPI process
 #SBATCH --time=00:30:00 
 
 #SBATCH --mail-type=begin        
@@ -29,5 +29,5 @@ conda activate myenv
 # LAUNCHING THE JOBS
 ####################################
 
-# python3 -u Filters.py 
-python3 -u MesoModels.py
+python3 -u Filters.py 
+# python3 -u MesoModels.py

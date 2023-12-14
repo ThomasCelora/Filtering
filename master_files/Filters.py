@@ -7,7 +7,9 @@ Created on Tue Mar 28 15:36:01 2023
 
 import numpy as np
 import time 
+import os
 import scipy.integrate as integrate 
+import multiprocessing as mp
 from scipy.optimize import minimize, root
 from itertools import product
 from system.BaseFunctionality import *
@@ -967,10 +969,14 @@ class FindObs_root_parallel(object):
         spatial_dims = self.micro_model.get_spatial_dims()
         L = self.L
         args_for_pool = [ [points[i], i] for i in range(len(points))]
+        
+        init = FindObs_root_parallel.initializer
+        initargs = (spatial_dims, L)
+        n_cpus = int(os.environ['SLURM_CPUS_PER_TASK'])
 
-        with mp.Pool(initializer=FindObs_root_parallel.initializer, initargs=(spatial_dims,L,)) as pool:
+        with mp.Pool(initializer=init, initargs=initargs, processes=n_cpus) as pool:
         # with mp.Pool() as pool:
-            print('Running with {} processes\n'.format(os.cpu_count()), flush=True)
+            print('Running with {} processes\n'.format(n_cpus), flush=True)
             for result in pool.map(self.find_observer_Gauss, args_for_pool):
                 if (result[0] == True): 
                     success_pos.append(result[1])
@@ -1439,8 +1445,14 @@ class box_filter_parallel(object):
         position_in_list = []
         filtered_vars = []
         args_for_pool = [ [list_packed_args[i], i] for i in range(len(list_packed_args))]
-        with mp.Pool(initializer=box_filter_parallel.initializer, initargs=(self.spatial_dims, self.filter_width)) as pool:
-            print('Running with {} processes\n'.format(os.cpu_count()), flush=True)
+
+        init = box_filter_parallel.initializer
+        initargs=(self.spatial_dims, self.filter_width)
+        n_cpus = int(os.environ['SLURM_CPUS_PER_TASK'])
+
+
+        with mp.Pool(initializer=init, initargs=initargs, processes=n_cpus) as pool:
+            print('Running with {} processes\n'.format(n_cpus), flush=True)
             for result in pool.map(self.filter_vars_point_gauss, args_for_pool):
                 position_in_list.append(result[0])
                 filtered_vars.append(result[1])
@@ -1510,7 +1522,7 @@ if __name__ == '__main__':
 
     print('Number of points: {}'.format(len(points)))
 
-    # # Now find observers - serial version
+    # Now find observers - serial version
     # start_time = time.perf_counter()
     # find_obs_serial = FindObs_drift_root(micro_model, 0.001)
     # observers = find_obs_serial.find_observers_points(points)
@@ -1531,12 +1543,12 @@ if __name__ == '__main__':
     observers = result[1]
     vars = ['BC', 'SET']
     # Filtering serial
-    start_time = time.perf_counter()
-    serial_filter = spatial_box_filter(micro_model, 0.003)
-    for var in vars: 
-        serial_filter.filter_var_manypoints(var, points, observers)
-    serial_time = time.perf_counter() - start_time
-    print('Finished filtering in serial, time-taken: {}'.format(serial_time))
+    # start_time = time.perf_counter()
+    # serial_filter = spatial_box_filter(micro_model, 0.003)
+    # for var in vars: 
+    #     serial_filter.filter_var_manypoints(var, points, observers)
+    # serial_time = time.perf_counter() - start_time
+    # print('Finished filtering in serial, time-taken: {}'.format(serial_time))
 
     # Preparing args for parallel filter routine
     args_list = []
@@ -1548,5 +1560,5 @@ if __name__ == '__main__':
     parallel_filter.filter_vars_parallel(args_list)
     parallel_time = time.perf_counter() - start_time
     print('Finished filtering in parallel, time-taken: {}'.format(parallel_time))
-    print('Speed-up factor: {}\n'.format(serial_time/parallel_time))
+    # print('Speed-up factor: {}\n'.format(serial_time/parallel_time))
 

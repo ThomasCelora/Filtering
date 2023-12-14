@@ -755,31 +755,31 @@ if __name__ == '__main__':
     # FileReader = METHOD_HDF5('../Data/res800/res800_t3')
     micro_model = IdealHD_2D()
     FileReader.read_in_data(micro_model)
-    # micro_model.setup_structures()
+    micro_model.setup_structures()
 
     ####################################################
     # Comparing speed of gridpoint vs interpol routines
     #################################################### 
-    # print('Structure strs: {}'.format(micro_model.get_structures_strs()))
-    # point = [1.502,0.4,0.2]
-    # # vars = ['SETfl', 'BC', 'Fab', 'SETem']
-    # vars = ['BC', 'bar_vel', 'n']
-    # for var in vars: 
-    #     res = micro_model.get_interpol_var(var, point)
-    #     res2 = micro_model.get_var_gridpoint(var, point)
-    #     print(f'{var}: \n {res} \n\n\n {res2} \n ********** \n ')
+    print('Structure strs: {}'.format(micro_model.get_structures_strs()))
+    point = [1.502,0.4,0.2]
+    # vars = ['SETfl', 'BC', 'Fab', 'SETem']
+    vars = ['BC', 'bar_vel', 'n']
+    for var in vars: 
+        res = micro_model.get_interpol_var(var, point)
+        res2 = micro_model.get_var_gridpoint(var, point)
+        print(f'{var}: \n {res} \n\n\n {res2} \n ********** \n ')
 
 
     ####################################################
     # TESTING PARALLELIZED SETUP STRUCTURE
     ####################################################
-    CPU_start_time = time.perf_counter()
-    micro_model.setup_structures()
-    serial_time= time.perf_counter() - CPU_start_time
-    print('Time taken serial: {}\n'.format(serial_time))
+    # CPU_start_time = time.perf_counter()
+    # micro_model.setup_structures()
+    # serial_time= time.perf_counter() - CPU_start_time
+    # print('Time taken serial: {}\n'.format(serial_time))
 
-    CPU_start_time = time.perf_counter()
-    micro_model.setup_structures_parallel()
-    parallel_time = time.perf_counter() - CPU_start_time
-    print('Time taken parallel: {}\n'.format(parallel_time))    
-    print('Speed up factor: {}\n'.format(serial_time/parallel_time))
+    # CPU_start_time = time.perf_counter()
+    # micro_model.setup_structures_parallel()
+    # parallel_time = time.perf_counter() - CPU_start_time
+    # print('Time taken parallel: {}\n'.format(parallel_time))    
+    # print('Speed up factor: {}\n'.format(serial_time/parallel_time))
