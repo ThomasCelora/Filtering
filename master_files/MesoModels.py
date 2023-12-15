@@ -1490,9 +1490,11 @@ class resHD2D(object):
         for elem in product(t_idxs, x_idxs, y_idxs):
             indices_meso_grid.append(elem)
 
-        num_processes = self.n_cpus
+        num_processes = 0
         if n_cpus:
             num_processes = n_cpus
+        else: 
+            num_processes = self.n_cpus
             
         successes, failures = self.find_obs.find_observers_parallel(points, num_processes)
 
@@ -1585,9 +1587,11 @@ class resHD2D(object):
         for i in range(len(points)):
             args_for_filtering_parallel.append([points[i], observers[i], vars])
 
-        num_processes = self.n_cpus
+        num_processes = 0
         if n_cpus:
             num_processes = n_cpus
+        else: 
+            num_processes = self.n_cpus
             
         positions, filtered_vars = self.filter.filter_vars_parallel(args_for_filtering_parallel, num_processes)
         for i in range(len(positions)):
@@ -1668,12 +1672,48 @@ class resHD2D(object):
 
     @staticmethod
     def p_Gamma_law(eps, n, Gamma):
+        """
+        staticmethod used by decompose_structures_task, that is the 
+        parallel version decompose_structures_gridpoint 
+
+        Parameters: 
+        -----------
+        eps: float  
+            the energy density of the fluid at a point
+
+        n: float
+            the baryon number density of the fluid at a point 
+
+        Gamma: float
+            Gamma factor of the Gamma law 
+        """
         return (Gamma-1)* eps*n
 
     @staticmethod
     def decompose_structures_task(BC, SET , p_filt, h, i, j):
         """
-        work in progress
+        Task to be executed in parallel: decomposing the structures at a point 
+
+        Parameters: 
+        -----------
+
+        BC: np.array (3,)
+            the baryon current, rank: (1,0)
+
+        SET: np.array (3,3)
+            the Stress-Energy tensor, rank (2,0)
+
+        p_filt: float
+            the filtered pressure, scalar
+
+        h,i,j: integers
+            indices of the corresponding gridpoint on meso-grid
+        
+        Returns: 
+        --------
+        (list, list):
+            first list contains the decomposition of structures at point
+            second list contains indices of point on mesogrid
         """
         # As this is staticmethod, no access to self.metric
         metric = np.zeros((3,3))
@@ -1703,12 +1743,13 @@ class resHD2D(object):
 
     def decompose_structures_parallel(self, n_cpus = None):
         """
-        work in progress
+        Routine to decompose structures on the entire grid in 
+        parallel. 
 
         Parameters:
         -----------
         n_cpus: int
-            If not passed explicitely this is set to the value on construction
+            If not passed explicitely, the value set upon construction is used
         """
         # Preparing arguments for pool 
         args_for_pool=[]
@@ -1720,9 +1761,11 @@ class resHD2D(object):
                     p_filt = self.meso_vars['p_filt'][h,i,j]
                     args_for_pool.append((BC, SET, p_filt, h,i,j))
 
-        num_processes = self.n_cpus
+        num_processes = 0
         if n_cpus:
             num_processes = n_cpus
+        else: 
+            num_processes = self.n_cpus
 
         with mp.Pool(processes=num_processes) as pool:
             print('Running with {} processes\n'.format(num_processes), flush=True)
@@ -1859,12 +1902,11 @@ class resHD2D(object):
         Coefficients can be computed here directly, but more general models will require more work.
         Do not split this, at least for now
         """
-        # COMPUTING THE MESO-CURRENT AND DECOMPOSING IT WRT FAVRE_OBS    
+        #  FAVRE_OBS    
         u_t = self.meso_vars['u_tilde'][h,i,j]
         u_t_cov = np.einsum('ij,j->i', self.metric, u_t)
-        Nabla_Fab = self.deriv_vars['D_Fab'][h,i,j]
 
-        # CLOSURE INGREDIENTS: FLUID BIT - WORKING WITH (2,0)
+        # CLOSURE INGREDIENTS: FAVRE OBS DERIVATIVE DECOMPOSITION - WORKING WITH (2,0)
         nabla_u = self.deriv_vars['D_u_tilde'][h,i,j] # This is a rank (1,1) tensor
         nabla_u = np.einsum('ij,jk->ik', self.metric, nabla_u) #this is a rank (2,0) tensor
         acc_t = np.einsum('i,ij', u_t_cov, nabla_u) # vector
@@ -1915,6 +1957,121 @@ class resHD2D(object):
                                 self.meso_vars.update({key: np.zeros(([Nt, Nx, Ny] + list(shape)))})
                             finally: 
                                     self.meso_vars[key][h,i,j] = values[idx]
+    
+    @staticmethod
+    def closure_ingredients_task(u_t, nabla_u, T_t, nabla_T, h, i, j):
+        """
+        Task to decompose Favre obs + Temperature derivatives
+        These will be used in EL_style_closure to extract the 
+        turbulent effective dissipative coefficients
+
+        Parameters:
+        -----------
+        u_t: np.array (3,)
+            the Favre-observer, rank: (1,0)
+
+        nabla_u: np.array(3,3)
+            derivatives of Favre observer, rank: (1,1)
+        
+        T_t: float
+            The temperature from filtered EoS 
+        
+        nabla_T: np.array (3,0)
+            Temperature derivatives, rank: (0,1)
+
+        h,i,j: integers
+            the indices of point on meso-grid
+
+        Returns: 
+        --------
+        (list, list, list):
+            first list contains the strings of the returned quantities 
+            (needed as the meso-vars dictionary is extended appropriately)
+
+            second list contains the corresponding np.arrays
+            
+            third list contains the indices on meso-grid
+        """
+        # building blocks: this task is static so no access to self
+        spatial_dims = 2 
+        metric = np.zeros((3,3))
+        metric[0,0] = -1
+        metric[1,1] = metric[2,2] = 1
+
+        # CLOSURE INGREDIENTS: FAVRE OBS DERIVATIVE DECOMPOSITION - WORKING WITH (2,0)
+        u_t_cov = np.einsum('ij,j->i', metric, u_t)
+        nabla_u = np.einsum('ij,jk->ik', metric, nabla_u) #this is a rank (2,0) tensor
+        acc_t = np.einsum('i,ij', u_t_cov, nabla_u) # vector
+
+        # The following two quantities should be identically zero, but they won't be due to numerical errors.
+        # Computing them and removing to project velocity gradients
+        unit_norm_violation = np.einsum('ij,j', nabla_u, u_t_cov) #vector
+        acc_orthogonality_violation = np.einsum('i,i->', u_t_cov, acc_t)
+        Daub = nabla_u + np.einsum('i,j->ij', u_t, acc_t) + np.einsum('i,j->ij', unit_norm_violation, u_t) +\
+            np.multiply(acc_orthogonality_violation, np.einsum('i,j->ij', u_t, u_t)) #Should be a (2,0) tensor
+        h_ab = metric + np.einsum('i,j->ij', u_t, u_t)
+        exp_t = np.einsum('ii->',Daub)
+        shear_t = np.multiply(1/2., Daub + np.einsum('ij->ji', Daub)) - np.multiply( 1/spatial_dims * exp_t, h_ab) 
+        vort_t = np.multiply(1/2., Daub - np.einsum('ij->ji', Daub))
+
+        # CLOSURE INGREDIENTS: HEAT FLUX 
+        projector = np.zeros((3,3))
+        np.fill_diagonal(projector, 1) 
+        projector += np.einsum('i,j->ij',u_t_cov, u_t)
+        DaT = np.einsum('ij,j->i', projector, nabla_T)
+        Theta_tilde = DaT + np.multiply(T_t, np.einsum('ij,j->i', metric, acc_t))
+
+        closure_vars_strs = ['shear_tilde', 'exp_tilde', 'acc_tilde', 'Theta_tilde']
+        closure_vars = [shear_t, exp_t, acc_t, Theta_tilde]
+        return closure_vars_strs, closure_vars, [h,i,j]
+
+    def closure_ingredients_parallel(self, n_cpus=None):
+        """
+        Routine to compute and store the closure ingredients at all gridpoints in parallel
+
+        Parameters:
+        -----------
+        n_cpus: int
+            If not passed explicitely, the value set upon construction is used
+
+        Notes: 
+        ------
+        worth thinking about merging this with decompose structures?     
+        """
+        Nt = self.domain_vars['Nt']
+        Nx = self.domain_vars['Nx']
+        Ny = self.domain_vars['Ny']
+
+        args_for_pool = []
+        for h in range(Nt):
+            for i in range(Nx):
+                for j in range(Ny):
+                    u_t = self.meso_vars['u_tilde'][h,i,j]
+                    nabla_u = self.deriv_vars['D_u_tilde'][h,i,j]
+                    T_t = self.meso_vars['T_tilde'][h,i,j]
+                    nabla_T = self.deriv_vars['D_T_tilde'][h,i,j]
+                    args_for_pool.append((u_t, nabla_u, T_t, nabla_T, h, i, j))
+
+        num_processes = 0
+        if n_cpus:
+            num_processes = n_cpus
+        else: 
+            num_processes = self.n_cpus
+
+        with mp.Pool(processes=num_processes) as pool:
+            print('Running with {} processes\n'.format(num_processes), flush=True)
+            for result in pool.starmap(resHD2D.closure_ingredients_task, args_for_pool):
+                keys, values, grid_idxs = result
+                # if self.filter_vars['U_success'][tuple(grid_idxs)]: #this check is in practice always True
+                for idx, key in enumerate(keys):
+                    try:
+                        self.meso_vars[key]
+                    except KeyError:
+                        print('The key {} does not belong to meso_vars yet, adding it!'.format(key), flush=True)
+                        shape = values[idx].shape
+                        self.meso_vars.update({key : np.zeros(([Nt,Nx,Ny]+ list(shape)))})
+                    finally: 
+                        self.meso_vars[key][tuple(grid_idxs)] = values[idx]
 
     def EL_style_closure_gridpoint(self, h, i, j):
         """
@@ -1940,7 +2097,7 @@ class resHD2D(object):
         transformed_shear = np.einsum('ji,jk,kl', pi_eigv, self.meso_vars['shear_tilde'][h,i,j], pi_eigv)
         abs_pi_eig = np.abs(pi_eig)
         pos = list(abs_pi_eig).index(np.max(abs_pi_eig))
-        eta = eta * np.sign(pi_eig[-1] / transformed_shear[pos,pos])
+        eta = eta * np.sign(pi_eig[pos] / transformed_shear[pos,pos])
         coefficients_names.append('eta')
         coefficients.append(eta)
 
@@ -1977,7 +2134,134 @@ class resHD2D(object):
                                 self.meso_vars.update({key: np.zeros(([Nt, Nx, Ny] + list(shape)))})
                             finally: 
                                     self.meso_vars[key][h,i,j] = values[idx]
-                    
+
+    @staticmethod
+    def EL_style_closure_task(Pi_res, exp, pi_res, shear, q_res, Theta, h, i, j):
+        """
+        Task for computing the effective dissipative coefficients at all gridpoint 
+        in parallel
+
+        Parameters:
+        -----------
+        Pi_res: float
+            Pressure residual using meso EoS
+
+        exp: float
+            the Favre expansion rate 
+
+        pi_res: np.array (3,3)
+            the residual anisotropic stresses (should be trace-free)
+
+        shear: np.array (3,3)
+            the shear matrix computed from Favre obs derivatives
+        
+        q_res: np.array (3,)
+            the residual heat-flux
+        
+        Theta: np.array (3,)
+            the temperature spatial gradients with acceleration term
+
+        h,i,j: integers
+            grid indixes corresponding to point on grid
+
+        Return: 
+        -------
+        (coeff names, coeff, [h,i,j])
+            
+        """
+        coefficients_names=[]
+        coefficients=[]
+
+        metric = np.zeros((3,3))
+        metric[0,0] = -1
+        metric[1,1] = metric[2,2] = +1
+
+        # CALCULATING BULK VISCOUS COEFF
+        zeta = Pi_res / exp 
+        coefficients_names.append('zeta')
+        coefficients.append(zeta)
+
+        # CALCULATING SHEAR VISCOUS COEFF
+        pi_res_sq = np.einsum('ij,kl,ik,jl->', pi_res, pi_res, metric, metric)
+        shear_sq = np.einsum('ij,kl,ik,jl->', shear, shear, metric, metric)
+        eta = pi_res_sq/shear_sq
+        # Compute sign of eta by looking at the PA of pi_res with higher eigenvalue. 
+        # Change shear to the eigenbasis of pi_res (using that the matrix is unitary as pi_res is sym)
+        pi_eig, pi_eigv = np.linalg.eigh(pi_res)
+        transformed_shear = np.einsum('ji,jk,kl', pi_eigv, shear, pi_eigv)
+        abs_pi_eig = np.abs(pi_eig)
+        pos = list(abs_pi_eig).index(np.max(abs_pi_eig))
+        eta = eta * np.sign(pi_eig[pos] / transformed_shear[pos,pos])
+        coefficients_names.append('eta')
+        coefficients.append(eta)
+
+        # CALCULATING THE HEAT CONDUCTIVITIY
+        q_res_sq = np.einsum('i,ij,j', q_res, metric, q_res)
+        Theta_sq = np.einsum('i,ij,j', Theta, metric, Theta)
+        cos_angle = np.einsum('i,ij,j', q_res, metric, Theta) / (q_res_sq * Theta_sq)
+        sign = np.sign(cos_angle)
+        kappa = sign * np.sqrt(q_res_sq / Theta_sq)
+        coefficients_names.append('kappa')
+        coefficients.append(kappa)
+        
+        return coefficients_names, coefficients, [h,i,j]
+
+    def EL_style_closure_parallel(self, n_cpus=None):
+        """
+        Routine to launch EL_style_closure_task in parallel across multiple gridpoints
+
+        Parameters:
+        -----------
+        n_cpus: int
+            if not passed, the value set upon construction is used
+
+        Notes:
+        ------
+        worth thinking about merging this with decompose_structures_task and closure_ingredients_task? 
+        could compute just u_t at all points, so to be able to take derivatives of it
+        Then since you're accesing a single point, you could decompose, compute ingredients and extract coeff
+        in one go. Might give you a speed up: the loop for preparning arguments for pool is done once
+        and not twice/thrice, and the processes are opened/closed half the times. 
+        """
+        args_for_pool=[]
+
+        Nt = self.domain_vars['Nt']
+        Nx = self.domain_vars['Nx']
+        Ny = self.domain_vars['Ny']
+
+
+        for h in range(Nt):
+            for i in range(Nx):
+                for j in range(Ny):
+                    Pi_res = self.meso_vars['Pi_res'][h,i,j]
+                    pi_res = self.meso_vars['pi_res'][h,i,j]
+                    q_res = self.meso_vars['q_res'][h,i,j]
+                    exp_t = self.meso_vars['exp_tilde'][h,i,j]
+                    shear_t = self.meso_vars['shear_tilde'][h,i,j]
+                    Theta_t = self.meso_vars['Theta_tilde'][h,i,j]
+
+                    args_for_pool.append((Pi_res, exp_t, pi_res, shear_t, q_res, Theta_t, h,i,j))
+
+        num_processes = 0
+        if n_cpus:
+            num_processes = n_cpus
+        else: 
+            num_processes = self.n_cpus
+
+        with mp.Pool(processes=num_processes) as pool: 
+            for result in pool.starmap(resHD2D.EL_style_closure_task, args_for_pool):
+                keys, values, grid_idxs = result
+                # if self.filter_vars['U_success'][tuple(grid_idxs)]: #this check is in practice always True
+                for idx, key in enumerate(keys):
+                    try:
+                        self.meso_vars[key]
+                    except KeyError:
+                        print('The key {} does not belong to meso_vars yet, adding it!'.format(key), flush=True)
+                        shape = values[idx].shape
+                        self.meso_vars.update({key : np.zeros(([Nt,Nx,Ny]+ list(shape)))})
+                    finally: 
+                        self.meso_vars[key][tuple(grid_idxs)] = values[idx]
+
     def EL_style_closure_regression(self, CoefficientAnalysis):
         """
         Takes in a list of correlation quantities (strings? The regressors needed are computed 
@@ -2037,6 +2321,7 @@ class resHD2D(object):
 if __name__ == '__main__':
 
 
+
     ########################################################
     # TESTING SERIAL IMPLEMENTATION
     ######################################################## 
@@ -2083,7 +2368,7 @@ if __name__ == '__main__':
 
 
     # ########################################################
-    # # TESTING PARALLEL IMPLEMENTATION FOR FINDING OBS AND FILTER
+    # # TESTING PARALLEL IMPLEMENTATION: find obs + filter
     # ######################################################## 
     # FileReader = METHOD_HDF5('../Data/test_res100/')
     # micro_model = IdealHD_2D()
@@ -2154,7 +2439,7 @@ if __name__ == '__main__':
     # set up meso model and grid
     find_obs = FindObs_root_parallel(micro_model, 0.001)
     filter = box_filter_parallel(micro_model, 0.003)
-    meso_model = resHD2D(micro_model, find_obs, filter, local_or_slurm=False)
+    meso_model = resHD2D(micro_model, find_obs, filter, local_or_slurm=True)
     meso_model.setup_meso_grid([t_range, x_range, y_range])
 
     num_points = meso_model.domain_vars['Nt'] * meso_model.domain_vars['Nx'] * meso_model.domain_vars['Ny']

@@ -1,6 +1,7 @@
 import sys
-# import os
-sys.path.append('/home/tc2m23/Filtering/master_files/')
+import os
+sys.path.append('/home/hidra2/celora/Filtering/master_files/')
+# sys.path.append('/home/tc2m23/Filtering/master_files/')
 import pickle
 import time 
 
@@ -13,7 +14,8 @@ if __name__ == '__main__':
    
   # READING MICRO DATA FORM PICKLE
   CPU_start_time = time.perf_counter()
-  directory = "/scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/pickled_files/800X800/"
+  # directory = "/scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/pickled_files/800X800/"
+  directory = "/home/hidra2/celora/Data/KHIrandom/ideal_HD/ET_1_3.5_0.5/20dx/pickled_files/800X800_smaller/"
   ET=str(sys.argv[1])
   MicroModelPickleLoadFile = directory + "HD_2D_ET_"+ET+"_micro.pickle"
 
@@ -27,8 +29,8 @@ if __name__ == '__main__':
   num_snaps = 21
   central_slice_num = int(num_snaps/2)
   t_bdrs = [micro_model.domain_vars['t'][central_slice_num-1], micro_model.domain_vars['t'][central_slice_num+1]]
-  x_bdrs = [0.02, 0.98]
-  y_bdrs = [0.02, 0.98]
+  x_bdrs = [0.2, 0.25]
+  y_bdrs = [0.2, 0.25]
   # t_bdrs = [micro_model.domain_vars['t'][central_slice_num], micro_model.domain_vars['t'][central_slice_num]]
   # x_bdrs = [0.2, 0.25]
   # y_bdrs = [0.2, 0.25]
@@ -40,7 +42,7 @@ if __name__ == '__main__':
   width = width_ratio * micro_model.domain_vars['dx']
   find_obs = FindObs_root_parallel(micro_model, box_len)
   filter = box_filter_parallel(micro_model, width)
-  meso_model = resHD2D(micro_model, find_obs, filter)
+  meso_model = resHD2D(micro_model, find_obs, filter, local_or_slurm=False)
   meso_model.setup_meso_grid([t_bdrs, x_bdrs, y_bdrs])
 
   num_points = meso_model.domain_vars['Nx'] * meso_model.domain_vars['Ny'] * meso_model.domain_vars['Nt']
@@ -57,10 +59,11 @@ if __name__ == '__main__':
 
 
   # FILTERING WITH DIFFERENT WIDTHS
-  filter_width_ratios = [2., 4., 8.]
-  # filter_width_ratios = [2.]
+  # filter_width_ratios = [2., 4., 8.]
+  filter_width_ratios = [8.]
   filter = meso_model.filter
-  saving_directory = "/scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/pickled_files/800X800/"
+  # saving_directory = "/scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/pickled_files/800X800/"
+  saving_directory = "/home/hidra2/celora/Data/KHIrandom/ideal_HD/ET_1_3.5_0.5/20dx/pickled_files/800X800_smaller/"
 
   for i in range(len(filter_width_ratios)):
     # filtering in parallel
@@ -71,7 +74,7 @@ if __name__ == '__main__':
     print('Parallel filtering stage ended (fw= {}): time taken= {}\n'.format(int(filter_width_ratios[i]), time_taken))
 
     # Now saving the output
-    filename = "resHD_2D_ET_" + ET + "_FW_{}dx.pickle".format(int(filter_width_ratios[i]))
+    filename = "rHD_2D_ET_" + ET + "_FW_{}dx_x=" + str(x_bdrs) + "_y="+ str(y_bdrs) +".pickle".format(int(filter_width_ratios[i]))
     MesoModelPickleDumpFile = saving_directory+filename
     with open(MesoModelPickleDumpFile, 'wb') as filehandle:
        pickle.dump(meso_model, filehandle)

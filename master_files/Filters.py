@@ -975,7 +975,6 @@ class FindObs_root_parallel(object):
         spatial_dims = self.micro_model.get_spatial_dims()
         L = self.L
         args_for_pool = [ [points[i], i] for i in range(len(points))]
-        
         init = FindObs_root_parallel.initializer
         initargs = (spatial_dims, L)
 
@@ -1546,7 +1545,7 @@ if __name__ == '__main__':
     result, failed = find_obs_parallel.find_observers_parallel(points, n_cpus)
     print('Number of points failed: {}'.format(len(failed)))
     parallel_time = time.perf_counter() - start_time
-    print('Parallel time: {}\n'.format(parallel_time))
+    print('Finished finding observers. Parallel time: {}\n'.format(parallel_time))
     # print('Speed-up factor: {}\n'.format(serial_time/parallel_time))
 
 
