@@ -1106,7 +1106,7 @@ class resHD2D(object):
     """
     CUT AND PAST OF resMHD_2D --> removing the magnetic bits
     """
-    def __init__(self, micro_model, find_obs, filter, interp_method = 'linear', local_or_slurm = True):
+    def __init__(self, micro_model, find_obs, filter, interp_method = 'linear'):
         """
         ADD DESCRIPTION OF THIS
         """
@@ -1115,11 +1115,6 @@ class resHD2D(object):
         self.filter = filter
         self.spatial_dims = 2
         self.interp_method = interp_method
-
-        if local_or_slurm:
-            self.n_cpus = int(os.cpu_count())
-        else:
-            self.n_cpus = int(os.environ['SLURM_CPUS_PER_TASK'])
 
         self.domain_int_strs = ('Nt','Nx','Ny')
         self.domain_float_strs = ("Tmin","Tmax","Xmin","Xmax","Ymin","Ymax","Dt","Dx","Dy")
@@ -1170,13 +1165,12 @@ class resHD2D(object):
 
         # dictionary with non-local quantities (keys must match one of meso_vars or structure)
         self.nonlocal_vars_strs = ['u_tilde', 'T_tilde'] 
-        # self.nonlocal_vars_strs = ['u_tilde', 'Fab'] 
         Dstrs = ['D_' + i for i in self.nonlocal_vars_strs]
         self.deriv_vars = dict.fromkeys(Dstrs)
 
         # Additional, closure-scheme specific vars must be added appropriately using model_residuals()
-
         # self.all_var_strs = self.meso_vars_strs  + Dstrs + self.meso_structures_strs
+
         # Run some compatibility test... 
         compatible = True
         error = ''
@@ -1196,12 +1190,6 @@ class resHD2D(object):
 
     def set_filter(self, filter):
         self.filter = filter
-
-    def set_n_cps(self, n_cpus):
-        """
-        Set the number of processes to run in parallel on. 
-        """
-        self.n_cpus = n_cpus
 
     def get_all_var_strs(self): 
         return list(self.meso_vars.keys())  + list(self.deriv_vars.keys()) + list(self.meso_structures.keys()) + \
@@ -1455,7 +1443,7 @@ class resHD2D(object):
                         # No need to update the dictionary as this has been initialized to False everywhere. 
                         print('Careful: obs could not be found at: ', self.domain_vars['Points'][h][i][j])
 
-    def find_observers_parallel(self, n_cpus = None):
+    def find_observers_parallel(self, n_cpus):
         """
         Method to find observers at all points on meso-grid, parallelized version. 
         The observers found (and relative errors) are saved in the dictionary self.filter_vars.
@@ -1466,8 +1454,7 @@ class resHD2D(object):
         -----------
 
         n_cpus: int
-            If not passed explicitely this is set to self.n_cpus (initalized upon 
-            construction)
+            number of processes to run in parallel 
 
         Notes:
         ------
@@ -1490,13 +1477,7 @@ class resHD2D(object):
         for elem in product(t_idxs, x_idxs, y_idxs):
             indices_meso_grid.append(elem)
 
-        num_processes = 0
-        if n_cpus:
-            num_processes = n_cpus
-        else: 
-            num_processes = self.n_cpus
-            
-        successes, failures = self.find_obs.find_observers_parallel(points, num_processes)
+        successes, failures = self.find_obs.find_observers_parallel(points, n_cpus)
 
         for i in range(len(successes[0])):
             point_indxs_meso_grid = indices_meso_grid[successes[0][i]]
@@ -1536,7 +1517,7 @@ class resHD2D(object):
                     else: 
                         print('Could not filter at {}: observer not found.'.format(point))
 
-    def filter_micro_vars_parallel(self, n_cpus = None):
+    def filter_micro_vars_parallel(self, n_cpus):
         """
         Filter all meso_model structures AND micro pressure. 
         Routine will try and filter at all points on the meso-grid. 
@@ -1550,8 +1531,7 @@ class resHD2D(object):
         -----------
 
         n_cpus: int
-            If not passed explicitely this is set to self.n_cpus (initalized upon 
-            construction)
+            number of processes for parallelization
 
         Notes:
         ------
@@ -1586,14 +1566,8 @@ class resHD2D(object):
         args_for_filtering_parallel = []
         for i in range(len(points)):
             args_for_filtering_parallel.append([points[i], observers[i], vars])
-
-        num_processes = 0
-        if n_cpus:
-            num_processes = n_cpus
-        else: 
-            num_processes = self.n_cpus
             
-        positions, filtered_vars = self.filter.filter_vars_parallel(args_for_filtering_parallel, num_processes)
+        positions, filtered_vars = self.filter.filter_vars_parallel(args_for_filtering_parallel, n_cpus)
         for i in range(len(positions)):
             point_indxs_meso_grid = indices_meso_grid[positions[i]]
             self.meso_structures['BC'][point_indxs_meso_grid] = filtered_vars[i][0]
@@ -1741,7 +1715,7 @@ class resHD2D(object):
     
         return [n_t, u_t, eps_t, q_a, s_ab_tracefree, p_t, Pi_res, EOS_res, T_t], [h,i,j]
 
-    def decompose_structures_parallel(self, n_cpus = None):
+    def decompose_structures_parallel(self, n_cpus):
         """
         Routine to decompose structures on the entire grid in 
         parallel. 
@@ -1749,7 +1723,7 @@ class resHD2D(object):
         Parameters:
         -----------
         n_cpus: int
-            If not passed explicitely, the value set upon construction is used
+            numbers of processes for parallelization
         """
         # Preparing arguments for pool 
         args_for_pool=[]
@@ -1761,14 +1735,8 @@ class resHD2D(object):
                     p_filt = self.meso_vars['p_filt'][h,i,j]
                     args_for_pool.append((BC, SET, p_filt, h,i,j))
 
-        num_processes = 0
-        if n_cpus:
-            num_processes = n_cpus
-        else: 
-            num_processes = self.n_cpus
-
-        with mp.Pool(processes=num_processes) as pool:
-            print('Running with {} processes\n'.format(num_processes), flush=True)
+        with mp.Pool(processes=n_cpus) as pool:
+            print('Running with {} processes\n'.format(n_cpus), flush=True)
             for result in pool.starmap(resHD2D.decompose_structures_task, args_for_pool):
                 h,i,j = result[1]
                 self.meso_vars['n_tilde'][h,i,j] = result[0][0]
@@ -2025,14 +1993,14 @@ class resHD2D(object):
         closure_vars = [shear_t, exp_t, acc_t, Theta_tilde]
         return closure_vars_strs, closure_vars, [h,i,j]
 
-    def closure_ingredients_parallel(self, n_cpus=None):
+    def closure_ingredients_parallel(self, n_cpus):
         """
         Routine to compute and store the closure ingredients at all gridpoints in parallel
 
         Parameters:
         -----------
         n_cpus: int
-            If not passed explicitely, the value set upon construction is used
+            number of processes for parallelization
 
         Notes: 
         ------
@@ -2052,14 +2020,8 @@ class resHD2D(object):
                     nabla_T = self.deriv_vars['D_T_tilde'][h,i,j]
                     args_for_pool.append((u_t, nabla_u, T_t, nabla_T, h, i, j))
 
-        num_processes = 0
-        if n_cpus:
-            num_processes = n_cpus
-        else: 
-            num_processes = self.n_cpus
-
-        with mp.Pool(processes=num_processes) as pool:
-            print('Running with {} processes\n'.format(num_processes), flush=True)
+        with mp.Pool(processes=n_cpus) as pool:
+            print('Running with {} processes\n'.format(n_cpus), flush=True)
             for result in pool.starmap(resHD2D.closure_ingredients_task, args_for_pool):
                 keys, values, grid_idxs = result
                 # if self.filter_vars['U_success'][tuple(grid_idxs)]: #this check is in practice always True
@@ -2206,14 +2168,15 @@ class resHD2D(object):
         
         return coefficients_names, coefficients, [h,i,j]
 
-    def EL_style_closure_parallel(self, n_cpus=None):
+    # this is to be modified
+    def EL_style_closure_parallel(self, n_cpus):
         """
         Routine to launch EL_style_closure_task in parallel across multiple gridpoints
 
         Parameters:
         -----------
         n_cpus: int
-            if not passed, the value set upon construction is used
+            number of processes for parallelization
 
         Notes:
         ------
@@ -2242,13 +2205,8 @@ class resHD2D(object):
 
                     args_for_pool.append((Pi_res, exp_t, pi_res, shear_t, q_res, Theta_t, h,i,j))
 
-        num_processes = 0
-        if n_cpus:
-            num_processes = n_cpus
-        else: 
-            num_processes = self.n_cpus
 
-        with mp.Pool(processes=num_processes) as pool: 
+        with mp.Pool(processes=n_cpus) as pool: 
             for result in pool.starmap(resHD2D.EL_style_closure_task, args_for_pool):
                 keys, values, grid_idxs = result
                 # if self.filter_vars['U_success'][tuple(grid_idxs)]: #this check is in practice always True
@@ -2433,8 +2391,8 @@ if __name__ == '__main__':
     micro_model.setup_structures()
 
     t_range = [1.502, 1.504]
-    x_range = [0.05, 0.15]
-    y_range = [0.05, 0.15]
+    x_range = [0.05, 0.55]
+    y_range = [0.05, 0.55]
 
     # set up meso model and grid
     find_obs = FindObs_root_parallel(micro_model, 0.001)

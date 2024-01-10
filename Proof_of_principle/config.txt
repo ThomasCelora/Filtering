@@ -1,8 +1,0 @@
-#Configuration file for job array
-JOB_ID ET 
-1 1.0
-2 1.5
-3 2.0 
-4 2.5
-5 3.0
-6 3.5 

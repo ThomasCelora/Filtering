@@ -980,7 +980,7 @@ class FindObs_root_parallel(object):
 
         with mp.Pool(initializer=init, initargs=initargs, processes=n_cpus) as pool:
         # with mp.Pool() as pool:
-            print('Running with {} processes\n'.format(n_cpus), flush=True)
+            print('Finding observers in parallel with {} processes\n'.format(n_cpus), flush=True)
             for result in pool.map(self.find_observer_Gauss, args_for_pool):
                 if (result[0] == True): 
                     success_pos.append(result[1])
@@ -1460,7 +1460,7 @@ class box_filter_parallel(object):
         initargs=(self.spatial_dims, self.filter_width)
 
         with mp.Pool(initializer=init, initargs=initargs, processes=n_cpus) as pool:
-            print('Running with {} processes\n'.format(n_cpus), flush=True)
+            print('Filtering in parallel with {} processes\n'.format(n_cpus), flush=True)
             for result in pool.map(self.filter_vars_point_gauss, args_for_pool):
                 position_in_list.append(result[0])
                 filtered_vars.append(result[1])
