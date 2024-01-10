@@ -1,7 +1,8 @@
 import sys
 # import os
-sys.path.append('/home/tc2m23/Filtering/master_files/')
-# sys.path.append('/Users/thomas/Dropbox/Work/projects/Filtering/master_files')
+sys.path.append('../master_files/')
+import configparser
+import json
 import pickle
 
 from FileReaders import *
@@ -10,51 +11,70 @@ from Visualization import *
 
 if __name__ == '__main__':
 
-    # READING DATA
-    # directory = "/scratch/tc2m23/KHIRandom/hydro/ET_1_2_2.5_3_3.5/10dx_after/pickled_files/400X400/"
-    directory = "/scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/pickled_files/800X800/"
-    ET=str(sys.argv[1])
-    # MicroModelLoadFile = directory + "IdealHD_2D_ET_" + ET+ "_micro.pickle"
-    MicroModelLoadFile = directory + "HD_2D_ET_" + ET+ "_micro.pickle"
+    # READING SIMULATION SETTINGS FROM CONFIG FILE
+    if len(sys.argv) == 1:
+        print(f"You must pass the configuration file for the simulations.")
+        raise Exception()
     
+    config = configparser.ConfigParser()
+    config.read(sys.argv[1])
 
-    with open(MicroModelLoadFile, 'rb') as filehandle: 
-        micro_model = pickle.load(filehandle)
+    # LOADING MICRO DATA FROM HDF5 OR PICKLE
+    micro_from_hdf5 = True
 
-    # setting up ranges, picking central slice and choosing saving folder
-    ranges = [0.01, 0.99]
+    if micro_from_hdf5:
+        hdf5_directory = config['Directories']['hdf5_dir']
+        filenames = hdf5_directory 
+        FileReader = METHOD_HDF5(filenames)
+        num_snaps = FileReader.num_files
+        micro_model = IdealHD_2D()
+        FileReader.read_in_data_HDF5_missing_xy(micro_model)
+        micro_model.setup_structures()
+        print('Finished reading micro data from hdf5, structures also set up.')
+
+    else: 
+        pickle_directory = config['Directories']['pickled_files_dir']
+        micro_pickled_filename = config['Filenames']['micro_pickled_filename']
+        MicroModelLoadFile = pickle_directory + micro_pickled_filename
+        with open(MicroModelLoadFile, 'rb') as filehandle: 
+            micro_model = pickle.load(filehandle)
+
+    # PLOT SETTINGS
+    plot_ranges = json.loads(config['Plot_settings']['plot_ranges'])
+    x_range = plot_ranges['x_range']
+    y_range = plot_ranges['y_range']
+
+    num_snaps = micro_model.domain_vars['nt']
+    central_slice_num = int(num_snaps/2.)
+    plot_time = micro_model.domain_vars['t'][central_slice_num]
+
+    saving_directory = config['Directories']['figures_dir']
     visualizer = Plotter_2D([11.97, 8.36])
-    # num_snaps = 11
-    num_snaps = 21
-    central_slice = int(num_snaps/2)
-    print("Plotting data from central slice, num: {}".format(central_slice))
-    # saving_directory = "/scratch/tc2m23/KHIRandom/hydro/ET_1_2_2.5_3_3.5/10dx_after/Figures/400X400/"
-    saving_directory = "/scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/Figures/800X800/"
 
-
+    # FINALLY, PLOTTING
     # Plotting the baryon current
     vars = ['BC', 'BC', 'BC', 'n', 'W', 'vx']
     components = [(0,), (1,), (2,), (), (), ()]
-    fig=visualizer.plot_vars(micro_model, vars, micro_model.domain_vars['t'][central_slice], ranges, ranges, components_indices = components)
+    fig=visualizer.plot_vars(micro_model, vars, plot_time, x_range, y_range, components_indices = components)
     fig.tight_layout()
-    # plt.show()
-    filename = "micro_ET_"+ET+"_BC.pdf"
+    time_for_filename = str(round(plot_time,2))
+    filename = "/micro_ET_" + time_for_filename + "_BC.pdf"
     plt.savefig(saving_directory + filename, format = "pdf")
 
     # Plotting the stress energy tensor
     vars = ['SET', 'SET', 'SET', 'SET', 'SET', 'SET']
     components = [(0,0), (0,1), (0,2), (1,1), (1,2), (2,2)]
-    fig=visualizer.plot_vars(micro_model, vars, micro_model.domain_vars['t'][central_slice], ranges, ranges, components_indices = components)
+    fig=visualizer.plot_vars(micro_model, vars, plot_time, x_range, y_range, components_indices = components)
     fig.tight_layout()
-    # plt.show()
-    filename = "micro_ET_"+ET+"_SET.pdf"
+    time_for_filename = str(round(plot_time,2))
+    filename = "/micro_ET_" + time_for_filename + "_SET.pdf"
     plt.savefig(saving_directory + filename, format = "pdf")
 
     # plotting primitive quantities
     vars = ['W', 'vx', 'vy', 'n', 'p', 'e']
-    fig=visualizer.plot_vars(micro_model, vars, micro_model.domain_vars['t'][central_slice], ranges, ranges)
+    fig=visualizer.plot_vars(micro_model, vars, plot_time, x_range, y_range)
     fig.tight_layout()
-    # plt.show()
-    filename = "micro_ET_"+ET+"_prims.pdf"
+    time_for_filename = str(round(plot_time,2))
+    filename = "/micro_ET_" + time_for_filename + "_prims.pdf"
     plt.savefig(saving_directory + filename, format = "pdf")
 

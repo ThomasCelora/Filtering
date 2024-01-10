@@ -1,8 +1,9 @@
 import sys
 # import os
-sys.path.append('/home/tc2m23/Filtering/master_files/')
-# sys.path.append('/Users/thomas/Dropbox/Work/projects/Filtering/master_files')
+sys.path.append('../master_files/')
 import pickle
+import configparser
+import json
 
 from FileReaders import *
 from MicroModels import *
@@ -12,103 +13,62 @@ from Visualization import *
 if __name__ == '__main__':
 
     ###############################################################
-    # PRODUCE MANY DIFF PLOTS TO COMPARE MICRO AND MESO AT DIFFERENT
-    # ENDTIME AND DIFFERENT WIDTHS. FOR EACH PLOT THE DIFFERENCE 
-    # (ABSOLUTE AND RELATIVE). 
+    # PRODUCE PLOTS TO COMPARE MICRO AND MESO MODELS
+    # FOR EACH PLOT THE DIFFERENCE (ABSOLUTE AND RELATIVE). 
     ###############################################################
+    
+    # READING SIMULATION SETTINGS FROM CONFIG FILE
+    if len(sys.argv) == 1:
+        print(f"You must pass the configuration file for the simulations.")
+        raise Exception()
+    
+    config = configparser.ConfigParser()
+    config.read(sys.argv[1])
+    
+    # LOADING MESO AND MICRO MODELS 
+    pickle_directory = config['Directories']['pickled_files_dir']
+    meso_pickled_filename = config['Filenames']['meso_pickled_filename']
 
-    # Loading the models
-    directory = "/scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/pickled_files/800X800/"
-    ET = sys.argv[1]
-    MicroModelLoadFile = directory + "HD_2D_ET_" + ET + "_micro.pickle"
-    with open(MicroModelLoadFile, 'rb') as filehandle:
-        micro_model = pickle.load(filehandle)
+    MesoModelLoadFile = pickle_directory + meso_pickled_filename
+    with open(MesoModelLoadFile, 'rb') as filehandle: 
+        meso_model = pickle.load(filehandle)
 
-    num_snaps = 21
+    micro_model = meso_model.micro_model
+
+    # CHECKING WE ARE COMPARING DATA FROM THE SAME TIME-SLICE
+    num_snaps = micro_model.domain_vars['nt']
     central_slice_num = int(num_snaps/2.)
     time_micro = micro_model.domain_vars['t'][central_slice_num]
+    time_meso = meso_model.domain_vars['T'][1] #Change this if meso_grid is not set up using three central micro_slices
+    if time_meso != time_micro:
+        print("Slices of meso and micro model do not coincide. Careful!")
+    else: 
+        print("Comparing data at same time-slice, hurray!")
 
-    # saving_directory = "/scratch/tc2m23/KHIRandom/hydro/ET_1_2_2.5_3_3.5/10dx_after/Figures/400X400/"
-    saving_directory = "/scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/Figures/800X800/"
+    # PLOT SETTINGS
+    plot_ranges = json.loads(config['Plot_settings']['plot_ranges'])
+    x_range = plot_ranges['x_range']
+    y_range = plot_ranges['y_range']
+    saving_directory = config['Directories']['figures_dir']
+    visualizer = Plotter_2D([11.97, 8.36])
 
-    FW = ['2', '4', '8']
-    for fw in FW:
-        MesoModelLoadFile = directory + "resHD_2D_ET_" + ET + "_FW_"+ fw +"dx.pickle"
-        with open(MesoModelLoadFile, 'rb') as filehandle: 
-            meso_model = pickle.load(filehandle)
+    # FINALLY PLOTTING
+    vars = [['BC', 'SET'], ['BC', 'SET']]
+    models = [micro_model, meso_model]
+    components = [[(0,), (0,0)], [(0,), (0,0)]]
+    fig=visualizer.plot_vars_models_comparison(models, vars, time_meso, x_range, y_range, components_indices = components, diff_plot=True, rel_diff=True)
+    fig.tight_layout()
+    time_for_filename = str(round(time_meso,2))
+    filter_width = str(config['Figures_name_param']['filter_width'])
+    filename = "/ET_"+ time_for_filename+ "_fw_" + filter_width + "_scaling.pdf"
+    plt.savefig(saving_directory + filename, format = 'pdf')
 
-        meso_central_slice = 1
-        time_meso = meso_model.domain_vars['T'][meso_central_slice]
-        if time_meso != time_micro:
-            print("Slices of meso and micro model do not coincide. Careful!")
-        else: 
-            print("Comparing data at same time-slice, hurray!")
-
-        ranges_x = [0.02, 0.98]
-        ranges_y = [0.02, 0.98]
-        visualizer = Plotter_2D([11.97, 8.36])
-
-        ######################################################
-        # CODE BLOCKS TO VISUALIZE SEPARATE QUANTITIES
-        ###################################################### 
-        # # Plot for baryon current
-        # vars = [['BC', 'BC', 'BC'], ['BC', 'BC', 'BC']]
-        # models = [micro_model, meso_model]
-        # components = [[(0,), (1,), (2,)], [(0,), (1,), (2,)]]
-        # fig=visualizer.plot_vars_models_comparison(models, vars, time_meso, ranges_x, ranges_y, components_indices = components, diff_plot=True, rel_diff=True)
-        # fig.tight_layout()
-        # # plt.show()
-        # filename = "comparing_BC_ET_" + ET + "_FW_"+ fw + ".svg"
-        # plt.savefig(saving_directory + filename, format = "svg")
-
-
-        # # # Plots for SET - diag and off-diagonal
-        # vars = [['SET', 'SET', 'SET'], ['SET', 'SET', 'SET']]
-        # models = [micro_model, meso_model]
-        # components = [[(0,0), (1,1), (2,2)], [(0,0), (1,1), (2,2)]]
-        # fig=visualizer.plot_vars_models_comparison(models, vars, time_meso, ranges_x, ranges_y, components_indices = components, diff_plot=True, rel_diff=True)
-        # fig.tight_layout()
-        # # plt.show()
-        # filename = "comparing_SET_diagonal" + ET + "_FW_"+ fw + ".svg" 
-        # plt.savefig(saving_directory + filename, format = "svg")
-
-        # # vars = [['SET', 'SET', 'SET'], ['SET', 'SET', 'SET']]
-        # models = [micro_model, meso_model]
-        # components = [[(0,1), (0,2), (1,2)], [(0,1), (0,2), (1,2)]]
-        # fig=visualizer.plot_vars_models_comparison(models, vars, time_meso, ranges_x, ranges_y, components_indices = components, diff_plot=True, rel_diff=True)
-        # fig.tight_layout()
-        # # plt.show()
-        # filename = "comparing_SET_off_diag" + ET + "_FW_"+ fw + ".svg" 
-        # plt.savefig(saving_directory + filename, format = "svg")
-
-
-        # # Plots to compare observer with Favre-velocity (need to decompose structures first!)
-        # meso_model.decompose_structures()
-        # vars = [['U', 'U', 'U'], ['u_tilde', 'u_tilde', 'u_tilde']]
-        # models = [meso_model, meso_model]
-        # components = [[(0,), (1,), (2,)], [(0,), (1,), (2,)]]
-        # fig=visualizer.plot_vars_models_comparison(models, vars, time_meso, ranges_x, ranges_y, components_indices = components, diff_plot=True, rel_diff=True)
-        # fig.tight_layout()
-        # filename = "comparing_obs_VS_Favre" + ET + "_FW_" + fw + ".svg"
-        # plt.savefig(saving_directory + filename, format = 'svg')
-
-
-        ######################################################
-        # CODE FOR SUMMARY PLOTS
-        ###################################################### 
-        vars = [['BC', 'SET'], ['BC', 'SET',]]
-        models = [micro_model, meso_model]
-        components = [[(0,), (0,0)], [(0,), (0,0)]]
-        fig=visualizer.plot_vars_models_comparison(models, vars, time_meso, ranges_x, ranges_y, components_indices = components, diff_plot=True, rel_diff=True)
-        fig.tight_layout()
-        filename = "ET_"+ ET+ "_fw_" + fw + "_scaling.pdf"
-        plt.savefig(saving_directory + filename, format = 'pdf')
-
-        vars = [['BC', 'SET'], ['BC', 'SET',]]
-        models = [micro_model, meso_model]
-        components = [[(2,), (0,2)], [(2,), (0,2)]]
-        fig=visualizer.plot_vars_models_comparison(models, vars, time_meso, ranges_x, ranges_y, components_indices = components, diff_plot=True, rel_diff=True)
-        fig.tight_layout()
-        filename = "ET_"+ ET+ "_fw_" + fw + "_not_scaling.pdf"
-        plt.savefig(saving_directory + filename, format = 'pdf')
-    
+    vars = [['BC', 'SET'], ['BC', 'SET',]]
+    models = [micro_model, meso_model]
+    components = [[(2,), (0,2)], [(2,), (0,2)]]
+    fig=visualizer.plot_vars_models_comparison(models, vars, time_meso, x_range, y_range, components_indices = components, diff_plot=True, rel_diff=True)
+    fig.tight_layout()
+    time_for_filename = str(round(time_meso,2))
+    filter_width = str(config['Figures_name_param']['filter_width'])
+    filename = "/ET_"+ time_for_filename+ "_fw_" + filter_width + "_not_scaling.pdf"
+    plt.savefig(saving_directory + filename, format = 'pdf')
