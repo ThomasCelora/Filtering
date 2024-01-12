@@ -1702,9 +1702,9 @@ class resHD2D(object):
         # Computing the SET decomposition at each point
         eps_t = np.einsum('i,j,ik,jl,kl', u_t, u_t, metric, metric, SET)
         h_ab = np.einsum('ij,jk->ik', metric + np.einsum('i,j->ij', u_t, u_t), metric) # This is a rank (1,1) tensor, i.e. a real projector.
-        q_a = np.einsum('ij,jk,kl,l->i', h_ab, SET, metric, u_t) # There might be missing a minus sign here
-        s_ab = np.einsum('ij,kl,jl->ik',h_ab, h_ab, SET)
-        s = np.einsum('ii',s_ab)
+        q_a = - np.einsum('ij,jk,kl,l->i', h_ab, SET, metric, u_t) 
+        s_ab = np.einsum('ij,kl,jl->ik', h_ab, h_ab, SET)
+        s = np.einsum('ij,ji->', s_ab, metric) 
         p_t = resHD2D.p_Gamma_law(eps_t, n_t, 4.0/3.0) 
 
         # Additional quantities needed for residuals
