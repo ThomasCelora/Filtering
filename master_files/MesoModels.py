@@ -1970,7 +1970,8 @@ class resHD2D(object):
 
         # CLOSURE INGREDIENTS: FAVRE OBS DERIVATIVE DECOMPOSITION - WORKING WITH (2,0)
         # The decomposition below is exact if certain algebraic constraints are satisfied, which they won't be
-        # due to numerical errors. Nonetheless, it appears the only quantity you need to correct is the acceleration
+        # due to numerical errors. 
+        # However, it appears the only quantity to be corrected is the acceleration
         u_t_cov = np.einsum('ij,j->i', metric, u_t)
         nabla_u = np.einsum('ij,jk->ik', metric, nabla_u) #this is a rank (2,0) tensor
         acc_t = np.einsum('i,ij', u_t_cov, nabla_u) # vector
@@ -1988,8 +1989,7 @@ class resHD2D(object):
         shear_t = np.multiply(1/2., Daub + np.einsum('ij->ji', Daub)) - np.multiply( exp_t/ spatial_dims, h_ab) 
         vort_t = np.multiply(1/2., Daub - np.einsum('ij->ji', Daub))
 
-        # The following lines should be used in case the deviations from the algebraic constraints being zero 
-        # become too large
+        # #The following should be used if the violation of the algebraic constraints become too large
         # Daub = np.einsum('ij,kl,jl->ik', projector, projector, nabla_u)
         # orthogonality_violation_1 = np.einsum('i,ij->j', u_t_cov, Daub)
         # orthogonality_violation_2 = np.einsum('ij,j->i', Daub, u_t_cov)
