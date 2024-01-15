@@ -55,7 +55,7 @@ if __name__ == '__main__':
     num_points = meso_model.domain_vars['Nx'] * meso_model.domain_vars['Ny'] * meso_model.domain_vars['Nt']
     print('Number of points: {}'.format(num_points))
 
-    # FINDING THE OBSERVERS AND FILTERING, THEN PICKLE SAVE
+    # FINDING THE OBSERVERS AND FILTERING
     n_cpus = int(config['Meso_model_settings']['n_cpus'])
 
     start_time = time.perf_counter()
@@ -68,6 +68,26 @@ if __name__ == '__main__':
     time_taken = time.perf_counter() - start_time
     print('Parallel filtering stage ended (fw= {}): time taken= {}\n'.format(int(filter_width_ratio), time_taken))
 
+
+    # DECOMPOSING AND CALCULATING THE CLOSURE INGREDIENTS
+    start_time = time.perf_counter()
+    meso_model.decompose_structures_parallel(n_cpus)
+    time_taken = time.perf_counter() - start_time
+    print('Finished decomposing meso structures in parallel, time taken: {}'.format(time_taken))
+
+
+    start_time = time.perf_counter()
+    meso_model.calculate_derivatives()
+    time_taken = time.perf_counter() - start_time
+    print('Finished computing derivatives (serial), time taken: {}'.format(time_taken))
+
+    start_time = time.perf_counter()
+    meso_model.closure_ingredients_parallel(n_cpus)
+    time_taken = time.perf_counter() - start_time
+    print('Finished computing the closure ingredients in parallel, time taken: {}'.format(time_taken))
+
+
+    # PICKLING THE CLASS INSTANCE FOR FUTURE USE 
     pickled_directory = config['Directories']['pickled_files_dir']
     filename = config['Pickled_filenames']['meso_pickled'] + "_FW_" +str(int(filter_width_ratio)) + "dx" + ".pickle"
     MesoModelPickleDumpFile = pickled_directory + filename

@@ -8,4 +8,4 @@ filtering_options = {"box_len_ratio": 4.0, "filter_width_ratio": 8.0 }
 n_cpus = 40
 
 [Pickled_filenames]
-meso_pickled = /rHD2d_setup_small_ranges
+meso_pickled = /rHD2d_decomposed
