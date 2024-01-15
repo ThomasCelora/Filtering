@@ -1,11 +1,11 @@
 [Directories]
-hdf5_dir = /scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/METHOD_output/800X800/ET_1.0
-pickled_files_dir = ./tests
+hdf5_dir = /scratch/tc2m23/KHIRandom/hydro/ET_3_5_8_20dx/1600X1600/METHOD_output/ET_3.0
+pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/ET_3_5_8_20dx/1600X1600/pickled_files
 
 [Meso_model_settings]
-meso_grid = {"x_range": [0.2, 0.6], "y_range": [0.1, 0.4]}
-filtering_options = {"box_len_ratio": 4.0, "filter_width_ratio": 8.0 }
+meso_grid = {"x_range": [0.02, 0.98], "y_range": [0.2, 0.98]}
+filtering_options = {"box_len_ratio": 8.0, "filter_width_ratio": 8.0 }
 n_cpus = 40
 
 [Pickled_filenames]
-meso_pickled = /rHD2d_decomposed
+meso_pickled = /rHD2d_decomposed_ET_3.0
