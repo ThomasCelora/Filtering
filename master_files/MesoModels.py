@@ -1694,6 +1694,8 @@ class resHD2D(object):
         metric[0,0] = -1.
         metric[1,1] = metric[2,2] = 1.
 
+        spatial_dims = 2 
+
         # Computing the Favre density and velocity
         n_t = np.sqrt(-Base.Mink_dot(BC, BC))
         u_t = np.multiply(1./ n_t, BC)
@@ -1709,7 +1711,7 @@ class resHD2D(object):
 
         # Additional quantities needed for residuals
         Pi_res = s - p_t
-        s_ab_tracefree = s_ab - np.multiply(s/2., metric + np.einsum('i,j->ij', u_t, u_t)) 
+        s_ab_tracefree = s_ab - np.multiply(s/spatial_dims, metric + np.einsum('i,j->ij', u_t, u_t)) 
         T_t = p_t/n_t
         EOS_res = p_filt - p_t
     
@@ -1967,25 +1969,42 @@ class resHD2D(object):
         metric[1,1] = metric[2,2] = 1
 
         # CLOSURE INGREDIENTS: FAVRE OBS DERIVATIVE DECOMPOSITION - WORKING WITH (2,0)
+        # The decomposition below is exact if certain algebraic constraints are satisfied, which they won't be
+        # due to numerical errors. Nonetheless, it appears the only quantity you need to correct is the acceleration
         u_t_cov = np.einsum('ij,j->i', metric, u_t)
         nabla_u = np.einsum('ij,jk->ik', metric, nabla_u) #this is a rank (2,0) tensor
         acc_t = np.einsum('i,ij', u_t_cov, nabla_u) # vector
 
-        # The following two quantities should be identically zero, but they won't be due to numerical errors.
-        # Computing them and removing to project velocity gradients
-        unit_norm_violation = np.einsum('ij,j', nabla_u, u_t_cov) #vector
         acc_orthogonality_violation = np.einsum('i,i->', u_t_cov, acc_t)
-        Daub = nabla_u + np.einsum('i,j->ij', u_t, acc_t) + np.einsum('i,j->ij', unit_norm_violation, u_t) +\
-            np.multiply(acc_orthogonality_violation, np.einsum('i,j->ij', u_t, u_t)) #Should be a (2,0) tensor
-        h_ab = metric + np.einsum('i,j->ij', u_t, u_t)
-        exp_t = np.einsum('ii->',Daub)
-        shear_t = np.multiply(1/2., Daub + np.einsum('ij->ji', Daub)) - np.multiply( 1/spatial_dims * exp_t, h_ab) 
-        vort_t = np.multiply(1/2., Daub - np.einsum('ij->ji', Daub))
+        acc_t = acc_t + acc_orthogonality_violation * u_t 
 
-        # CLOSURE INGREDIENTS: HEAT FLUX 
         projector = np.zeros((3,3))
         np.fill_diagonal(projector, 1) 
-        projector += np.einsum('i,j->ij',u_t_cov, u_t)
+        projector += np.einsum('i,j->ij',u_t, u_t_cov)
+        h_ab = metric + np.einsum('i,j->ij', u_t, u_t) #Rank (2,0) tensor
+
+        Daub = np.einsum('ij,kl,jl->ik', projector, projector, nabla_u)
+        exp_t = np.einsum('ij,ji->', Daub, metric) 
+        shear_t = np.multiply(1/2., Daub + np.einsum('ij->ji', Daub)) - np.multiply( exp_t/ spatial_dims, h_ab) 
+        vort_t = np.multiply(1/2., Daub - np.einsum('ij->ji', Daub))
+
+        # The following lines should be used in case the deviations from the algebraic constraints being zero 
+        # become too large
+        # Daub = np.einsum('ij,kl,jl->ik', projector, projector, nabla_u)
+        # orthogonality_violation_1 = np.einsum('i,ij->j', u_t_cov, Daub)
+        # orthogonality_violation_2 = np.einsum('ij,j->i', Daub, u_t_cov)
+        # orthogonality_violation_3 = np.einsum('i,j,ij->', u_t_cov, u_t_cov, Daub)
+        # Daub = Daub + np.einsum('i,j->ij', u_t, orthogonality_violation_1) + np.einsum('i,j->ij', orthogonality_violation_2, u_t) + \
+        #     np.multiply(orthogonality_violation_3, np.einsum('i,j->ij', u_t, u_t) )
+        # exp_t = np.einsum('ij,ji->', Daub, metric) 
+        # shear_t = np.multiply(1/2., Daub + np.einsum('ij->ji', Daub)) - np.multiply( exp_t/ spatial_dims, h_ab) 
+        # vort_t = np.multiply(1/2., Daub - np.einsum('ij->ji', Daub))
+
+        
+        # CLOSURE INGREDIENTS: HEAT FLUX  
+        projector = np.zeros((3,3))
+        np.fill_diagonal(projector, 1)
+        projector += np.einsum('i,j->ij',u_t_cov, u_t) #This is different from the projector above: look at indices!
         DaT = np.einsum('ij,j->i', projector, nabla_T)
         Theta_tilde = DaT + np.multiply(T_t, np.einsum('ij,j->i', metric, acc_t))
 
