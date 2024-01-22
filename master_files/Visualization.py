@@ -92,7 +92,7 @@ class Plotter_2D(object):
                 compatible = interp_dims != None and len(interp_dims) ==2
                 if not compatible: 
                     print('Error: when using (linearly spaced) interpolated data, you must' +\
-                          'specify # points in each direction! Exiting.')
+                          'specify # points in each spatial direction! Exiting.')
                     return None
                 
                 nx, ny = interp_dims[:]
@@ -220,9 +220,10 @@ class Plotter_2D(object):
                                     components_indices=None, diff_plot=False, rel_diff=False):
         """
         Plot variables from a number of models. If 2 models are given, a third
-        plot of the difference can be added too. 
-        If 'raw_data' is chosen as the method, will check to see if the data points in the model
-        lie at the same coordinates, which they must. 
+        plot of the difference (relative or absolute) can be added too. 
+        The method refers to the difference plot(s): for models with different grid spacings, data must 
+        be extracted via interpolation, so setting method = 'interpolate'. 
+        In any other case, should set method = 'raw_data'.
 
         Parameters
         ----------
@@ -296,8 +297,8 @@ class Plotter_2D(object):
         fig, axes = plt.subplots(n_rows, n_cols, squeeze=False, figsize=figsize)
       
         for j in range(len(models)):
-            for i in range(n_rows):                    
-                data_to_plot, extent = self.get_var_data(models[j], var_strs[j][i], t, x_range, y_range, interp_dims, method, components_indices[j][i])
+            for i in range(n_rows):                
+                data_to_plot, extent = self.get_var_data(models[j], var_strs[j][i], t, x_range, y_range, None, 'raw_data', components_indices[j][i])
                 im=axes[i,j].imshow(data_to_plot, extent=extent)
                 divider = make_axes_locatable(axes[i,j])
                 cax = divider.append_axes('right', size='5%', pad=0.05)
