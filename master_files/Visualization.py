@@ -36,7 +36,7 @@ class Plotter_2D(object):
                         
         self.screen_size = np.array(screen_size)
     
-    def get_var_data(self, model, var_str, t, x_range, y_range, interp_dims=None, method= 'raw_data', component_indices=()):
+    def get_var_data(self, model, var_str, t, x_range, y_range, component_indices=(), method= 'raw_data', interp_dims=None):
         """
         Retrieves the required data from model to plot a variable defined by
         var_str over coordinates t, x_range, y_range, either from the model's
@@ -53,13 +53,13 @@ class Plotter_2D(object):
             defines range of x coordinates within foliation.
         y_range : list of 2 floats: y_start and y_end
             defines range of y coordinates within foliation.
-        interp_dims : tuple of integers
-            defines the number of points to interpolate at in x and y directions.
-        method : str
-            currently either raw_data or interpolate.
         component_indices : tuple
             the indices of the component to pick out if the variable is a vector/tensor.
-
+        method : str
+            currently either raw_data or interpolate.
+        interp_dims : tuple of integers
+            defines the number of points to interpolate at in x and y directions.
+        
         Returns
         -------
         data_to_plot : numpy array of floats
@@ -136,7 +136,8 @@ class Plotter_2D(object):
              print(f'{var_str} is not a plottable variable of the model!') 
              return None
 
-    def plot_vars(self, model, var_strs, t, x_range, y_range, interp_dims=None, method='raw_data', components_indices=None): #[()]):
+    def plot_vars(self, model, var_strs, t, x_range, y_range, components_indices=None, method='raw_data', interp_dims=None, 
+                  norms=None, cmaps=None):
         """
         Plot variable(s) from model, defined by var_strs, over coordinates 
         t, x_range, y_range. Either from the model's raw data or by interpolating 
@@ -153,16 +154,28 @@ class Plotter_2D(object):
             defines range of x coordinates within foliation.
         y_range : list of 2 floats: y_start and y_end
             defines range of y coordinates within foliation.
-        interp_dims : tuple of integers
-            defines the number of points to interpolate at in x and y directions.
-        method : str
-            currently either raw_data or  .
         components_indices : list of tuple(s)
             the indices of the components to pick out if the variables are vectors/tensors.
             Can be omitted if all variables are scalars, otherwise must be a list
             of tuples matching the length of var_strs that corresponds with each
             variable in the list.
+        method : str
+            currently either raw_data or interpolate
+        interp_dims : tuple of integers
+            defines the number of points to interpolate at in x and y directions.
+        norms = list of strs
+            each entry of the list is passed as option to imshow as norm=str
+            when plotting the corresponding var
+            
+            valid choices include all the standard norms like log or symlog, 
+            and 'mysymlog' which is implemented in BaseFunctionality
 
+        cmaps = list of strs
+            each entry of the list is passed to imshow as cmap=cmaps[i]
+            when plotting the corresponding var
+
+            valid choices are all the std ones
+        
         Output
         -------
         Plots the (2D) data using imshow. Note that the plotting data's coordinates
@@ -172,6 +185,19 @@ class Plotter_2D(object):
 
         """
         n_plots = len(var_strs)
+
+        if norms == None:
+            norms = [None for _ in range(len(var_strs))]
+        elif len(var_strs)!= len(norms):
+            print('The norms provided are not the same number as the variables: setting these to auto')
+            norms = [None for _ in range(len(var_strs))]
+
+        if cmaps == None:
+            cmaps = [None for _ in range(len(var_strs))]
+        elif len(var_strs)!= len(cmaps):
+            print('The norms provided are not the same number as the variables: setting these to auto')
+            cmaps = [None for _ in range(len(var_strs))]
+
         n_rows, n_cols = self.plot_vars_subplots_dims[n_plots]
 
         # Block to determine adaptively the figsize. 
@@ -196,19 +222,33 @@ class Plotter_2D(object):
             print('No list of components indices passed: setting this to an empty list.')
             components_indices = [ () for _ in range(len(var_strs))]
             
-        for var_str, component_indices, ax in zip(var_strs, components_indices, axes):  
+        for i, (var_str, component_indices, ax) in enumerate(zip(var_strs, components_indices, axes)):  
             # data_to_plot, points = self.get_var_data(model, var_str, t, x_range, y_range, interp_dims, method, component_indices)
             # extent = [points[2][0],points[2][-1],points[1][0],points[1][-1]]
-            data_to_plot, extent = self.get_var_data(model, var_str, t, x_range, y_range, interp_dims, method, component_indices)
-            im = ax.imshow(data_to_plot, extent=extent)
-            divider = make_axes_locatable(ax)
-            cax = divider.append_axes('right', size='5%', pad=0.05)
-            fig.colorbar(im, cax=cax, orientation='vertical')
+            data_to_plot, extent = self.get_var_data(model, var_str, t, x_range, y_range, component_indices, method, interp_dims)
+
+            if norms[i] == 'mysymlog': 
+                ticks, labels, nodes = MySymLogPlotting.get_mysymlog_var_ticks(data_to_plot)
+                data_to_plot = MySymLogPlotting.symlog_var(data_to_plot)
+                mynorm = MyThreeNodesNorm(nodes)
+                im = ax.imshow(data_to_plot, extent=extent, norm=mynorm, cmap=cmaps[i])
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.set_ticks(ticks)
+                cbar.ax.set_yticklabels(labels)
+
+            elif norms[i] != 'mysymlog':
+                im = ax.imshow(data_to_plot, extent=extent, norm=norms[i], cmap=cmaps[i])
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                fig.colorbar(im, cax=cax, orientation='vertical')
+            
             title = var_str
             if component_indices != ():
                 title = title + ", {}-component".format(component_indices)
             ax.set_title(title)
-            ax.set_xlabel(r'$y$') # WHY?
+            ax.set_xlabel(r'$y$') 
             ax.set_ylabel(r'$x$')
 
         fig.suptitle('Snapshot from model {} at time {}'.format(model.get_model_name(), t), fontsize = 12)
@@ -216,8 +256,8 @@ class Plotter_2D(object):
         # plt.show()
         return fig
         
-    def plot_vars_models_comparison(self, models, var_strs, t, x_range, y_range, interp_dims=None, method='raw_data', \
-                                    components_indices=None, diff_plot=False, rel_diff=False):
+    def plot_vars_models_comparison(self, models, var_strs, t, x_range, y_range, components_indices=None, method='raw_data',\
+                                    interp_dims=None, diff_plot=False, rel_diff=False, norms=None):
         """
         Plot variables from a number of models. If 2 models are given, a third
         plot of the difference (relative or absolute) can be added too. 
@@ -236,17 +276,21 @@ class Plotter_2D(object):
             defines range of x coordinates within foliation.
         y_range : list of 2 floats: y_start and y_end
             defines range of y coordinates within foliation.
-        interp_dims : tuple of integers
-            defines the number of points to interpolate at in x and y directions.
-        method : str
-            currently either raw_data or interpolate.
         component_indices : list of list of tuples
             each tuple identifies the indices of the component to pick out if the variable 
             is a vector/tensor.
+        method : str
+            currently either raw_data or interpolate.
+        interp_dims : tuple of integers
+            defines the number of points to interpolate at in x and y directions.
         diff_plot: bool 
             Whether to add a column to show difference between models
         rel_diff: bool
             Whether to plot the absolute or relative difference between models
+        norms = list of strs
+            each entry of the list is passed as option to imshow as norm=str
+            the list should be as long as the number of vars passed
+            useful options are log or symlog
 
         Output
         -------
@@ -264,6 +308,12 @@ class Plotter_2D(object):
             if len(var_strs[i]) != num_vars_1st_model:
                 print("The number of variables per model must be the same. Exiting.")
                 return None
+            
+        if len(var_strs)!= len(norms):
+            print('The norms provided are not the same number as the variables: setting these to auto')
+            norms = [None for _ in range(len(var_strs))]
+        elif norms == None:
+            norms = [None for _ in range(len(var_strs))]
         
         n_cols = len(models)
         if diff_plot:
@@ -289,17 +339,13 @@ class Plotter_2D(object):
             for i in range(len(models)):
                 components_indices.append(empty_tuple_components)
 
-        # Block to determine adaptively the figsize. 
-        # figsize = np.array([1,2/3.]) * self.screen_size
         figsize = self.screen_size
-        # gridspec_dict = {'wspace' : 0.3, 'hspace': 0.3}
-        # fig, axes = plt.subplots(n_rows, n_cols, squeeze=False, gridspec_kw=gridspec_dict, figsize=figsize)
         fig, axes = plt.subplots(n_rows, n_cols, squeeze=False, figsize=figsize)
       
         for j in range(len(models)):
             for i in range(n_rows):                
-                data_to_plot, extent = self.get_var_data(models[j], var_strs[j][i], t, x_range, y_range, None, 'raw_data', components_indices[j][i])
-                im=axes[i,j].imshow(data_to_plot, extent=extent)
+                data_to_plot, extent = self.get_var_data(models[j], var_strs[j][i], t, x_range, y_range, components_indices[j][i], 'raw_data', None)
+                im=axes[i,j].imshow(data_to_plot, extent=extent, norm=norms[i])
                 divider = make_axes_locatable(axes[i,j])
                 cax = divider.append_axes('right', size='5%', pad=0.05)
                 fig.colorbar(im, cax=cax, orientation='vertical')
@@ -314,13 +360,13 @@ class Plotter_2D(object):
         if diff_plot and len(models)==2:
             try:
                 for i in range(len(var_strs[0])):
-                    data1, extent1 = self.get_var_data(models[0], var_strs[0][i], t, x_range, y_range, interp_dims, method, components_indices[0][i])
-                    data2, extent2 = self.get_var_data(models[1], var_strs[1][i], t, x_range, y_range, interp_dims, method, components_indices[1][i])
+                    data1, extent1 = self.get_var_data(models[0], var_strs[0][i], t, x_range, y_range, components_indices[0][i], method, interp_dims)
+                    data2, extent2 = self.get_var_data(models[1], var_strs[1][i], t, x_range, y_range, components_indices[1][i], method, interp_dims)
                     if extent1 != extent2:
                         print("Cannot plot the difference between the vars: data not aligned.")
                         continue
                     data_to_plot = data1 - data2
-                    im = axes[i,2].imshow(data_to_plot, extent=extent1)
+                    im = axes[i,2].imshow(data_to_plot, extent=extent1, norm=norms[i])
                     divider = make_axes_locatable(axes[i,2])
                     cax = divider.append_axes('right', size='5%', pad=0.05)
                     fig.colorbar(im, cax=cax, orientation='vertical')
@@ -335,8 +381,8 @@ class Plotter_2D(object):
         if rel_diff and len(models)==2:
             try:
                 for i in range(len(var_strs[0])):
-                    data1, extent1 = self.get_var_data(models[0], var_strs[0][i], t, x_range, y_range, interp_dims, method, components_indices[0][i])
-                    data2, extent2 = self.get_var_data(models[1], var_strs[1][i], t, x_range, y_range, interp_dims, method, components_indices[1][i])
+                    data1, extent1 = self.get_var_data(models[0], var_strs[0][i], t, x_range, y_range, components_indices[0][i], method, interp_dims)
+                    data2, extent2 = self.get_var_data(models[1], var_strs[1][i], t, x_range, y_range, components_indices[1][i], method, interp_dims)
                     if extent1 != extent2:
                         print("Cannot plot the difference between the vars: data not aligned.")
                         continue
@@ -346,7 +392,7 @@ class Plotter_2D(object):
                         column = 3
                     else:
                         column = 2
-                    im = axes[i,column].imshow(data_to_plot, extent=extent1)
+                    im = axes[i,column].imshow(data_to_plot, extent=extent1, norm=norms[i])
                     divider = make_axes_locatable(axes[i,column])
                     cax = divider.append_axes('right', size='5%', pad=0.05)
                     fig.colorbar(im, cax=cax, orientation='vertical')
