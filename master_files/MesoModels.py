@@ -497,8 +497,10 @@ class resMHD2D(object):
             return interpn(self.domain_vars['Points'], self.meso_vars[var], point, method = self.interp_method)[0]
         elif var in self.deriv_vars: 
             return interpn(self.domain_vars['Points'], self.deriv_vars[var], point, method = self.interp_method)[0]
+        elif var in self.filter_vars: 
+            return interpn(self.domain_vars['Points'], self.filter_vars[var], point, method = self.interp_method)[0]
         else: 
-            print('{} does not belong to either meso_structures/meso_vars or deriv_vars. Check!'.format(var))
+            print('{} does not belong to either meso_structures/meso_vars/deriv_vars/filter_vars. Check! (Method: get_interpol_var(var, point))'.format(var))
     
     @multimethod
     def get_var_gridpoint(self, var: str, h: object, i: object, j: object):
@@ -528,8 +530,10 @@ class resMHD2D(object):
             return self.meso_vars[var][h,i,j]  
         elif var in self.deriv_vars:
             return self.deriv_vars[var][h,i,j]
+        elif var in self.filter_vars:
+            return self.filter_vars[var][h,i,j]
         else: 
-            print("{} is not a variable of resMHD_2D!".format(var))
+            print('{} does not belong to either meso_structures/meso_vars/deriv_vars/filter_vars. Check! (Method: get_var_gridpoint(h,i,j))'.format(var))
             return None
 
     @multimethod
@@ -561,8 +565,10 @@ class resMHD2D(object):
             return self.meso_vars[var][tuple(indices)]   
         elif var in self.deriv_vars:
             return self.deriv_vars[var][tuple(indices)]
+        elif var in self.filter_vars:
+            return self.filter_vars[var][tuple(indices)]
         else: 
-            print("{} is not a variable of resMHD_2D!".format(var))
+            print('{} does not belong to either meso_structures/meso_vars/deriv_vars/filter_vars. Check! (Method: get_var_gridpoint(point))'.format(var))
             return None
 
     def get_model_name(self):
@@ -1227,8 +1233,10 @@ class resHD2D(object):
             return interpn(self.domain_vars['Points'], self.meso_vars[var], point, method = self.interp_method)[0]
         elif var in self.deriv_vars: 
             return interpn(self.domain_vars['Points'], self.deriv_vars[var], point, method = self.interp_method)[0]
+        elif var in self.filter_vars:
+            return interpn(self.domain_vars['Points'], self.filter_vars[var], point, method=self.interp_method)[0]
         else: 
-            print('{} does not belong to either meso_structures/meso_vars or deriv_vars. Check!'.format(var))
+            print('Cannot interpolate value of {} using data fromfilter_vars meso_structures/meso_varsderiv_vars/filter_vars. Check!'.format(var))
     
     @multimethod
     def get_var_gridpoint(self, var: str, h: object, i: object, j: object):
@@ -1261,7 +1269,7 @@ class resHD2D(object):
         elif var in self.filter_vars:
             return self.filter_vars[var][h,i,j]
         else: 
-            print("{} is not a variable of resHD_2D!".format(var))
+            print(f'Cannot get value of {var} at h,i,j from data in meso_vars/meso_structures/deriv_vars/filter_vars')
             return None
 
     @multimethod
@@ -1294,9 +1302,9 @@ class resHD2D(object):
         elif var in self.deriv_vars:
             return self.deriv_vars[var][tuple(indices)]
         elif var in self.filter_vars:
-            return self.filter_vars[var][h,i,j]
+            return self.filter_vars[var][tuple(indices)]
         else: 
-            print("{} is not a variable of resHD_2D!".format(var))
+            print(f'Cannot get value of {var} at h,i,j from data in meso_vars/meso_structures/deriv_vars/filter_vars')
             return None
 
     def get_model_name(self):
@@ -1305,11 +1313,11 @@ class resHD2D(object):
     def set_find_obs_method(self, find_obs):
         self.find_obs = find_obs
 
-    def setup_meso_grid(self, patch_bdrs, coarse_factor = 1): 
+    def setup_meso_grid(self, patch_bdrs, coarse_factor = 1, coarse_time = False): 
         """
         Builds the meso_model grid using the micro_model grid points contained in 
         the input patch (defined via 'patch_bdrs'). The method allows for coarse graining 
-        the grid in the spatial directions ONLY. 
+        the grid (both in space dirs only or also in time)
         Then store the info about the meso grid and set up arrays of definite rank and size 
         for the quantities needed later. 
 
@@ -1320,6 +1328,8 @@ class resHD2D(object):
 
         coarse_factor: integer   
 
+        coarse_time: boolean
+            If true, coarsening is also applied to the time direction.
         Notes: 
         ------
         If the patch_bdrs are larger than micro_grid, the method will not set-up the meso_grid, 
@@ -1346,6 +1356,10 @@ class resHD2D(object):
 
         # Set meso_grid spacings
         self.domain_vars['Dt'] = self.micro_model.domain_vars['dt']
+        if coarse_time:
+            self.domain_vars['Dt'] = self.micro_model.domain_vars['dt'] * coarse_factor
+        else:
+             self.domain_vars['Dt'] = self.micro_model.domain_vars['dt']
         self.domain_vars['Dx'] = self.micro_model.domain_vars['dx'] * coarse_factor
         self.domain_vars['Dy'] = self.micro_model.domain_vars['dy'] * coarse_factor
 
@@ -1354,7 +1368,10 @@ class resHD2D(object):
         while h <= idx_maxs[0]:
             t = self.micro_model.domain_vars['t'][h]
             self.domain_vars['T'].append(t)
-            h += 1
+            if coarse_time:
+                h += coarse_factor
+            else:
+                h += 1
         while i <= idx_maxs[1]:
             x = self.micro_model.domain_vars['x'][i]
             self.domain_vars['X'].append(x)
@@ -1399,24 +1416,10 @@ class resHD2D(object):
                 for j in range(Ny):
                     self.filter_vars['U_success'].update({(h,i,j): False})
 
-
-
         # Setup arrays for derivatives of the model. 
-        # THOMAS'S WAY (SAVE THEM AS TENSORS)
         self.deriv_vars['D_u_tilde'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1, self.spatial_dims+1))
         self.deriv_vars['D_T_tilde'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1))
-
-        # MARCUS'S WAY 
-        # for str in self.non_local_vars_strs: 
-        #     if str in self.meso_vars:
-        #         self.deriv_vars.update({'dt'+str:np.zeros_like(self.meso_vars[str])})
-        #         self.deriv_vars.update({'dx'+str:np.zeros_like(self.meso_vars[str])})
-        #         self.deriv_vars.update({'dy'+str:np.zeros_like(self.meso_vars[str])})
-        #     if str in self.meso_structures:
-        #         self.deriv_vars.update({'dt'+str:np.zeros_like(self.meso_structures[str])})
-        #         self.deriv_vars.update({'dx'+str:np.zeros_like(self.meso_structures[str])})
-        #         self.deriv_vars.update({'dy'+str:np.zeros_like(self.meso_structures[str])})
-        
+ 
     def find_observers(self): 
         """
         Method to compute filtering observers at grid points built with setup_meso_grid. 
@@ -1563,22 +1566,30 @@ class resHD2D(object):
                 return None
 
         vars = ['BC', 'SET', 'p']
-        args_for_filtering_parallel = []
+        points_observers = []
         for i in range(len(points)):
-            args_for_filtering_parallel.append([points[i], observers[i], vars])
+            # args_for_filtering_parallel.append([points[i], observers[i], vars])
+            points_observers.append([points[i], observers[i]])
             
-        positions, filtered_vars = self.filter.filter_vars_parallel(args_for_filtering_parallel, n_cpus)
+        # positions, filtered_vars = self.filter.filter_vars_parallel(args_for_filtering_parallel, n_cpus)
+        filtered_vars = dict.fromkeys(vars)
+        for var in vars:
+            positions, filtered_vars[var] = self.filter.filter_var_parallel(points_observers, var, n_cpus)
+
         for i in range(len(positions)):
             point_indxs_meso_grid = indices_meso_grid[positions[i]]
-            self.meso_structures['BC'][point_indxs_meso_grid] = filtered_vars[i][0]
-            self.meso_structures['SET'][point_indxs_meso_grid] = filtered_vars[i][1]
-            self.meso_vars['p_filt'][point_indxs_meso_grid] = filtered_vars[i][2]
+            self.meso_structures['BC'][point_indxs_meso_grid] = filtered_vars['BC'][i]
+            self.meso_structures['SET'][point_indxs_meso_grid] = filtered_vars['SET'][i]
+            self.meso_vars['p_filt'][point_indxs_meso_grid] = filtered_vars['p'][i]
+            # self.meso_structures['BC'][point_indxs_meso_grid] = filtered_vars[i][0]
+            # self.meso_structures['SET'][point_indxs_meso_grid] = filtered_vars[i][1]
+            # self.meso_vars['p_filt'][point_indxs_meso_grid] = filtered_vars[i][2]
         
     def p_from_EOS(self, eps, n):
         """
         Compute pressure from Gamma-law EoS 
         """
-        return (self.coefficients['Gamma']-1)*eps*n
+        return (self.coefficients['Gamma']-1)*(eps-n)
 
     def decompose_structures_gridpoint(self, h, i, j): 
         """
@@ -1710,12 +1721,14 @@ class resHD2D(object):
         p_t = resHD2D.p_Gamma_law(eps_t, n_t, 4.0/3.0) 
 
         # Additional quantities needed for residuals
-        Pi_res = s - p_t
+        # Pi_res = s - p_t
+        Pi_res = s - p_filt
         s_ab_tracefree = s_ab - np.multiply(s/spatial_dims, metric + np.einsum('i,j->ij', u_t, u_t)) 
         T_t = p_t/n_t
-        EOS_res = p_filt - p_t
+        # EOS_res = p_filt - p_t
     
-        return [n_t, u_t, eps_t, q_a, s_ab_tracefree, p_t, Pi_res, EOS_res, T_t], [h,i,j]
+        # return [n_t, u_t, eps_t, q_a, s_ab_tracefree, p_t, Pi_res, T_t, EOS_res], [h,i,j] #Uncomment if EoS residual is modelled
+        return [n_t, u_t, eps_t, q_a, s_ab_tracefree, p_t, Pi_res, T_t], [h,i,j]
 
     def decompose_structures_parallel(self, n_cpus):
         """
@@ -1738,7 +1751,7 @@ class resHD2D(object):
                     args_for_pool.append((BC, SET, p_filt, h,i,j))
 
         with mp.Pool(processes=n_cpus) as pool:
-            print('Running with {} processes\n'.format(n_cpus), flush=True)
+            print('Running with {} processes\n'.format(pool._processes), flush=True)
             for result in pool.starmap(resHD2D.decompose_structures_task, args_for_pool):
                 h,i,j = result[1]
                 self.meso_vars['n_tilde'][h,i,j] = result[0][0]
@@ -1748,8 +1761,8 @@ class resHD2D(object):
                 self.meso_vars['pi_res'][h,i,j,:,:] = result[0][4]
                 self.meso_vars['p_tilde'][h,i,j] =  result[0][5]
                 self.meso_vars['Pi_res'][h,i,j] = result[0][6]
-                self.meso_vars['eos_res'][h,i,j] = result[0][7]
-                self.meso_vars['T_tilde'][h,i,j] = result[0][8]
+                self.meso_vars['T_tilde'][h,i,j] = result[0][7]
+                # self.meso_vars['eos_res'][h,i,j] = result[0][8] # Uncomment if EOS_res is modelled
 
     def calculate_derivatives_gridpoint(self, nonlocal_var_str, h, i, j, direction, order = 1): 
         """
@@ -2040,7 +2053,7 @@ class resHD2D(object):
                     args_for_pool.append((u_t, nabla_u, T_t, nabla_T, h, i, j))
 
         with mp.Pool(processes=n_cpus) as pool:
-            print('Running with {} processes\n'.format(n_cpus), flush=True)
+            print('Running with {} processes'.format(pool._processes), flush=True)
             for result in pool.starmap(resHD2D.closure_ingredients_task, args_for_pool):
                 keys, values, grid_idxs = result
                 # if self.filter_vars['U_success'][tuple(grid_idxs)]: #this check is in practice always True
@@ -2165,7 +2178,7 @@ class resHD2D(object):
         # CALCULATING SHEAR VISCOUS COEFF
         pi_res_sq = np.einsum('ij,kl,ik,jl->', pi_res, pi_res, metric, metric)
         shear_sq = np.einsum('ij,kl,ik,jl->', shear, shear, metric, metric)
-        eta = pi_res_sq/shear_sq
+        eta = np.sqrt(pi_res_sq/shear_sq)
         # Compute sign of eta by looking at the PA of pi_res with higher eigenvalue. 
         # Change shear to the eigenbasis of pi_res (using that the matrix is unitary as pi_res is sym)
         pi_eig, pi_eigv = np.linalg.eigh(pi_res)
@@ -2176,6 +2189,12 @@ class resHD2D(object):
         coefficients_names.append('eta')
         coefficients.append(eta)
 
+        # this is just to check - to be removed
+        coefficients_names.append('shear_sq')
+        coefficients.append(shear_sq) 
+        coefficients_names.append('pi_res_sq')
+        coefficients.append(pi_res_sq) 
+
         # CALCULATING THE HEAT CONDUCTIVITIY
         q_res_sq = np.einsum('i,ij,j', q_res, metric, q_res)
         Theta_sq = np.einsum('i,ij,j', Theta, metric, Theta)
@@ -2184,10 +2203,15 @@ class resHD2D(object):
         kappa = sign * np.sqrt(q_res_sq / Theta_sq)
         coefficients_names.append('kappa')
         coefficients.append(kappa)
+
+        # this is just to check - to be removed
+        coefficients_names.append('q_res_sq')
+        coefficients.append(q_res_sq) 
+        coefficients_names.append('Theta_sq')
+        coefficients.append(Theta_sq)
         
         return coefficients_names, coefficients, [h,i,j]
 
-    # this is to be modified
     def EL_style_closure_parallel(self, n_cpus):
         """
         Routine to launch EL_style_closure_task in parallel across multiple gridpoints
@@ -2226,6 +2250,7 @@ class resHD2D(object):
 
 
         with mp.Pool(processes=n_cpus) as pool: 
+            print('Computing dissipative coefficients with {} processes'.format(pool._processes), flush=True)
             for result in pool.starmap(resHD2D.EL_style_closure_task, args_for_pool):
                 keys, values, grid_idxs = result
                 # if self.filter_vars['U_success'][tuple(grid_idxs)]: #this check is in practice always True
@@ -2410,13 +2435,13 @@ if __name__ == '__main__':
     micro_model.setup_structures()
 
     t_range = [1.502, 1.504]
-    x_range = [0.05, 0.55]
-    y_range = [0.05, 0.55]
+    x_range = [0.05, 0.06]
+    y_range = [0.05, 0.06]
 
     # set up meso model and grid
     find_obs = FindObs_root_parallel(micro_model, 0.001)
     filter = box_filter_parallel(micro_model, 0.003)
-    meso_model = resHD2D(micro_model, find_obs, filter, local_or_slurm=True)
+    meso_model = resHD2D(micro_model, find_obs, filter)
     meso_model.setup_meso_grid([t_range, x_range, y_range])
 
     num_points = meso_model.domain_vars['Nt'] * meso_model.domain_vars['Nx'] * meso_model.domain_vars['Ny']
@@ -2424,25 +2449,25 @@ if __name__ == '__main__':
 
     # fin obs - parallel
     start_time = time.perf_counter()
-    meso_model.find_observers_parallel()
+    meso_model.find_observers_parallel(os.cpu_count())
     parallel_time = time.perf_counter() - start_time
     print('Finished finding observers in parallel, execution time: {}\n'.format(parallel_time))
 
     # now filtering in parallel
     start_time = time.perf_counter()
-    meso_model.filter_micro_vars_parallel()
+    meso_model.filter_micro_vars_parallel(os.cpu_count())
     parallel_time = time.perf_counter() - start_time
     print('Finished filtering in parallel, time taken {}\n'.format(parallel_time))
 
-    # now testing serial vs parallel decomposition
-    start_time = time.perf_counter()
-    meso_model.decompose_structures()
-    serial_time = time.perf_counter() - start_time
-    print('Finished decomposing in serial, time taken {}\n'.format(serial_time))
+    # # now testing serial vs parallel decomposition
+    # start_time = time.perf_counter()
+    # meso_model.decompose_structures()
+    # serial_time = time.perf_counter() - start_time
+    # print('Finished decomposing in serial, time taken {}\n'.format(serial_time))
 
     start_time = time.perf_counter()
-    meso_model.decompose_structures_parallel()
+    meso_model.decompose_structures_parallel(os.cpu_count())
     parallel_time = time.perf_counter() - start_time
     print('Finished decomposing in parallel, time taken {}\n'.format(parallel_time))
-    print('Speed-up factor: {}'.format(serial_time/parallel_time))
+    # print('Speed-up factor: {}'.format(serial_time/parallel_time))
     

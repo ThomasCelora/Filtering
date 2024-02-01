@@ -11,6 +11,7 @@ import os
 import scipy.integrate as integrate 
 import multiprocessing as mp
 from scipy.optimize import minimize, root
+from scipy.interpolate import interpn 
 from itertools import product
 from system.BaseFunctionality import *
 
@@ -835,7 +836,7 @@ class FindObs_root_parallel(object):
         return tetrad 
     
     @staticmethod
-    def initializer(spatial_dims, L):
+    def initializer(L, grid, BC):
         """
         Initializer for processes in pool. 
         Build the adapted coordinates and weights: this is independent of specific point
@@ -853,17 +854,28 @@ class FindObs_root_parallel(object):
         """
         global adapt_coords
         global totws
+        global micro_spatial_dims 
+        global micro_grid
+        global micro_BC
+        global box_len
+
+        micro_grid = grid
+        micro_spatial_dims = len(grid)-1
+        micro_BC = BC
+        box_len = L
+        # print(f'Baryon current passed to initializer: {micro_BC}')
+
         ps1d = [0, + np.sqrt(3/5), - np.sqrt(3/5)]
         ws1d = [8./9. , 5./9. , 5./9.]
         xs = []
         ws = []
-        for _ in range(spatial_dims+1):
+        for _ in range(micro_spatial_dims+1):
             xs.append(ps1d)
             ws.append(ws1d)
 
         adapt_coords = []
         for element in product(*xs):
-            adapt_coords.append(np.multiply(L/2, np.array(element) ))    
+            adapt_coords.append(np.multiply(box_len/2, np.array(element)))  
 
         totws = []
         for element in product(*ws):
@@ -873,7 +885,8 @@ class FindObs_root_parallel(object):
             totws.append(temp)
         # print('Initialized process in the pool', flush=True)
 
-    def find_observer_Gauss(self, point_pos):
+    @staticmethod
+    def find_observer_Gauss(point, pos_in_list_points):
         """
         CPU-bound task to be run in parralel. 
         The routine combines what has been split into many in the serial 
@@ -900,30 +913,40 @@ class FindObs_root_parallel(object):
         # Declaring global vars set up by initializer
         global adapt_coords
         global totws
+        global micro_spatial_dims 
+        global micro_grid
+        global micro_BC
+        global box_len
 
         # Building the initial guess 
-        point = point_pos[0]
-        pos_in_list_points = point_pos[1]
+        # point = point_pos[0]
+        # pos_in_list_points = point_pos[1]
         guess = []
-        U = np.multiply(1 / self.micro_model.get_interpol_var('n', point) , self.micro_model.get_interpol_var('BC', point) )
-        for i in range(1, len(U)):
-            guess.append(U[i] / U[0])
-
+        BC_point = interpn(micro_grid, micro_BC, point)[0]
+        n_point = np.sqrt(-Base.Mink_dot(BC_point, BC_point))
+        U_point = np.multiply( 1 / n_point , BC_point)
+        # U_point = np.multiply( 1 / self.micro_model.get_interpol_var('n', point), self.micro_model.get_interpol_var('BC', point)
+        for i in range(1, len(U_point)):
+            guess.append(U_point[i] / U_point[0])
+        
+        
         # Routine to compute drift residual via Gauss-Legendre quadrature.
-        def residual_gauss(spatial_vels, point, micro_model):
-            spatial_dims = micro_model.get_spatial_dims()
+        def residual_gauss(spatial_vels, point): #, micro_model):
+            # spatial_dims = micro_model.get_spatial_dims()
             tetrad = FindObs_root_parallel.get_tetrad_from_vels(spatial_vels)
             coords = []
             for coord in adapt_coords:
                 temp = np.array(point)
-                for i in range(spatial_dims+1):
+                for i in range(micro_spatial_dims+1):
                     temp += np.multiply(coord[i], tetrad[i])
                 coords.append(temp)
 
-            integral = np.zeros(1 + spatial_dims)
+            integral = np.zeros(1 + micro_spatial_dims)
             for i, coord in enumerate(coords): 
-                integral += np.multiply(totws[i], micro_model.get_interpol_var('BC', coord))
-            integral *= (self.L /2  ) ** (spatial_dims+1)
+                BC_coord = interpn(micro_grid, micro_BC, coord)[0]
+                # integral += np.multiply(totws[i], micro_model.get_interpol_var('BC', coord))
+                integral += np.multiply(totws[i], BC_coord)
+            integral *= (box_len /2) ** (micro_spatial_dims+1)
 
             drifts = []
             for i in range(len(tetrad)-1):
@@ -931,7 +954,7 @@ class FindObs_root_parallel(object):
             return drifts
         
         # observer: root of the residual gauss routine
-        sol = root(residual_gauss, x0 = guess, args = (point, self.micro_model))
+        sol = root(residual_gauss, x0 = guess, args = (point)) #, self.micro_model))
         if sol.success: 
             observer = Base.get_rel_vel(sol.x)
             avg_error = np.sum(sol.fun[1])
@@ -972,16 +995,18 @@ class FindObs_root_parallel(object):
         success_pos = []
         failed_pos = []
 
-        spatial_dims = self.micro_model.get_spatial_dims()
+        # spatial_dims = self.micro_model.get_spatial_dims()
         L = self.L
-        args_for_pool = [ [points[i], i] for i in range(len(points))]
+        BC = self.micro_model.vars['BC']
+        grid = self.micro_model.domain_vars['points']
+        args_for_pool = [ (points[i], i) for i in range(len(points))]
         init = FindObs_root_parallel.initializer
-        initargs = (spatial_dims, L)
+        # initargs = (spatial_dims, L)
+        initargs = (L, grid, BC)
 
         with mp.Pool(initializer=init, initargs=initargs, processes=n_cpus) as pool:
-        # with mp.Pool() as pool:
-            print('Finding observers in parallel with {} processes\n'.format(n_cpus), flush=True)
-            for result in pool.map(self.find_observer_Gauss, args_for_pool):
+            print('Finding observers in parallel with {} processes\n'.format(pool._processes), flush=True)
+            for result in pool.starmap(self.find_observer_Gauss, args_for_pool):
                 if (result[0] == True): 
                     success_pos.append(result[1])
                     observers.append(result[2])
@@ -1326,7 +1351,7 @@ class box_filter_parallel(object):
         return triad
 
     @staticmethod
-    def initializer(spatial_dims, filter_width):
+    def initializer(spatial_dims, filter_width, grid, var):
         """
         Initializer for processes in pool. 
         Build the adapted coordinates and weights: this is independent of specific point
@@ -1336,6 +1361,14 @@ class box_filter_parallel(object):
         """
         global abstract_coords
         global totws
+        global micro_spatial_dims
+        global micro_var
+        global micro_grid
+
+
+        micro_spatial_dims = spatial_dims
+        micro_grid = grid
+        micro_var = var
 
         ps1d = [0, + np.sqrt(3/5), - np.sqrt(3/5)]
         ws1d = [8./9. , 5./9. , 5./9.]
@@ -1357,7 +1390,8 @@ class box_filter_parallel(object):
                 temp *= w 
             totws.append(temp)
 
-    def filter_vars_point_gauss(self, packed_args):
+    @staticmethod
+    def filter_var_point_gauss(point, observer, pos_in_list_points):
         """
         CPU-bound task to be run in parralel. 
         The routine combines what has been split into many in the serial 
@@ -1390,38 +1424,42 @@ class box_filter_parallel(object):
         # declaring global vars set up by initializer
         global abstract_coords
         global totws
+        global micro_spatial_dims
+        global micro_var
+        global micro_grid
 
 
         # Unpacking arguments passed by pool.map
-        unpacked_args= packed_args[0]
-        pos = packed_args[1]
-        point = unpacked_args[0]
-        observer = unpacked_args[1]
-        vars_strs = unpacked_args[2]
+        # unpacked_args= packed_args[0]
+        # pos = packed_args[1]
+        # point = unpacked_args[0]
+        # observer = unpacked_args[1]
+        # vars_strs = unpacked_args[2]
 
         # From abstract to "real" coordinates
         vecs = box_filter_parallel.complete_U_tetrad(observer)
         sample_points = []
         for coord in abstract_coords:
             temp = np.array(point)
-            for i in range(self.spatial_dims):
+            for i in range(micro_spatial_dims):
                 temp += np.multiply(coord[i], vecs[i])
             sample_points.append(temp)
 
-        # Filtering the vars
-        filtered_vars = []
-        for var in vars_strs:
-            filtered_var  = np.zeros(self.micro_model.get_var_gridpoint(var,0,0,0).shape)
-            for i, sample in enumerate(sample_points):
-                filtered_var += totws[i] * self.micro_model.get_interpol_var(var, sample)
-            filtered_var = np.multiply(filtered_var, 1 / (2**self.spatial_dims))
-            filtered_vars.append(filtered_var)
+        # Filtering the var
+        # filtered_vars = []
+        # for var in vars_strs:
+        #     filtered_var  = np.zeros(self.micro_model.get_var_gridpoint(var,0,0,0).shape)
+        filtered_var = np.zeros(micro_var[tuple([ 0 for _ in range(len(micro_grid))])].shape)
+        for i, sample in enumerate(sample_points):
+            filtered_var += totws[i] * interpn(micro_grid, micro_var, sample)[0]
+        filtered_var = np.multiply(filtered_var, 1 / (2**micro_spatial_dims))
+        # filtered_vars.append(filtered_var)
         
         # Different variables are returned as list (ordered as var_strs)
         # Safer to return a dictionary: check redux in performance though.
-        return pos, filtered_vars
+        return pos_in_list_points, filtered_var
 
-    def filter_vars_parallel(self, list_packed_args, n_cpus):
+    def filter_var_parallel(self, points_observers, var, n_cpus):
         """
         Method to run filter_vars_point_gauss in parallel given a list of points, 
         observers and vars. 
@@ -1436,7 +1474,7 @@ class box_filter_parallel(object):
             observer: nd.array 
 
             [vars_to_be_filtered]: list of strs
-                each item must much a var in micromodel
+                each item must match a var in micromodel
 
         n_cpus: int
             number of processes
@@ -1453,19 +1491,22 @@ class box_filter_parallel(object):
         explicitely in the tests below, or decided at the MesoModel level. 
         """
         position_in_list = []
-        filtered_vars = []
-        args_for_pool = [ [list_packed_args[i], i] for i in range(len(list_packed_args))]
+        filtered_var = []
+        args_for_pool = [ tuple([*points_observers[i], i]) for i in range(len(points_observers))]
+        # print(args_for_pool[0])
 
         init = box_filter_parallel.initializer
-        initargs=(self.spatial_dims, self.filter_width)
+        micro_grid = self.micro_model.domain_vars['points']
+        micro_var = self.micro_model.vars[var]
+        initargs=(self.spatial_dims, self.filter_width, micro_grid, micro_var)
 
         with mp.Pool(initializer=init, initargs=initargs, processes=n_cpus) as pool:
-            print('Filtering in parallel with {} processes\n'.format(n_cpus), flush=True)
-            for result in pool.map(self.filter_vars_point_gauss, args_for_pool):
+            print('Filtering {} in parallel with {} processes\n'.format(var, pool._processes), flush=True)
+            for result in pool.starmap(self.filter_var_point_gauss, args_for_pool):
                 position_in_list.append(result[0])
-                filtered_vars.append(result[1])
+                filtered_var.append(result[1])
         
-        return position_in_list, filtered_vars
+        return position_in_list, filtered_var
 
 
 if __name__ == '__main__':
@@ -1562,11 +1603,13 @@ if __name__ == '__main__':
     # Preparing args for parallel filter routine
     args_list = []
     for elem in zip(points, observers):
-        args_list.append([*elem, vars])
+        # args_list.append([*elem, vars])
+        args_list.append(tuple(elem))
 
     start_time = time.perf_counter()
     parallel_filter = box_filter_parallel(micro_model, 0.003)
-    parallel_filter.filter_vars_parallel(args_list, n_cpus)
+    for var in vars:
+        parallel_filter.filter_var_parallel(args_list, var, n_cpus)
     parallel_time = time.perf_counter() - start_time
     print('Finished filtering in parallel, time-taken: {}'.format(parallel_time))
     # print('Speed-up factor: {}\n'.format(serial_time/parallel_time))

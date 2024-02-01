@@ -9,7 +9,7 @@ Created on Tue Jan 24 18:02:05 2023
 
 import matplotlib.pyplot as plt
 import numpy as np
-# import pandas as pd
+import pandas as pd
 import h5py
 import pickle
 import seaborn as sns
@@ -298,10 +298,12 @@ class CoefficientsAnalysis(object):
             print('Trimming dataset for correlation plot')
             X = self.trim_data(x, ranges, model_points)
             Y = self.trim_data(y, ranges, model_points)
-            
+            print('Finished trimming data')
+        else: 
+            X, Y = x, y
         X=X.flatten()
         Y=Y.flatten()
-         
+        print('Data flattened')
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message='is_categorical_dtype is deprecated')
             warnings.filterwarnings('ignore', message='use_inf_as_na option is deprecated')
@@ -311,6 +313,7 @@ class CoefficientsAnalysis(object):
             sns.histplot(y=Y, ax=g.ax_marg_y, kde=True)
             g.set_axis_labels(xlabel=xlabel, ylabel=ylabel)
             g.fig.tight_layout()
+        print('Figure produced inside Coeff Analysis')
         return g
 
     def visualize_many_correlations(self, data, labels, ranges=None, model_points=None):
@@ -356,13 +359,17 @@ class CoefficientsAnalysis(object):
             print('Trimming dataset for correlation plot')
             for i in range(len(data)):
                 data[i]=self.trim_data(data[i], ranges, model_points)
-
+            print('Finished trimming data')
+        
         Data = []
         for i in range(len(data)):
             Data.append(data[i].flatten())
 
+        print('Data_flattened')
+
         Data=np.column_stack(Data)
         Data_df = pd.DataFrame(Data, columns=labels)
+        print('Flattened data converted to a dataframe')
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message='is_categorical_dtype is deprecated')
             warnings.filterwarnings('ignore', message='use_inf_as_na option is deprecated')
@@ -371,6 +378,8 @@ class CoefficientsAnalysis(object):
             g.map_lower(sns.kdeplot)
             g.map_diag(sns.histplot, kde=True)
             g.fig.tight_layout()
+
+        print('Finished producing figure inside CoefficientsAnalysis')
         return g
 
     def PCA_find_regressors_subset(self, data, ranges=None, model_points=None, var_wanted = 1.):

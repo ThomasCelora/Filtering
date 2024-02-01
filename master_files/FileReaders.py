@@ -11,7 +11,7 @@ import numpy as np
 
 class METHOD_HDF5(object):
 
-    def __init__(self, directory):
+    def __init__(self, directory, fewer_snaps=False, smaller_list=None):
         """
         Set up the list of files (from hdf5) and dictionary with dataset names
         in the hdf5 file. 
@@ -20,8 +20,20 @@ class METHOD_HDF5(object):
         ----------
         directory: string 
             the filenames in the directory have to be incremental (sorted is used)
+
+        fewer_snaps: bool
+            set to true if you want micromodel to store fewer snapshots than can be found
+            in directory 
+        
+        smaller_list: list
+            indices to be retained of list orderd via sorted(glob.glob(directory+str('*.hdf5')))
         """ 
         hdf5_filenames = sorted( glob.glob(directory+str('*.hdf5')))
+        if fewer_snaps:
+            if smaller_list:
+                temp = [hdf5_filenames[i] for i in smaller_list]
+                hdf5_filenames = temp
+
         self.hdf5_files = []
         for filename in hdf5_filenames:
             self.hdf5_files.append(h5py.File(filename,'r'))
