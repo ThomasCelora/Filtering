@@ -25,7 +25,13 @@ if __name__ == '__main__':
     if micro_from_hdf5:
         hdf5_directory = config['Directories']['hdf5_dir']
         filenames = hdf5_directory 
-        FileReader = METHOD_HDF5(filenames)
+        print('=========================================================================')
+        print(f'Starting job on data from {hdf5_directory}')
+        print('=========================================================================\n\n')
+        snapshots_opts = json.loads(config['Micro_model_settings']['snapshots_opts'])
+        fewer_snaps_required = snapshots_opts['fewer_snaps_required']
+        smaller_list = snapshots_opts['smaller_list']
+        FileReader = METHOD_HDF5(filenames,fewer_snaps_required, smaller_list)
         num_snaps = FileReader.num_files
         micro_model = IdealHD_2D()
         FileReader.read_in_data_HDF5_missing_xy(micro_model)
@@ -36,6 +42,9 @@ if __name__ == '__main__':
         pickle_directory = config['Directories']['pickled_files_dir']
         micro_pickled_filename = config['Filenames']['micro_pickled_filename']
         MicroModelLoadFile = pickle_directory + micro_pickled_filename
+        print('=========================================================================')
+        print(f'Starting job on data from {MicroModelLoadFile}')
+        print('=========================================================================\n\n')
         with open(MicroModelLoadFile, 'rb') as filehandle: 
             micro_model = pickle.load(filehandle)
 
@@ -58,7 +67,7 @@ if __name__ == '__main__':
     fig=visualizer.plot_vars(micro_model, vars, plot_time, x_range, y_range, components_indices = components)
     fig.tight_layout()
     time_for_filename = str(round(plot_time,2))
-    filename = "/micro_ET_" + time_for_filename + "_BC.pdf"
+    filename = "/micro_T_" + time_for_filename + "_BC.pdf"
     plt.savefig(saving_directory + filename, format = "pdf")
 
     # Plotting the stress energy tensor
@@ -67,7 +76,7 @@ if __name__ == '__main__':
     fig=visualizer.plot_vars(micro_model, vars, plot_time, x_range, y_range, components_indices = components)
     fig.tight_layout()
     time_for_filename = str(round(plot_time,2))
-    filename = "/micro_ET_" + time_for_filename + "_SET.pdf"
+    filename = "/micro_T_" + time_for_filename + "_SET.pdf"
     plt.savefig(saving_directory + filename, format = "pdf")
 
     # plotting primitive quantities
@@ -75,6 +84,6 @@ if __name__ == '__main__':
     fig=visualizer.plot_vars(micro_model, vars, plot_time, x_range, y_range)
     fig.tight_layout()
     time_for_filename = str(round(plot_time,2))
-    filename = "/micro_ET_" + time_for_filename + "_prims.pdf"
+    filename = "/micro_T_" + time_for_filename + "_prims.pdf"
     plt.savefig(saving_directory + filename, format = "pdf")
 

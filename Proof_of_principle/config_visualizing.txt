@@ -1,15 +1,31 @@
-[Directories]
-hdf5_dir = /scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/METHOD_output/800X800/ET_1.0
-pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/pickled_files/800X800
-figures_dir = ./tests
+# CONFIGURATION FILE FOR SCRIPTS VISUALIZING_*.PY
+#################################################
 
-[Filenames]
-meso_pickled_filename = /resHD_2D_ET_1.0_FW_8dx.pickle
-micro_pickled_filename = /HD_2D_ET_1.0_micro.pickle
+[Directories]
+
+hdf5_dir = /scratch/tc2m23/KHIRandom/hydro/ET_3_5_8_20dx/800X800/METHOD_output/ET_8.0
+
+pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/ET_3_5_8_20dx/800X800/pickled_files
+
+figures_dir = /scratch/tc2m23/KHIRandom/hydro/ET_3_5_8_20dx/800X800/figures/ET8/cg=bl=fw_dt/cg4
+
+[Filenames] 
+
+meso_pickled_filename = /rHD2d_ET8_cg=fw=bl=4dx_dt.pickle
+
+[Models_settings]
+#snapshots_opts are useful in case not all snapshots from METHOD in the folder are required.
+#relevant only for visualizing_micro.py
+
+snapshots_opts = {"fewer_snaps_required": false, "smaller_list": [6,7,8,9,10,11,12,13,14]}
+ 
+mesogrid_T_slices_num = 3
 
 [Plot_settings]
-plot_ranges = {"x_range": [0.2, 0.5], "y_range": [0.2, 0.5]}
+# method sets that used for producing difference plots: set it to 'interpolate' when plotting models with different grids
+# interp_dims is relevant when 'interpolate' method is used: should be set to the dims of the coarser grid
 
-[Figures_name_param]
-filter_width = 8.0 
-box_length = 2.0
+plot_ranges = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97]}
+
+diff_plot_settings = {"method": "raw_data", "interp_dims": [700, 700]}
+
