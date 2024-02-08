@@ -30,7 +30,7 @@ from MesoModels import *
 class CoefficientsAnalysis(object): 
     """
     Class containing a number of methods for performing statistical analysis on gridded data. 
-    Methods include: regression, visualizing correlations, PCAs
+    Methods include: regression, visualizing correlations, PCA routines
     """
     def __init__(self): #, visualizer, spatial_dims):
         """
@@ -41,9 +41,9 @@ class CoefficientsAnalysis(object):
         Also nothing...
         
         """
-        # self.visualizer=visualizer # need to re-structure this... or do I 
-        # Do you really need the visualizer here? I don't think so! 
-        # self.spatial_dims=spatial_dims
+        # Change to latex font
+        plt.rc("font",family="serif")
+        plt.rc("mathtext",fontset="cm")
 
     def trim_data(self, data, ranges, model_points):
         """
@@ -83,7 +83,7 @@ class CoefficientsAnalysis(object):
 
             return data
 
-    def scalar_regression(self, y, X, ranges = None, model_points = None, weights=None, add_intercept=False):
+    def scalar_regression(self, y, X, ranges=None, model_points=None, weights=None, add_intercept=False):
         """
         Routine to perform ordinary or weighted (multivariate) regression on some gridded data. 
 
@@ -103,14 +103,13 @@ class CoefficientsAnalysis(object):
         weights: ndarray of gridded weights
 
         add_intercept: bool
-            whether to extemd the dataset to account for a constant offset in the
+            whether to extend the dataset to account for a constant offset in the
             regression model.
 
         Returns:
         --------
-        list of fitted parameters
-        list of std errors associated with the fitted parameters, 
-        (i.e. parameter * std error of the corresponding regressor.)
+        list of (fitted parameters, std errors)
+        (std errors = parameter * std error of the corresponding regressor.)
 
         Notes:
         ------
@@ -122,14 +121,15 @@ class CoefficientsAnalysis(object):
 
         Intercept must be added manually: for the future, add this via true/false block.
         """
-        # CHECKING ALIGNMENT OF PASSED DATA
+        
+        # CHECKING ALIGNMENT OF PASSED DATA 
         dep_shape = np.shape(y)
         n_reg = len(X)
         for i in range(n_reg):
             if np.shape(X[i]) != dep_shape:
                 print(f'The {i}-th regressor data is not aligned with dependent data, removing {i}-th regressor data.')
                 X.remove(X[i])
-        
+         
         if len(X)==0: 
             print('None of the passed regressors is compatible with dep data. Exiting.')
             return None
@@ -138,33 +138,38 @@ class CoefficientsAnalysis(object):
             if np.shape(y) != np.shape(weights):
                 print(f'The weights passed are not not aligned with data, setting these to 1')
                 weights=np.ones(y.shape)
-        
-        # TRIMMING THE DATA TO WITHIN RANGES 
+
+    
+        # TRIMMING THE DATA TO WITHIN RANGES + ADDING COLUMN FOR INTERCEPT (if necessary)
         if ranges != None and model_points != None:
             print('Trimming dataset for regression')
             Y = self.trim_data(y, ranges, model_points)
-            if weights:
-                Weights = self.trim_data(weights, ranges, model_points)
             XX = []
             for x in X: 
                 XX.append(self.trim_data(x, ranges, model_points))
+            if weights:
+                Weights = self.trim_data(weights, ranges, model_points)            
+        else: 
+            XX , Y = X , y
+            if weights:
+                Weights = weights
 
         # FLATTENING + FITTING
         Y = Y.flatten()
         if weights:
             Weights = Weights.flatten()
 
-        for i in range(len(X)): 
-            XX[i]=XX[i].flatten()
-
         if add_intercept:
             const = np.ones(Y.shape)
-            XX.insert(0,const)
-        n_reg = len(XX)
-        n_data = len(Y)
-        XX= np.reshape(XX, (n_data, n_reg))
+            # print(const)
+            XX.insert(0, const)
+            n_reg = n_reg + 1 
+
+        for i in range(len(XX)): 
+            XX[i]=XX[i].flatten()
+        XX = np.einsum('ij->ji', XX)
         
-        # VERSION USING STATSMODELS
+        # # VERSION USING STATSMODELS
         # if weights:
         #     model=sm.WLS(y, Xfl, W)
         #     result= model.fit()
@@ -177,9 +182,15 @@ class CoefficientsAnalysis(object):
         # VERSION USING SKLEARN:
         model=LinearRegression(fit_intercept=False)
         if weights:
-            model.fit(XX,Y,sample_weight=weights)
+            print('Fitting with weights')
+            model.fit(XX, Y, sample_weight=Weights)
         else:
+            print('Fitting without weights')
             model.fit(XX,Y)
+        regress_coeff = list(model.coef_)
+        
+        # Computing std errors on the regressed coefficients
+        n_data = len(Y)
         Y_hat = model.predict(XX)
         res = Y - Y_hat 
         res_sum_of_sq = np.dot(res,res)
@@ -187,8 +198,7 @@ class CoefficientsAnalysis(object):
         var_beta = np.linalg.inv(np.einsum('ji,jl->il',XX,XX)) * sigma_res_sq
         bse = [var_beta[i,i]**0.5 for i in range(n_reg)]
 
-        result = [(model.coef_[i], bse[i]) for i in range(n_reg)]
-        return result
+        return regress_coeff, bse
 
     def tensor_components_regression(self, y, X, spatial_dims, ranges=None, model_points=None, components=None, weights=None, add_intercept=False):
         """
@@ -266,7 +276,8 @@ class CoefficientsAnalysis(object):
             results.append(self.scalar_regression(yc, Xc, ranges, model_points, weights, add_intercept))
         return results
 
-    def visualize_correlation(self, x, y, xlabel=None, ylabel=None, ranges=None, model_points=None):
+    def visualize_correlation(self, x, y, xlabel=None, ylabel=None, ranges=None, model_points=None, \
+                              hue_array=None, style_array=None, legend_dict=None, palette=None, markers=None):
         """
         Method that returns an instance of JointGrid, with plotted the scatter plot and univariate distributions.
         Possibility to cut data to lie within ranges.
@@ -298,22 +309,39 @@ class CoefficientsAnalysis(object):
             print('Trimming dataset for correlation plot')
             X = self.trim_data(x, ranges, model_points)
             Y = self.trim_data(y, ranges, model_points)
+            if hue_array is not None: 
+                hue_array = self.trim_data(hue_array, ranges, model_points)
+            if style_array is not None: 
+                style_array = self.trim_data(style_array, ranges, model_points)
             print('Finished trimming data')
         else: 
             X, Y = x, y
+        
         X=X.flatten()
         Y=Y.flatten()
+        if hue_array is not None: 
+            hue_array = hue_array.flatten()
+        if style_array is not None: 
+            style_array = style_array.flatten()
         print('Data flattened')
+
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message='is_categorical_dtype is deprecated')
             warnings.filterwarnings('ignore', message='use_inf_as_na option is deprecated')
             g=sns.JointGrid()
-            sns.scatterplot(x=X, y=Y, ax=g.ax_joint)
-            sns.kdeplot(x=X, ax=g.ax_marg_x)
-            sns.histplot(y=Y, ax=g.ax_marg_y, kde=True)
+            scatter = sns.scatterplot(x=X, y=Y, ax=g.ax_joint, s=4, c='red', hue=hue_array, style=style_array, 
+                                      palette=palette, markers=markers)
+            sns.histplot(x=X, ax=g.ax_marg_x, kde=True, color= 'red')
+            sns.histplot(y=Y, ax=g.ax_marg_y, kde=True, color= 'red')
             g.set_axis_labels(xlabel=xlabel, ylabel=ylabel)
             g.fig.tight_layout()
-        print('Figure produced inside Coeff Analysis')
+
+            if legend_dict is not None: 
+                handles, labels = scatter.get_legend_handles_labels()
+                new_labels = [legend_dict[label] for label in labels]
+                scatter.legend(handles, new_labels)
+
+        # print('Figure produced inside Coeff Analysis')
         return g
 
     def visualize_many_correlations(self, data, labels, ranges=None, model_points=None):
@@ -471,16 +499,78 @@ class CoefficientsAnalysis(object):
         
         return comp_decomp, g
 
-    def PCA_find_regressors():
+    def PCA_find_regressors(self, dependent_var, explanatory_vars, ranges=None, model_points=None, pcs_num=1):
         """
-        Idea pass both the residuals and a large list of quantities, identify which among these are
-        correlated with the residual. Do this by checking the scores of the residual (the first var 
-        of the dataset, say) on the various principal components. 
-        Then return the weights. This will then be used in regression (possibyly after checking they're
-        not correlated).
+        Idea: pass both the residuals/coefficient and a list of quantities. Identify which among these are
+        correlated with the residual/coefficient, by checking the scores of this on the 
+        principal components. Then return the linear combination of the (highest) components with respect 
+        to the explanatory vars. 
         """
-        pass
-        
+        # CHECKING AND PREPROCESSING THE DATA
+        dep_shape = dependent_var.shape
+        n_expl_vars = len(explanatory_vars)
+        Expl_vars = []
+        for i in range(0, n_expl_vars):
+            if explanatory_vars[i].shape != dep_shape:
+                print(f'The {i}-th  feature passed is not aligned with the first, removing {i}-th feature.')
+            else: 
+                Expl_vars.append(explanatory_vars[i])
+
+        if len(Expl_vars)==0: 
+            print('No two vars are compatible. Exiting.')
+            return None
+
+        if ranges != None and model_points != None:
+            print('Trimming dataset for PCA analysis.')
+            Dep_var = self.trim_data(dependent_var, ranges, model_points)
+            for i in range(len(explanatory_vars)):
+                Expl_vars[i] = self.trim_data(Expl_vars[i], ranges, model_points)
+
+        Dep_var = Dep_var.flatten()
+        for i in range(len(Expl_vars)):
+            Expl_vars[i] = Expl_vars[i].flatten()
+
+        #STANDARDIZING DATA TO ZERO MEAN AND UNIT VARIANCE
+        Data = []
+        for i in range(len(Expl_vars)):
+            x = Expl_vars[i]
+            mean = np.mean(x)
+            var = np.var(x)
+            y = np.array([x[j]-mean for j in range(len(x))])
+            Data.append(y/var)
+            # Data.append(y)
+        mean = np.mean(Dep_var)
+        var = np.var(Dep_var)
+        y = (Dep_var - mean)
+        y=y/var
+        Data = np.column_stack(tuple([y] + [Data[i] for i in range(len(Expl_vars))]))
+
+        #IDENTIFYING THE COMPONENTS WITH HIGHEST SCOREs ON THE DEPENDENT VAR
+        pca_model = PCA().fit(Data)
+        var2comp = pca_model.components_
+        comp2var = np.einsum('ij->ji', var2comp)
+
+        print('components_: \n{}\n'.format(var2comp))
+        scores_of_dep_var = var2comp[:,0]
+        print(f'Scores of dependent var on the principal components: \n{scores_of_dep_var}\n')
+        # sorted_scores_indices = np.argsort(scores_of_dep_var)
+        sorted_scores_indices = np.argsort(np.abs(scores_of_dep_var))
+        pos_of_highest_pcs = sorted_scores_indices[-pcs_num:] #identifying the index of the ones with highest score
+        # this is ordering the scores, but you should care about their magnitude, no?
+
+        highest_pcs_decomp = []
+        corresponding_scores = []  
+        tot_explained_var = 0 
+        for i in range(pcs_num-1, -1, -1):
+            highest_pcs_decomp.append(comp2var[:,pos_of_highest_pcs[i]])
+            corresponding_scores.append(scores_of_dep_var[pos_of_highest_pcs[i]])
+            tot_explained_var += pca_model.explained_variance_ratio_[pos_of_highest_pcs[i]]
+
+        print(f'Total explained variance: {tot_explained_var}\n')
+
+            
+        return highest_pcs_decomp, corresponding_scores
+
     # Not sure about these two methods. 
     def JointPlot(self, model, y_var_str, x_var_str, t, x_range, y_range,\
                   interp_dims, method, y_component_indices, x_component_indices):
@@ -509,4 +599,13 @@ class CoefficientsAnalysis(object):
 
 
 if __name__ == '__main__':
-    pass
+
+    x0 = np.arange(100).reshape((10,10))
+    x1 = np.sin(np.arange(100).reshape((10,10)))
+    X = [x0, x1]
+    y = 1 + 2 * x0 + 3* x1 + random.randint(20,30)
+
+    statistical_tool = CoefficientsAnalysis()
+    result, errors = statistical_tool.scalar_regression(y,X, add_intercept=True) 
+    print('Coefficients: {}'.format(result))
+    print('Errors: {}\n'.format(errors))
