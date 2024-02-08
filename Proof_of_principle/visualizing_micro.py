@@ -28,10 +28,10 @@ if __name__ == '__main__':
         print('=========================================================================')
         print(f'Starting job on data from {hdf5_directory}')
         print('=========================================================================\n\n')
-        snapshots_opts = json.loads(config['Micro_model_settings']['snapshots_opts'])
+        snapshots_opts = json.loads(config['Models_settings']['snapshots_opts'])
         fewer_snaps_required = snapshots_opts['fewer_snaps_required']
         smaller_list = snapshots_opts['smaller_list']
-        FileReader = METHOD_HDF5(filenames,fewer_snaps_required, smaller_list)
+        FileReader = METHOD_HDF5(filenames, fewer_snaps_required, smaller_list)
         num_snaps = FileReader.num_files
         micro_model = IdealHD_2D()
         FileReader.read_in_data_HDF5_missing_xy(micro_model)

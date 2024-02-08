@@ -1,22 +1,22 @@
-# CONFIGURATION FILE FOR SCRIPTS PICKLING_MESO.PY
+# CONFIGURATION FILE FOR SCRIPT PICKLING_MESO.PY
 #################################################
 
 [Directories]
 
-hdf5_dir = /scratch/tc2m23/KHIRandom/hydro/ET_3_5_8_20dx/800X800/METHOD_output/ET_8.0
+hdf5_dir = /scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/METHOD_output/800X800/ET_2.0
 
-pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/ET_3_5_8_20dx/800X800/pickled_files
+pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/pickled_files/800X800
 
 [Micro_model_settings]
 #snapshots_opts are useful in case not all snapshots from METHOD in the folder are required.
 #the options is activated using the first key, while the list refers to the index of the elements of 
 #ordered filenames' list to be retained (list ordered with glob in FileReaders.METHOD_HDF5 )
 
-snapshots_opts = {"fewer_snaps_required": true, "smaller_list": [5,6,7,8,9,10,11,12,13,14,15]}
+snapshots_opts = {"fewer_snaps_required": false, "smaller_list": [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17]}
 
 [Meso_model_settings]
 
-meso_grid = {"x_range": [0.02, 0.98], "y_range": [0.02, 0.98], "num_T_slices": 3, "coarse_grain_factor": 4, "coarse_grain_time": true}
+meso_grid = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97], "num_T_slices": 3, "coarse_grain_factor": 4, "coarse_grain_time": true}
 
 filtering_options = {"box_len_ratio": 4.0, "filter_width_ratio": 4.0}
 
@@ -24,4 +24,4 @@ n_cpus = 40
 
 [Pickled_filenames]
 
-meso_pickled = /rHD2d_ET8_cg=fw=bl=4dx_dt.pickle
+meso_pickled = /rHD2d_ET2_cg=fw=bl=4dx_dt.pickle

@@ -98,16 +98,20 @@ if __name__ == '__main__':
     # # PLOTTING THE DECOMPOSED SET 
     # #############################
     vars_strs = ['pi_res', 'pi_res', 'pi_res', 'pi_res', 'pi_res', 'pi_res']
+    norms = ['mysymlog', 'mysymlog', 'mysymlog', 'mysymlog', 'mysymlog', 'mysymlog']
+    cmaps = ['seismic', 'seismic', 'seismic', 'seismic', 'seismic', 'seismic']
     components = [(0,0), (0,1), (0,2), (1,1), (1,2), (2,2)]
-    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components)
+    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components, norms=norms, cmaps=cmaps)
     fig.tight_layout()
     time_for_filename = str(round(time_meso,2))
     filename = "/DecomposedSET_1.pdf"
     plt.savefig(saving_directory + filename, format = 'pdf')
 
     vars_strs = ['q_res', 'q_res', 'q_res', 'Pi_res', 'p_tilde', 'p_filt']
+    norms = ['mysymlog', 'mysymlog', 'mysymlog', None, None, None]
+    cmaps = ['seismic', 'seismic', 'seismic', None, None, None]
     components = [(0,), (1,), (2,), (), (), ()]
-    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components)
+    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components, norms=norms, cmaps=cmaps)
     fig.tight_layout()
     time_for_filename = str(round(time_meso,2))
     filename = "/DecomposedSET_2.pdf"
