@@ -554,6 +554,18 @@ class IdealHD_2D(object):
         for str in self.structures_strs:
             self.structures[str] = []
 
+        self.labels_var_dict = {'BC' : r'$n^{a}$', 
+                                'SET' : r'$T^{ab}$', 
+                                'bar_vel' : r'$u^a$',
+                                'vx' : r'$v_x$', 
+                                'vy' : r'$v_y$'}
+
+    def upgrade_labels_dict(self, entry_dict):
+        """
+        pretty self-explanatory
+        """
+        self.labels_var_dict.update(entry_dict)
+        
     def get_spatial_dims(self):
         return self.spatial_dims
 

@@ -35,6 +35,10 @@ class Plotter_2D(object):
                          
                         
         self.screen_size = np.array(screen_size)
+
+        # Change to latex font
+        plt.rc("font",family="serif")
+        plt.rc("mathtext",fontset="cm")
     
     def get_var_data(self, model, var_str, t, x_range, y_range, component_indices=(), method= 'raw_data', interp_dims=None):
         """
@@ -245,13 +249,17 @@ class Plotter_2D(object):
                 fig.colorbar(im, cax=cax, orientation='vertical')
             
             title = var_str
+            if hasattr(model, 'labels_var_dict'):
+                if title in model.labels_var_dict.keys():
+                    title = model.labels_var_dict[title]
             if component_indices != ():
                 title = title + ", {}-component".format(component_indices)
             ax.set_title(title)
             ax.set_xlabel(r'$y$') 
             ax.set_ylabel(r'$x$')
 
-        fig.suptitle('Snapshot from model {} at time {}'.format(model.get_model_name(), t), fontsize = 12)
+        time_for_filename = str(round(t,2))
+        fig.suptitle('Snapshot from model {} at time {}'.format(model.get_model_name(), time_for_filename), fontsize = 12)
         fig.tight_layout()
         # plt.show()
         return fig
@@ -309,12 +317,12 @@ class Plotter_2D(object):
                 print("The number of variables per model must be the same. Exiting.")
                 return None
             
-        if len(var_strs)!= len(norms):
+        if not norms:
+            norms = [None for _ in range(len(var_strs[0]))]
+        elif len(var_strs)!= len(norms):
             print('The norms provided are not the same number as the variables: setting these to auto')
-            norms = [None for _ in range(len(var_strs))]
-        elif norms == None:
-            norms = [None for _ in range(len(var_strs))]
-        
+            norms = [None for _ in range(len(var_strs[0]))]
+
         n_cols = len(models)
         if diff_plot:
             if len(models)!=2:
@@ -349,7 +357,16 @@ class Plotter_2D(object):
                 divider = make_axes_locatable(axes[i,j])
                 cax = divider.append_axes('right', size='5%', pad=0.05)
                 fig.colorbar(im, cax=cax, orientation='vertical')
-                title = models[j].get_model_name() + "\n"+var_strs[j][i]
+                # title = models[j].get_model_name() + "\n"+var_strs[j][i]
+                title = models[j].get_model_name() + '\n'
+                if hasattr(models[j], 'labels_var_dict'):
+                    if var_strs[j][i] in models[j].labels_var_dict.keys():
+                        title += models[j].labels_var_dict[var_strs[j][i]]
+                    else: 
+                        title += var_strs[j][i]
+                else:
+                    title += var_strs[j][i]
+
                 if components_indices[j][i] != ():
                     title += " {}-component".format(components_indices[j][i])
                 axes[i,j].set_title(title)

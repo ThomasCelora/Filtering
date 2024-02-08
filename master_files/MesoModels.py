@@ -1147,7 +1147,7 @@ class resHD2D(object):
         for var in self.meso_structures:
                 self.meso_structures[var] = []
 
-        self.meso_scalars_strs = ['eps_tilde', 'n_tilde', 'p_tilde', 'p_filt', 'eos_res', 'Pi_res', 'sigma_tilde', 'T_tilde']
+        self.meso_scalars_strs = ['eps_tilde', 'n_tilde', 'p_tilde', 'p_filt', 'eos_res', 'Pi_res', 'T_tilde']
         self.meso_vectors_strs = ['u_tilde', 'q_res']
         self.meso_r2tensors_strs = ['pi_res']
         self.meso_vars_strs = self.meso_scalars_strs + self.meso_vectors_strs + self.meso_r2tensors_strs
@@ -1190,6 +1190,44 @@ class resHD2D(object):
 
         if not compatible:
             print("Meso and Micro models are incompatible:"+error) 
+
+        self.meso_scalars_strs = ['eps_tilde', 'n_tilde', 'p_tilde', 'p_filt', 'eos_res', 'Pi_res', 'T_tilde']
+        self.meso_vectors_strs = ['u_tilde', 'q_res']
+        self.meso_r2tensors_strs = ['pi_res']
+        self.coefficient_strs = ["Gamma"]
+        self.labels_var_dict = {'SET' : r'$<T^{ab}>$', 
+                                'BC' : r'$<n^a>$',
+                                'eps_tilde' : r'$\tilde{\varepsilon}$',
+                                'n_tilde' : r'$\tilde{n}$',
+                                'p_tilde' : r'$\tilde{p}$',
+                                'p_filt' : r'$<p>$',
+                                'eos_res' : r'$M$',
+                                'Pi_res' : r'$\tilde{\Pi}$',
+                                'T_tilde' : r'$\tilde{T}$',
+                                'u_tilde' : r'$\tilde{u}^a$',
+                                'D_u_tilde' : r'$\nabla_{a}\tilde{u}^b$',
+                                'D_T_tilde' : r'$\nabla_{a}\tilde{T}$',
+                                'q_res' : r'$\tilde{q}^a$',
+                                'pi_res' : r'$\tilde{\pi}^{ab}$',
+                                'Gamma' : r'$\Gamma$',
+                                'shear_tilde' : r'$\tilde{\sigma}^{ab}$',
+                                'acc_tilde' : r'$\tilde{a}^a$',
+                                'exp_tilde' : r'$\tilde{\theta}$',
+                                'Theta_tilde' : r'$\tilde{\Theta}^a$',
+                                'eta' : r'$\eta$',
+                                'zeta' : r'$\zeta$',
+                                'kappa' : r'$\kappa$',
+                                'Pi_res_sq' : r'$\tilde{\Pi}^2$',
+                                'pi_res_sq' : r'$\tilde{\pi}_{ab}\tilde{\pi}^{ab}$',
+                                'shear_sq' : r'$\tilde{\sigma}_{ab}\tilde{\sigma}^{ab}$',
+                                'Theta_sq': r'$\tilde{\Theta}_a\tilde{\Theta}^a$',
+                                'q_res_sq': r'$\tilde{q}_a \tilde{q}^a$'}
+
+    def upgrade_labels_dict(self, entry_dict):
+        """
+        pretty self-explanatory
+        """
+        self.labels_var_dict.update(entry_dict)
 
     def set_find_obs(self, find_obs):
         self.find_obs = find_obs
@@ -1672,7 +1710,7 @@ class resHD2D(object):
         Gamma: float
             Gamma factor of the Gamma law 
         """
-        return (Gamma-1)* eps*n
+        return (Gamma-1)* (eps-n)
 
     @staticmethod
     def decompose_structures_task(BC, SET , p_filt, h, i, j):
