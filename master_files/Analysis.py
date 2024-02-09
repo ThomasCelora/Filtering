@@ -106,7 +106,7 @@ class CoefficientsAnalysis(object):
 
         return mask
         
-    def preprocess_data(self, list_of_arrays, preprocess_data, ranges=None, model_points=None):
+    def preprocess_data(self, list_of_arrays, preprocess_data):#, ranges=None, model_points=None):
         """
         Takes input list of arrays with dictionary on how to preprocess_data and info about
         trimming of arrays to selected range within grid
@@ -124,11 +124,12 @@ class CoefficientsAnalysis(object):
 
             'log_or_not' is 1 if you want to take the logarithm of the data 
 
-        ranges: list of lists of 2 floats --> this is passed to trim_data 
-            the min and max in each direction
 
-        model_points: list of list of floats --> this is passed to trim_data 
-            the gridpoints of the array
+        # ranges: list of lists of 2 floats --> this is passed to trim_data 
+        #    the min and max in each direction
+
+        # model_points: list of list of floats --> this is passed to trim_data 
+        #    the gridpoints of the array
         """
 
         num_arrays = len(list_of_arrays)
@@ -139,11 +140,11 @@ class CoefficientsAnalysis(object):
         if condition: 
             print('Preprocess_data dictionary is not compatible with list_of_arrays')
 
-        # Trimming data to lie within range
-        if ranges != None and model_points != None:
-            new_list = []
-            for i in range(len(list_of_arrays)):
-                new_list.append(self.trim_data(list_of_arrays[i], ranges=ranges, model_points=model_points))
+        # # Trimming data to lie within range: you probably don't want this to habben here actually
+        # if ranges != None and model_points != None:
+        #     new_list = []
+        #     for i in range(len(list_of_arrays)):
+        #         new_list.append(self.trim_data(list_of_arrays[i], ranges=ranges, model_points=model_points))
         
         # Combining the masks of the different arrays
         masks = []
@@ -246,13 +247,6 @@ class CoefficientsAnalysis(object):
                 print(f'The weights passed are not not aligned with data, setting these to 1')
                 weights=np.ones(y.shape)
 
-        # Here: 
-        # if pre_process_data != None: 
-        #     aggregate Y and X into data
-        #     preprocess data
-        #     return newY,newX
-                
-        # elif ranges and model points do as below (including flattening which is otherwise taken care of by process data)
     
         # TRIMMING THE DATA TO WITHIN RANGES + ADDING COLUMN FOR INTERCEPT (if necessary)
         if ranges != None and model_points != None:
@@ -267,6 +261,9 @@ class CoefficientsAnalysis(object):
             XX , Y = X , y
             if weights:
                 Weights = weights
+
+        # Trim data first, then pre-process data
+        # if preprocess_data then do it. 
 
         # FLATTENING + FITTING
         Y = Y.flatten()
@@ -748,8 +745,6 @@ if __name__ == '__main__':
     
     statistical_tool = CoefficientsAnalysis()
     data = [x,y]
-
-
 
 
     x, y = statistical_tool.preprocess_data(data, preprocess_data)
