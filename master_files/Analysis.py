@@ -9,6 +9,7 @@ Created on Tue Jan 24 18:02:05 2023
 
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.ma as ma
 import pandas as pd
 import h5py
 import pickle
@@ -79,9 +80,115 @@ class CoefficientsAnalysis(object):
                 IdxsToRemove.append([ j for j in range(num_points[i]) if j < start_indices[i] or j > end_indices[i]])
 
             for i in range(len(ranges)):
-                data = np.delete(data, IdxsToRemove[i], axis=i)
+                newdata = np.delete(data, IdxsToRemove[i], axis=i)
 
-            return data
+            return newdata
+        
+    def get_pos_or_neg_mask(self, pos_or_neg, array):
+        """
+        Function that return the mask that would be applied to an array in order to select 
+        positive or negative values
+
+        Parameters:
+        -----------
+        pos_or_neg: can be int (0 or 1) or bool True or False
+
+        array: np.array
+
+        Notes:
+        ------
+        To be combined with others before applying all together 
+        """
+        if pos_or_neg:
+            mask = ma.masked_where(array<0, array, copy=True).mask
+        else:
+            mask = ma.masked_where(array>0, array, copy=True).mask
+
+        return mask
+        
+    def preprocess_data(self, list_of_arrays, preprocess_data, ranges=None, model_points=None):
+        """
+        Takes input list of arrays with dictionary on how to preprocess_data and info about
+        trimming of arrays to selected range within grid
+
+        Parameters:
+        ----------
+        list_of_arrays: 
+            list with the combined data to be processed
+
+        preprocess_data: dictionary
+            each value of the dictionary must be a list long as the arrays passed (checked for)
+            Expected keys are: 
+
+            'pos_or_neg' is 1 (0) if you want to select positive (negative) values
+
+            'log_or_not' is 1 if you want to take the logarithm of the data 
+
+        ranges: list of lists of 2 floats --> this is passed to trim_data 
+            the min and max in each direction
+
+        model_points: list of list of floats --> this is passed to trim_data 
+            the gridpoints of the array
+        """
+
+        num_arrays = len(list_of_arrays)
+        condition = False
+        for key in preprocess_data:
+            if len(preprocess_data[key]) != num_arrays:
+                condition=True
+        if condition: 
+            print('Preprocess_data dictionary is not compatible with list_of_arrays')
+
+        # Trimming data to lie within range
+        if ranges != None and model_points != None:
+            new_list = []
+            for i in range(len(list_of_arrays)):
+                new_list.append(self.trim_data(list_of_arrays[i], ranges=ranges, model_points=model_points))
+        
+        # Combining the masks of the different arrays
+        masks = []
+        for i in range(len(list_of_arrays)):
+            pos_or_neg = preprocess_data['pos_or_neg'][i]
+            temp = self.get_pos_or_neg_mask(pos_or_neg, list_of_arrays[i]) 
+            masks.append(temp)
+        
+        tot_mask = masks[0]
+        for i in range(1,len(masks)):
+            tot_mask = np.logical_or(tot_mask, masks[i])
+        
+        # Masking the combined dataset with combined mask and taking log
+        processed_list = []
+        for i in range(len(list_of_arrays)):
+            temp = ma.masked_array(list_of_arrays[i], tot_mask)
+            processed_list.append(temp.compressed())
+            #when array is compressed, this is automatically flattened!
+        
+        for i in range(len(processed_list)):
+            if preprocess_data['log_or_not'][i]:
+                processed_list[i] = np.log10(np.abs(processed_list[i]))
+
+        return processed_list
+
+    def extract_randomly(self, array, num_extractions):
+        """
+        Extract randomly from data. 
+
+        Parameters:
+        -----------
+        data: np.array (flattened or not)
+        num_extractions: number of values to be extracted 
+        """
+        new_array = array.copy()
+        if new_array.shape != (1,):
+            print('Array is not flat, flattening it.')
+            new_array = new_array.flatten()
+
+        max_idx = len(new_array) - 1
+        extracted_vals = []
+        for i in range(num_extractions):
+            temp = new_array[random.randint(0,max_idx)]
+            extracted_vals.append(temp)
+        return np.array(extracted_vals)
 
     def scalar_regression(self, y, X, ranges=None, model_points=None, weights=None, add_intercept=False):
         """
@@ -139,6 +246,13 @@ class CoefficientsAnalysis(object):
                 print(f'The weights passed are not not aligned with data, setting these to 1')
                 weights=np.ones(y.shape)
 
+        # Here: 
+        # if pre_process_data != None: 
+        #     aggregate Y and X into data
+        #     preprocess data
+        #     return newY,newX
+                
+        # elif ranges and model points do as below (including flattening which is otherwise taken care of by process data)
     
         # TRIMMING THE DATA TO WITHIN RANGES + ADDING COLUMN FOR INTERCEPT (if necessary)
         if ranges != None and model_points != None:
@@ -393,21 +507,18 @@ class CoefficientsAnalysis(object):
         for i in range(len(data)):
             Data.append(data[i].flatten())
 
-        print('Data_flattened')
-
         Data=np.column_stack(Data)
         Data_df = pd.DataFrame(Data, columns=labels)
-        print('Flattened data converted to a dataframe')
+
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message='is_categorical_dtype is deprecated')
             warnings.filterwarnings('ignore', message='use_inf_as_na option is deprecated')
             g=sns.PairGrid(Data_df)
-            g.map_upper(sns.scatterplot)
-            g.map_lower(sns.kdeplot)
-            g.map_diag(sns.histplot, kde=True)
+            g.map_upper(sns.scatterplot, s=4, c='red')
+            g.map_lower(sns.kdeplot, color='red')
+            g.map_diag(sns.histplot, kde=True, color='red')
             g.fig.tight_layout()
 
-        print('Finished producing figure inside CoefficientsAnalysis')
         return g
 
     def PCA_find_regressors_subset(self, data, ranges=None, model_points=None, var_wanted = 1.):
@@ -445,33 +556,34 @@ class CoefficientsAnalysis(object):
         # CHECKING AND PREPROCESSING THE DATA
         ref_shape = data[0].shape
         n_vars = len(data)
+        Data =[data[0]]
         for i in range(1, n_vars):
             if data[i].shape != ref_shape:
                 print(f'The {i}-th  feature passed is not aligned with the first, removing {i}-th feature.')
-                data.remove(data[i])
+            else: 
+                Data.append(data[i])
 
-        if len(data)==0: 
+        if len(Data)==0: 
             print('No two vars are compatible. Exiting.')
             return None
 
         if ranges != None and model_points != None:
             print('Trimming dataset for PCA analysis.')
-            for i in range(len(data)):
-                data[i] = self.trim_data(data[i], ranges, model_points)
+            for i in range(len(Data)):
+                Data[i] = self.trim_data(Data[i], ranges, model_points)
 
-        for i in range(n_vars):
-            data[i] = data[i].flatten()
+        for i in range(len(Data)):
+            Data[i] = Data[i].flatten()
 
         #STANDARDIZING DATA TO ZERO MEAN AND UNIT VARIANCE
-        Data = []
-        for i in range(len(data)):
-            x = data[i]
+        for i in range(len(Data)):
+            x = Data[i]
             mean = np.mean(x)
             var = np.var(x)
             y = np.array([x[j]-mean for j in range(len(x))])
-            Data.append(y/var)
-            # Data.append(y)
-        Data = np.column_stack(tuple([Data[i] for i in range(n_vars)]))
+            Data[i] = y/var
+            # Data[i] = y
+        Data = np.column_stack(tuple([Data[i] for i in range(len(Data))]))
 
         # HOW MANY PRINCIPAL COMPONENTS HAVE TO BE RETAINED? 
         pca_model = PCA().fit(Data)
@@ -600,12 +712,53 @@ class CoefficientsAnalysis(object):
 
 if __name__ == '__main__':
 
-    x0 = np.arange(100).reshape((10,10))
-    x1 = np.sin(np.arange(100).reshape((10,10)))
-    X = [x0, x1]
-    y = 1 + 2 * x0 + 3* x1 + random.randint(20,30)
+    # #TESTING REGRESSION
+    # x0 = np.arange(100).reshape((10,10))
+    # x1 = np.sin(np.arange(100).reshape((10,10)))
+    # X = [x0, x1]
+    # y = 1 + 2 * x0 + 3* x1 + random.randint(20,30)
 
+    # statistical_tool = CoefficientsAnalysis()
+    # result, errors = statistical_tool.scalar_regression(y,X, add_intercept=True) 
+    # print('Coefficients: {}'.format(result))
+    # print('Errors: {}\n'.format(errors))
+
+    # #TESTING PRE-PROCESS DATA
+    x = np.zeros((100,100))
+    for idx in np.ndindex(x.shape):
+        signum = [-1,1][random.randint(0,1)]
+        x[idx] = signum * random.randint(0,100)
+
+    y = np.zeros((100,100))
+    for idx in np.ndindex(x.shape):
+        signum = [-1,1][random.randint(0,1)]
+        if signum==1:  
+            exp = random.randint(-5,5)
+        elif signum ==-1: 
+            exp = random.randint(-3,3)
+        y[idx] = signum * (10 ** exp)
+
+    print('Max and min of x: {}, {}\n'.format(np.max(x), np.min(x)))
+    print('Max and min of y: {}, {}\n'.format(np.max(y), np.min(y)))
+
+
+
+    preprocess_data = {'pos_or_neg' : [1,0], 
+                       'log_or_not' : [0,1]}
+    
     statistical_tool = CoefficientsAnalysis()
-    result, errors = statistical_tool.scalar_regression(y,X, add_intercept=True) 
-    print('Coefficients: {}'.format(result))
-    print('Errors: {}\n'.format(errors))
+    data = [x,y]
+
+
+
+
+    x, y = statistical_tool.preprocess_data(data, preprocess_data)
+
+    print('Processing data....\n')
+    print('Max and min of x: {}, {}\n'.format(np.max(x), np.min(x)))
+    print('Max and min of y: {}, {}\n'.format(np.max(y), np.min(y)))
+    
+
+    print('Extracting random vals from x...\n')
+    extracted = statistical_tool.extract_randomly(x, 10)
+    print(extracted)
