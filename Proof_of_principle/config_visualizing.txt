@@ -25,7 +25,7 @@ mesogrid_T_slices_num = 3
 # method sets that used for producing difference plots: set it to 'interpolate' when plotting models with different grids
 # interp_dims is relevant when 'interpolate' method is used: should be set to the dims of the coarser grid
 
-plot_ranges = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97]}
+plot_ranges = {"x_range": [0.04, 0.96], "y_range": [0.04, 0.96]}
 
-diff_plot_settings = {"method": "raw_data", "interp_dims": [700, 700]}
+diff_plot_settings = {"method": "interpolate", "interp_dims": [700, 700]}
 
