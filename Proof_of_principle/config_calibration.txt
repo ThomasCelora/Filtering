@@ -5,24 +5,19 @@
 
 pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/pickled_files/800X800
 
-figures_dir = /home/tc2m23/Filtering/Proof_of_principle/tests/regression
+figures_dir = /home/tc2m23/Filtering/Proof_of_principle/tests/.
 #/scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/Figures/800X800/ET2/cg=bl=fw=dt/CG4
+#/scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/Figures/800X800/ET2/cg=bl=fw=dt/CG4/fitting_eta
 
 [Filenames] 
-
 meso_pickled_filename = /rHD2d_ET2_cg=fw=bl=4dx_dt.pickle
 
 [Models_settings]
- 
 mesogrid_T_slices_num = 3
 
-[Figure_settings]
+[Ranges_for_analysis]
 
-plot_ranges = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97]}
-
-correlation_ranges = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97]}
-
-regression_ranges = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97]}
+ranges = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97]}
 
 [PCA_settings]
 
@@ -30,14 +25,25 @@ dependent_var = Pi_res
 explanatory_vars = ["T_tilde", "n_tilde", "p_tilde", "eps_tilde"]
 pcs_num = 1
 
-# The following will be used if the quantity to be plotted is not a scalar
-dep_var_dict = {"shear_tilde": [[1, 2], [0, 1]]}
-explanatory_vars_dict = {"shear_tilde": [[1, 2], [0, 1]]} 
+regressors_2_reduce =  ["T_tilde", "n_tilde", "p_tilde", "eps_tilde"]
+variance_wanted = 0.9
+
+# Careful, only one dictionary here
+preprocess_data = {"pos_or_neg": [1,1,1,1,1], "log_or_not": [1,1,1,1,1]}
+#set extractions 0 if you don't want to extract randomly from sample
+extractions = 10000 
+
 
 [Regression_settings]
 
 dependent_var = Pi_res
 regressors = ["T_tilde", "n_tilde"]
-add_intercept = 0
+preprocess_data = {"pos_or_neg": [1,1,1], "log_or_not": [1,1,1]}
+add_intercept = 1
+#set extractions 0 if you don't want to extract randomly from sample
+extractions = 10000  
 
-regression_ranges = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97]}
+
+
+
+

@@ -84,6 +84,49 @@ class CoefficientsAnalysis(object):
 
             return newdata
         
+    def trim_dataset(self, list_of_data, ranges, model_points):
+        """
+        wrapper of trim data: check the shapes of the various arrays are compatible
+        Then trim each of them individually. 
+
+        Parameters: 
+        -----------
+        list_of_data: list of np.arrays (gridded data)
+            the dataset you want to trim
+
+        ranges: list of lists
+            the min and max in each direction
+        
+        model_points: list of lists
+            the gridpoints, len of this must be compatible with the ranges
+
+        Returns:
+        --------
+        list of arrays trimmed within ranges
+        """
+        print('Trimming the dataset')
+
+        if len(ranges) != len(model_points):
+            print('Ranges incompatible with model_points. Exiting')
+            return None
+        
+        ref_shape = list_of_data[0].shape
+        new_data = [list_of_data[0]]
+
+        for i in range(1, len(list_of_data)):
+            if list_of_data[i].shape == ref_shape:
+                new_data.append(list_of_data[i])
+            else:
+                print(f'The {i}th array in the dataset is not compatible with the first: ignoring it.')
+        
+        if len(new_data) <=1: 
+            print('No two variables in the dataset are compatible. Exiting.')
+            return None
+        else: 
+            for i in range(len(new_data)):
+                new_data[i] = self.trim_data(new_data[i], ranges, model_points)
+            return new_data
+
     def get_pos_or_neg_mask(self, pos_or_neg, array):
         """
         Function that return the mask that would be applied to an array in order to select 
@@ -94,6 +137,10 @@ class CoefficientsAnalysis(object):
         pos_or_neg: can be int (0 or 1) or bool True or False
 
         array: np.array
+
+        Return:
+        -------
+        mask: is True where values are masked!
 
         Notes:
         ------
@@ -108,8 +155,8 @@ class CoefficientsAnalysis(object):
         
     def preprocess_data(self, list_of_arrays, preprocess_data, weights=None):
         """
-        Takes input list of arrays with dictionary on how to preprocess_data and info about
-        trimming of arrays to selected range within grid
+        Takes input list of arrays with dictionary on how to preprocess_data 
+        In case data comes with weights, these can be passed to be pre-processed accordingly
 
         Parameters:
         ----------
@@ -123,8 +170,28 @@ class CoefficientsAnalysis(object):
             'pos_or_neg' is 1 (0) if you want to select positive (negative) values
 
             'log_or_not' is 1 if you want to take the logarithm of the data 
-        """
 
+        weights: np.array, default to None
+            the array with weights for each gridpoint. 
+
+        Return:
+        ------
+        The processed data
+        """
+        print('Pre-processing dataset')
+        # Checking data is compatible
+        ref_shape = list_of_arrays[0].shape
+        processed_list = [list_of_arrays[0]]
+        for i in range(1, len(list_of_arrays)):
+            if list_of_arrays[i].shape == ref_shape:
+                processed_list.append(list_of_arrays[i])
+            else: 
+                print(f'The {i}th array in the dataset is not compatible with the first: ignoring it.')
+        if len(processed_list) <=1: 
+            print('No two variables in the dataset are compatible. Exiting.')
+            return None
+
+        # Checking preprocess info are compatible with data
         num_arrays = len(list_of_arrays)
         condition = False
         for key in preprocess_data:
@@ -159,30 +226,36 @@ class CoefficientsAnalysis(object):
         # removing corresponding entries from weights
         Weights = None
         if weights != None: 
-            Weights = np.ma.masked_array(weights, tot_mask)
+            Weights = np.ma.masked_array(weights, tot_mask).compressed()
             return processed_list, Weights
         else: 
             return processed_list
 
-    def extract_randomly(self, data, num_extractions):
+    def extract_randomly(self, list_of_data, num_extractions):
         """
         Extract randomly from data. 
 
         Parameters:
         -----------
-        data: list of np.arrays (flattened or not)
+        list_of_data: list of np.arrays (flattened or not)
+
+
         num_extractions: number of values to be extracted 
 
-        Notes:
-        ------
-        Data is assumed pre-processesed, that is data is a list of compatible arrays!
+        Returns:
+        --------
+        list of arrays with values randomly extracted from input ones
         """
-        new_data = []
-        for i in range(len(data)):
-            new_data.append(np.array(data[i]))
-            if new_data[i].ndim != 1:
-                print(f'{i}-th array is not flat, flattening it.')
-                new_data[i] = new_data[i].flatten() 
+        print('Extracting randomly from dataset')
+
+        # Checking data is compatible
+        new_data = [list_of_data[0]]
+        ref_shape = list_of_data[0].shape
+        for i in range(1,len(list_of_data)):
+            if list_of_data[i].shape == ref_shape:
+                new_data.append(list_of_data[i].flatten())
+            else: 
+                print(f'The {i}th array in the dataset is not compatible with the first: ignoring it.')
 
         # setting up the mask 
         mask_index = np.zeros(new_data[i].shape)
@@ -204,7 +277,7 @@ class CoefficientsAnalysis(object):
                 
         return np.array(new_data)
 
-    def scalar_regression(self, y, X, ranges=None, model_points=None, weights=None, extractions=None, preprocess_data=None, add_intercept=False):
+    def scalar_regression(self, y, X, weights=None, add_intercept=False):
         """
         Routine to perform ordinary or weighted (multivariate) regression on some gridded data. 
 
@@ -215,11 +288,6 @@ class CoefficientsAnalysis(object):
         
         X: list of ndarrays of gridded data (treated as indep scalars)
             the "data" for the regressors 
-
-        ranges: list of lists of 2 floats
-            mins and max in each direction
-
-        model_points: list of lists containing the gridpoints in each direction
 
         weights: ndarray of gridded weights
 
@@ -234,16 +302,10 @@ class CoefficientsAnalysis(object):
 
         Notes:
         ------
-        Gridded data and ranges are chosen at the model level, and passed here
-        as parameters, so that this external method will not change/access any 
-        model quantity. 
-
-        Works in any dimensions!
-
-        Intercept must be added manually: for the future, add this via true/false block.
+        Works in any dimensions
         """
         
-        # CHECKING ALIGNMENT OF PASSED DATA 
+        # CHECKING COMPATIBILITY OF PASSED DATA 
         dep_shape = np.shape(y)
         n_reg = len(X)
         for i in range(n_reg):
@@ -259,71 +321,22 @@ class CoefficientsAnalysis(object):
             if np.shape(y) != np.shape(weights):
                 print(f'The weights passed are not not aligned with data, setting these to 1')
                 weights=np.ones(y.shape)
-
-    
-        # TRIMMING THE DATA TO WITHIN RANGES 
-        if ranges != None and model_points != None:
-            print('Trimming dataset for regression')
-            Y = self.trim_data(y, ranges, model_points)
-            XX = []
-            for x in X: 
-                XX.append(self.trim_data(x, ranges, model_points))
-            if weights:
-                Weights = self.trim_data(weights, ranges, model_points)            
-        else: 
-            XX , Y = X , y
-            if weights:
-                Weights = weights
-
-        # PREPROCESSING
-        if preprocess_data != None:
-            print('preprocessing data')
-            data = [Y]
-            for i in range(len(XX)):
-                data.append(XX[i])
-
-            if weights: 
-                processed_data = self.preprocess_data(data, preprocess_data, Weights)
-            else: 
-                processed_data  = self.preprocess_data(data, preprocess_data)
-
-            Y = np.array(processed_data[0])
-            for i in range(len(XX)):
-                XX[i] = np.array(processed_data[i+1])
-            if weights:
-                Weights= np.array(processed_data[-1])
-
-        # RANDOMLY EXTRACT FROM ARRAY: DATA ACTUALLY CONSIDERED FOR REGRESSION
-        if extractions != None: 
-            print('Extracting randomly from sample')
-            data_to_extract = [Y]
-            for i in range(len(XX)):
-                data_to_extract.append(XX[i])
-            if weights: 
-                data_to_extract.append(Weights)
-                extracted_data = self.extract_randomly(data_to_extract, extractions)
-                Y, Weights = extracted_data[0], extracted_data[-1] 
-                for i in range(len(XX)):
-                    XX[i] = extracted_data[i+1]
-            else: 
-                extracted_data = self.extract_randomly(data_to_extract, extractions)
-                Y = extracted_data[0]
-                for i in range(len(XX)):
-                    XX[i] = extracted_data[i+1]
-            
+     
 
         # FLATTENING (IF NOT DONE YET IN PRE-PROCESSING) + FITTING
-        Y = Y.flatten()
+        Y = y.flatten()
         if weights:
             Weights = Weights.flatten()
-
+        
+        XX =[]
         if add_intercept:
             const = np.ones(Y.shape)
-            XX.insert(0, const)
+            # XX.insert(0, const)
+            XX.append(const)
             n_reg = n_reg + 1 
-
-        for i in range(len(XX)): 
-            XX[i]=XX[i].flatten()
+        
+        for i in range(len(X)):
+            XX.append(X[i].flatten())
         XX = np.einsum('ij->ji', XX)
         
         # # VERSION USING STATSMODELS
@@ -433,8 +446,7 @@ class CoefficientsAnalysis(object):
             results.append(self.scalar_regression(yc, Xc, ranges, model_points, weights, add_intercept))
         return results
 
-    def visualize_correlation(self, x, y, xlabel=None, ylabel=None, ranges=None, model_points=None, hue_array=None, 
-                              style_array=None, legend_dict=None, palette=None, markers=None):
+    def visualize_correlation(self, x, y, xlabel=None, ylabel=None, hue_array=None, style_array=None, legend_dict=None, palette=None, markers=None):
         """
         Method that returns an instance of JointGrid, with plotted the scatter plot and univariate distributions.
         Possibility to cut data to lie within ranges.
@@ -462,20 +474,8 @@ class CoefficientsAnalysis(object):
             print('Cannot check correlation: data is misaligned!')
             return None
 
-        if ranges != None and model_points != None:
-            print('Trimming dataset for correlation plot')
-            X = self.trim_data(x, ranges, model_points)
-            Y = self.trim_data(y, ranges, model_points)
-            if hue_array is not None: 
-                hue_array = self.trim_data(hue_array, ranges, model_points)
-            if style_array is not None: 
-                style_array = self.trim_data(style_array, ranges, model_points)
-            print('Finished trimming data')
-        else: 
-            X, Y = x, y
-       
-        X=X.flatten()
-        Y=Y.flatten()
+        X=x.flatten()
+        Y=y.flatten()
         if hue_array is not None: 
             hue_array = hue_array.flatten()
         if style_array is not None: 
@@ -500,7 +500,7 @@ class CoefficientsAnalysis(object):
         # print('Figure produced inside Coeff Analysis')
         return g
 
-    def visualize_many_correlations(self, data, labels, ranges=None, model_points=None):
+    def visualize_many_correlations(self, data, labels):
         """
         Method that returns an instance of PairGrid of correlation plots for a list of vars.
         Plotted is: 
@@ -539,11 +539,11 @@ class CoefficientsAnalysis(object):
         if len(Idx_to_delete) >= 1:
             data=list(np.delete(data, Idx_to_delete, axis=0))
 
-        if ranges != None and model_points != None:
-            print('Trimming dataset for correlation plot')
-            for i in range(len(data)):
-                data[i]=self.trim_data(data[i], ranges, model_points)
-            print('Finished trimming data')
+        # if ranges != None and model_points != None:
+        #     print('Trimming dataset for correlation plot')
+        #     for i in range(len(data)):
+        #         data[i]=self.trim_data(data[i], ranges, model_points)
+        #     print('Finished trimming data')
         
         Data = []
         for i in range(len(data)):
@@ -653,25 +653,33 @@ class CoefficientsAnalysis(object):
         
         return comp_decomp, g
 
-    def PCA_find_regressors(self, dependent_var, explanatory_vars, ranges=None, model_points=None, preprocess_data=None, 
-                            extractions=None, pcs_num=1):
+    def PCA_find_regressors(self, dependent_var, explanatory_vars, pcs_num=1):
         """
         Idea: pass data to model and a list of explanatory variables. Identify the principal components of dataset
-        and find the one that has highest score on the data you want to model. This will give you the direction in 
-        the dataset that better captures the variation in the dependent var. 
+        and find the onew that have highest score on the data you want to model. These will give you the direction(s) in 
+        the dataset that better capture the variation in the dependent var. 
 
-        Returning the decomposition of such pc in terms of the original features, one can then visually check how 
+        Returning the decomposition of such pc(s) in terms of the original features, one can then visually check how 
         well the model is explaining the var, and use this to perform a regression analysis in terms of a reduced 
         set of vars.  
 
         Parameters:
         -----------
+        dependent_var: np.array with (gridded) data 
+
+        explanatory_vars: list of np.arrays with (gridded) data
+
+        pcs_num: integer default to 1
+            the number of principal components to be looked at and whose decomposition is returned
 
         Returns:
         --------
+        highest_pcs_decomp: list of arrays
+            each array contains the decomposition of the pcs in terms of original features
 
-        Notes:
-        ------
+        corresponding_scores: list of floats
+            the score the one of the dependent_var on the principal components
+
         """
         # CHECKING AND PREPROCESSING THE DATA
         dep_shape = dependent_var.shape
@@ -686,38 +694,8 @@ class CoefficientsAnalysis(object):
             print('No two vars are compatible. Exiting.')
             return None
 
-        # TRIMMING DATASET TO WITHIN RANGES 
-        if ranges != None and model_points != None:
-            print('Trimming dataset for PCA analysis.')
-            Dep_var = self.trim_data(dependent_var, ranges, model_points)
-            for i in range(len(explanatory_vars)):
-                Expl_vars[i] = self.trim_data(Expl_vars[i], ranges, model_points)
-
-        # PRE-PROCESSING DATASET
-        if preprocess_data != None:
-            print('preprocessing data')
-            data = [Dep_var]
-            for i in range(len(Expl_vars)):
-                data.append(Expl_vars[i])
-            processed_data  = self.preprocess_data(data, preprocess_data)
-            Dep_var = np.array(processed_data[0])
-            for i in range(len(Expl_vars)):
-                Expl_vars[i] = np.array(processed_data[i+1])
-
-        # RANDOMLY EXTRACT FROM ARRAY: THIS IS THE DATA ACTUALLY CONSIDERED FOR PCA
-        if extractions != None: 
-            print('Extracting randomly from sample')
-            data_to_extract = [Dep_var]
-            for i in range(len(Expl_vars)):
-                data_to_extract.append(Expl_vars[i])
-            extracted_data = self.extract_randomly(data_to_extract, extractions)
-            Dep_var = extracted_data[0]
-            for i in range(len(Expl_vars)):
-                Expl_vars[i] = extracted_data[i+1]
-
-
         # FLATTENING IN CASE DATA IS NOT PRE-PROCESSED 
-        Dep_var = Dep_var.flatten()
+        Dep_var = dependent_var.flatten()
         for i in range(len(Expl_vars)):
             Expl_vars[i] = Expl_vars[i].flatten()
 
@@ -757,7 +735,6 @@ class CoefficientsAnalysis(object):
 
         # print(f'Total explained variance: {tot_explained_var}\n')
 
-            
         return highest_pcs_decomp, corresponding_scores
 
     # Not sure about these two methods. 
