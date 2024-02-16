@@ -265,7 +265,7 @@ class Plotter_2D(object):
         return fig
         
     def plot_vars_models_comparison(self, models, var_strs, t, x_range, y_range, components_indices=None, method='raw_data',\
-                                    interp_dims=None, diff_plot=False, rel_diff=False, norms=None):
+                                    interp_dims=None, diff_plot=False, rel_diff=False, norms=None, cmaps=None):
         """
         Plot variables from a number of models. If 2 models are given, a third
         plot of the difference (relative or absolute) can be added too. 
@@ -295,10 +295,10 @@ class Plotter_2D(object):
             Whether to add a column to show difference between models
         rel_diff: bool
             Whether to plot the absolute or relative difference between models
-        norms = list of strs
-            each entry of the list is passed as option to imshow as norm=str
-            the list should be as long as the number of vars passed
-            useful options are log or symlog
+        norms/maps = list of list of strs
+            these have to be compatible with the final number of rows and columns 
+            in the plot. First index in the list runs over the columns (models and their difference),
+            second index runs over the rows (vars).
 
         Output
         -------
@@ -317,11 +317,6 @@ class Plotter_2D(object):
                 print("The number of variables per model must be the same. Exiting.")
                 return None
             
-        if not norms:
-            norms = [None for _ in range(len(var_strs[0]))]
-        elif len(var_strs)!= len(norms):
-            print('The norms provided are not the same number as the variables: setting these to auto')
-            norms = [None for _ in range(len(var_strs[0]))]
 
         n_cols = len(models)
         if diff_plot:
@@ -346,6 +341,18 @@ class Plotter_2D(object):
             components_indices = []
             for i in range(len(models)):
                 components_indices.append(empty_tuple_components)
+                
+        inv_fig_shape = (n_cols, n_rows)
+        if not norms or np.array(norms).shape != inv_fig_shape:
+            # print('Norms provided are not compatible with figure, setting these to auto')
+            norms = [None for _ in range(n_rows)]
+            norms = [norms for _ in range(n_cols)]
+    
+        if not cmaps or np.array(cmaps).shape != inv_fig_shape:
+            # print('Colormaps not compatible with figure, setting these to auto')
+            cmaps = [None for _ in range(n_rows)]
+            cmaps = [cmaps for _ in range(n_cols)]
+
 
         figsize = self.screen_size
         fig, axes = plt.subplots(n_rows, n_cols, squeeze=False, figsize=figsize)
@@ -353,7 +360,7 @@ class Plotter_2D(object):
         for j in range(len(models)):
             for i in range(n_rows):                
                 data_to_plot, extent = self.get_var_data(models[j], var_strs[j][i], t, x_range, y_range, components_indices[j][i], 'raw_data', None)
-                im=axes[i,j].imshow(data_to_plot, extent=extent, norm=norms[i])
+                im=axes[i,j].imshow(data_to_plot, extent=extent, norm=norms[j][i], cmap=cmaps[j][i])
                 divider = make_axes_locatable(axes[i,j])
                 cax = divider.append_axes('right', size='5%', pad=0.05)
                 fig.colorbar(im, cax=cax, orientation='vertical')
@@ -383,16 +390,16 @@ class Plotter_2D(object):
                         print("Cannot plot the difference between the vars: data not aligned.")
                         continue
                     data_to_plot = data1 - data2
-                    im = axes[i,2].imshow(data_to_plot, extent=extent1, norm=norms[i])
+                    im = axes[i,2].imshow(data_to_plot, extent=extent1, norm=norms[2][i], cmap=cmaps[2][i])
                     divider = make_axes_locatable(axes[i,2])
                     cax = divider.append_axes('right', size='5%', pad=0.05)
                     fig.colorbar(im, cax=cax, orientation='vertical')
                     axes[i,2].set_title('Models difference')
                     axes[i,2].set_xlabel(r'$y$')
                     axes[i,2].set_ylabel(r'$x$')
-            except (ValueError):
+            except ValueError as v:
                 print(f"Cannot plot the difference between {var_strs} in the two "+\
-                      "models. Likely due to the data coordinates not coinciding.")
+                      f"models. Caught a value error: {v}")
 
 
         if rel_diff and len(models)==2:
@@ -409,16 +416,17 @@ class Plotter_2D(object):
                         column = 3
                     else:
                         column = 2
-                    im = axes[i,column].imshow(data_to_plot, extent=extent1, norm=norms[i])
+
+                    im = axes[i,column].imshow(data_to_plot, extent=extent1, norm=norms[column][i], cmap=cmaps[column][i])
                     divider = make_axes_locatable(axes[i,column])
                     cax = divider.append_axes('right', size='5%', pad=0.05)
                     fig.colorbar(im, cax=cax, orientation='vertical')
                     axes[i,column].set_title('Relative difference')
                     axes[i,column].set_xlabel(r'$y$')
                     axes[i,column].set_ylabel(r'$x$')
-            except (ValueError):
+            except ValueError as v:
                 print(f"Cannot plot the difference between {var_strs} in the two "+\
-                      "models. Likely due to the data coordinates not coinciding.")
+                      f"models. Caught a value error: {v}")
                 
 
         models_names = [model.get_model_name() for model in models]
@@ -473,11 +481,15 @@ if __name__ == '__main__':
 
     print("Finished filtering")
 
-    vars = [['BC', 'BC', 'BC', 'BC'],['BC', 'BC' ,'BC' ,'BC']] 
-    components = [[(0,), (0,), (0,), (0,)],[(0,), (0,), (0,), (0,)]]
+    vars = [['BC'], ['BC']]
     models = [micro_model, meso_model]
+    components = [[(0,)],[(0,)]]
+    norms = [['log'], ['log'], ['symlog']]
+    cmaps=None
+    # cmaps = [['seismic'], ['seismic'], ['seismic']]
     # smaller_ranges = [ranges[0]+0.01, ranges[1]- 0.01] # Needed to avoid interpolation errors at boundaries
     # visualizer.plot_var_model_comparison(models, var, 1.502, smaller_ranges, smaller_ranges, \
     #                                      method='interpolate', interp_dims=(30,30), component_indices=component)
-    visualizer.plot_vars_models_comparison(models, vars, 1.502, ranges, ranges, components_indices=components, diff_plot=True, rel_diff = False)
+    visualizer.plot_vars_models_comparison(models, vars, 1.502, ranges, ranges, components_indices=components, diff_plot=True, rel_diff = False, 
+                                           norms=norms, cmaps=cmaps)
     plt.show()

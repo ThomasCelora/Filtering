@@ -106,7 +106,7 @@ class CoefficientsAnalysis(object):
 
         return mask
         
-    def preprocess_data(self, list_of_arrays, preprocess_data):#, ranges=None, model_points=None):
+    def preprocess_data(self, list_of_arrays, preprocess_data, weights=None):
         """
         Takes input list of arrays with dictionary on how to preprocess_data and info about
         trimming of arrays to selected range within grid
@@ -123,13 +123,6 @@ class CoefficientsAnalysis(object):
             'pos_or_neg' is 1 (0) if you want to select positive (negative) values
 
             'log_or_not' is 1 if you want to take the logarithm of the data 
-
-
-        # ranges: list of lists of 2 floats --> this is passed to trim_data 
-        #    the min and max in each direction
-
-        # model_points: list of list of floats --> this is passed to trim_data 
-        #    the gridpoints of the array
         """
 
         num_arrays = len(list_of_arrays)
@@ -138,13 +131,8 @@ class CoefficientsAnalysis(object):
             if len(preprocess_data[key]) != num_arrays:
                 condition=True
         if condition: 
-            print('Preprocess_data dictionary is not compatible with list_of_arrays')
-
-        # # Trimming data to lie within range: you probably don't want this to habben here actually
-        # if ranges != None and model_points != None:
-        #     new_list = []
-        #     for i in range(len(list_of_arrays)):
-        #         new_list.append(self.trim_data(list_of_arrays[i], ranges=ranges, model_points=model_points))
+            print('Preprocess_data dictionary is not compatible with list_of_arrays. Exiting')
+            return list_of_arrays, weights
         
         # Combining the masks of the different arrays
         masks = []
@@ -157,7 +145,7 @@ class CoefficientsAnalysis(object):
         for i in range(1,len(masks)):
             tot_mask = np.logical_or(tot_mask, masks[i])
         
-        # Masking the combined dataset with combined mask and taking log
+        # Masking the full dataset with combined mask, then taking log
         processed_list = []
         for i in range(len(list_of_arrays)):
             temp = ma.masked_array(list_of_arrays[i], tot_mask)
@@ -168,30 +156,55 @@ class CoefficientsAnalysis(object):
             if preprocess_data['log_or_not'][i]:
                 processed_list[i] = np.log10(np.abs(processed_list[i]))
 
-        return processed_list
+        # removing corresponding entries from weights
+        Weights = None
+        if weights != None: 
+            Weights = np.ma.masked_array(weights, tot_mask)
+            return processed_list, Weights
+        else: 
+            return processed_list
 
-    def extract_randomly(self, array, num_extractions):
+    def extract_randomly(self, data, num_extractions):
         """
         Extract randomly from data. 
 
         Parameters:
         -----------
-        data: np.array (flattened or not)
+        data: list of np.arrays (flattened or not)
         num_extractions: number of values to be extracted 
+
+        Notes:
+        ------
+        Data is assumed pre-processesed, that is data is a list of compatible arrays!
         """
-        new_array = array.copy()
-        if new_array.shape != (1,):
-            print('Array is not flat, flattening it.')
-            new_array = new_array.flatten()
+        new_data = []
+        for i in range(len(data)):
+            new_data.append(np.array(data[i]))
+            if new_data[i].ndim != 1:
+                print(f'{i}-th array is not flat, flattening it.')
+                new_data[i] = new_data[i].flatten() 
 
-        max_idx = len(new_array) - 1
-        extracted_vals = []
+        # setting up the mask 
+        mask_index = np.zeros(new_data[i].shape)
+        for i in range(len(mask_index)):
+            mask_index[i] = False
+
+        max_idx = len(new_data[0]) - 1
+        extracted_idxs = []
         for i in range(num_extractions):
-            temp = new_array[random.randint(0,max_idx)]
-            extracted_vals.append(temp)
-        return np.array(extracted_vals)
+            new_extraction = random.choice(list(set(range(0,max_idx)) - set(extracted_idxs)))
+            extracted_idxs.append(new_extraction)
+            mask_index[new_extraction] = True
+        # need to invert the mask as it is True on the extracted indices
+        mask_index = np.logical_not(mask_index)
+        
+        # finally: mask, compress and return
+        for i in range(len(new_data)):
+            new_data[i] = np.ma.masked_array(new_data[i], mask_index).compressed()
+                
+        return np.array(new_data)
 
-    def scalar_regression(self, y, X, ranges=None, model_points=None, weights=None, add_intercept=False):
+    def scalar_regression(self, y, X, ranges=None, model_points=None, weights=None, extractions=None, preprocess_data=None, add_intercept=False):
         """
         Routine to perform ordinary or weighted (multivariate) regression on some gridded data. 
 
@@ -248,7 +261,7 @@ class CoefficientsAnalysis(object):
                 weights=np.ones(y.shape)
 
     
-        # TRIMMING THE DATA TO WITHIN RANGES + ADDING COLUMN FOR INTERCEPT (if necessary)
+        # TRIMMING THE DATA TO WITHIN RANGES 
         if ranges != None and model_points != None:
             print('Trimming dataset for regression')
             Y = self.trim_data(y, ranges, model_points)
@@ -262,17 +275,50 @@ class CoefficientsAnalysis(object):
             if weights:
                 Weights = weights
 
-        # Trim data first, then pre-process data
-        # if preprocess_data then do it. 
+        # PREPROCESSING
+        if preprocess_data != None:
+            print('preprocessing data')
+            data = [Y]
+            for i in range(len(XX)):
+                data.append(XX[i])
 
-        # FLATTENING + FITTING
+            if weights: 
+                processed_data = self.preprocess_data(data, preprocess_data, Weights)
+            else: 
+                processed_data  = self.preprocess_data(data, preprocess_data)
+
+            Y = np.array(processed_data[0])
+            for i in range(len(XX)):
+                XX[i] = np.array(processed_data[i+1])
+            if weights:
+                Weights= np.array(processed_data[-1])
+
+        # RANDOMLY EXTRACT FROM ARRAY: DATA ACTUALLY CONSIDERED FOR REGRESSION
+        if extractions != None: 
+            print('Extracting randomly from sample')
+            data_to_extract = [Y]
+            for i in range(len(XX)):
+                data_to_extract.append(XX[i])
+            if weights: 
+                data_to_extract.append(Weights)
+                extracted_data = self.extract_randomly(data_to_extract, extractions)
+                Y, Weights = extracted_data[0], extracted_data[-1] 
+                for i in range(len(XX)):
+                    XX[i] = extracted_data[i+1]
+            else: 
+                extracted_data = self.extract_randomly(data_to_extract, extractions)
+                Y = extracted_data[0]
+                for i in range(len(XX)):
+                    XX[i] = extracted_data[i+1]
+            
+
+        # FLATTENING (IF NOT DONE YET IN PRE-PROCESSING) + FITTING
         Y = Y.flatten()
         if weights:
             Weights = Weights.flatten()
 
         if add_intercept:
             const = np.ones(Y.shape)
-            # print(const)
             XX.insert(0, const)
             n_reg = n_reg + 1 
 
@@ -300,7 +346,7 @@ class CoefficientsAnalysis(object):
             model.fit(XX,Y)
         regress_coeff = list(model.coef_)
         
-        # Computing std errors on the regressed coefficients
+        # COMPUTING STD ERRORS ON REGRESSED COEFFICIENTS
         n_data = len(Y)
         Y_hat = model.predict(XX)
         res = Y - Y_hat 
@@ -387,8 +433,8 @@ class CoefficientsAnalysis(object):
             results.append(self.scalar_regression(yc, Xc, ranges, model_points, weights, add_intercept))
         return results
 
-    def visualize_correlation(self, x, y, xlabel=None, ylabel=None, ranges=None, model_points=None, \
-                              hue_array=None, style_array=None, legend_dict=None, palette=None, markers=None):
+    def visualize_correlation(self, x, y, xlabel=None, ylabel=None, ranges=None, model_points=None, hue_array=None, 
+                              style_array=None, legend_dict=None, palette=None, markers=None):
         """
         Method that returns an instance of JointGrid, with plotted the scatter plot and univariate distributions.
         Possibility to cut data to lie within ranges.
@@ -427,14 +473,13 @@ class CoefficientsAnalysis(object):
             print('Finished trimming data')
         else: 
             X, Y = x, y
-        
+       
         X=X.flatten()
         Y=Y.flatten()
         if hue_array is not None: 
             hue_array = hue_array.flatten()
         if style_array is not None: 
             style_array = style_array.flatten()
-        print('Data flattened')
 
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message='is_categorical_dtype is deprecated')
@@ -608,12 +653,25 @@ class CoefficientsAnalysis(object):
         
         return comp_decomp, g
 
-    def PCA_find_regressors(self, dependent_var, explanatory_vars, ranges=None, model_points=None, pcs_num=1):
+    def PCA_find_regressors(self, dependent_var, explanatory_vars, ranges=None, model_points=None, preprocess_data=None, 
+                            extractions=None, pcs_num=1):
         """
-        Idea: pass both the residuals/coefficient and a list of quantities. Identify which among these are
-        correlated with the residual/coefficient, by checking the scores of this on the 
-        principal components. Then return the linear combination of the (highest) components with respect 
-        to the explanatory vars. 
+        Idea: pass data to model and a list of explanatory variables. Identify the principal components of dataset
+        and find the one that has highest score on the data you want to model. This will give you the direction in 
+        the dataset that better captures the variation in the dependent var. 
+
+        Returning the decomposition of such pc in terms of the original features, one can then visually check how 
+        well the model is explaining the var, and use this to perform a regression analysis in terms of a reduced 
+        set of vars.  
+
+        Parameters:
+        -----------
+
+        Returns:
+        --------
+
+        Notes:
+        ------
         """
         # CHECKING AND PREPROCESSING THE DATA
         dep_shape = dependent_var.shape
@@ -624,17 +682,41 @@ class CoefficientsAnalysis(object):
                 print(f'The {i}-th  feature passed is not aligned with the first, removing {i}-th feature.')
             else: 
                 Expl_vars.append(explanatory_vars[i])
-
         if len(Expl_vars)==0: 
             print('No two vars are compatible. Exiting.')
             return None
 
+        # TRIMMING DATASET TO WITHIN RANGES 
         if ranges != None and model_points != None:
             print('Trimming dataset for PCA analysis.')
             Dep_var = self.trim_data(dependent_var, ranges, model_points)
             for i in range(len(explanatory_vars)):
                 Expl_vars[i] = self.trim_data(Expl_vars[i], ranges, model_points)
 
+        # PRE-PROCESSING DATASET
+        if preprocess_data != None:
+            print('preprocessing data')
+            data = [Dep_var]
+            for i in range(len(Expl_vars)):
+                data.append(Expl_vars[i])
+            processed_data  = self.preprocess_data(data, preprocess_data)
+            Dep_var = np.array(processed_data[0])
+            for i in range(len(Expl_vars)):
+                Expl_vars[i] = np.array(processed_data[i+1])
+
+        # RANDOMLY EXTRACT FROM ARRAY: THIS IS THE DATA ACTUALLY CONSIDERED FOR PCA
+        if extractions != None: 
+            print('Extracting randomly from sample')
+            data_to_extract = [Dep_var]
+            for i in range(len(Expl_vars)):
+                data_to_extract.append(Expl_vars[i])
+            extracted_data = self.extract_randomly(data_to_extract, extractions)
+            Dep_var = extracted_data[0]
+            for i in range(len(Expl_vars)):
+                Expl_vars[i] = extracted_data[i+1]
+
+
+        # FLATTENING IN CASE DATA IS NOT PRE-PROCESSED 
         Dep_var = Dep_var.flatten()
         for i in range(len(Expl_vars)):
             Expl_vars[i] = Expl_vars[i].flatten()
@@ -659,23 +741,21 @@ class CoefficientsAnalysis(object):
         var2comp = pca_model.components_
         comp2var = np.einsum('ij->ji', var2comp)
 
-        print('components_: \n{}\n'.format(var2comp))
+        # print('components_: \n{}\n'.format(var2comp))
         scores_of_dep_var = var2comp[:,0]
-        print(f'Scores of dependent var on the principal components: \n{scores_of_dep_var}\n')
-        # sorted_scores_indices = np.argsort(scores_of_dep_var)
+        print(f'Scores of dependent var on principal components: \n{scores_of_dep_var}\n')
         sorted_scores_indices = np.argsort(np.abs(scores_of_dep_var))
-        pos_of_highest_pcs = sorted_scores_indices[-pcs_num:] #identifying the index of the ones with highest score
-        # this is ordering the scores, but you should care about their magnitude, no?
+        pos_of_highest_pcs = sorted_scores_indices[-pcs_num:] 
 
         highest_pcs_decomp = []
         corresponding_scores = []  
-        tot_explained_var = 0 
+        # tot_explained_var = 0 
         for i in range(pcs_num-1, -1, -1):
             highest_pcs_decomp.append(comp2var[:,pos_of_highest_pcs[i]])
             corresponding_scores.append(scores_of_dep_var[pos_of_highest_pcs[i]])
-            tot_explained_var += pca_model.explained_variance_ratio_[pos_of_highest_pcs[i]]
+            # tot_explained_var += pca_model.explained_variance_ratio_[pos_of_highest_pcs[i]]
 
-        print(f'Total explained variance: {tot_explained_var}\n')
+        # print(f'Total explained variance: {tot_explained_var}\n')
 
             
         return highest_pcs_decomp, corresponding_scores
@@ -754,6 +834,10 @@ if __name__ == '__main__':
     print('Max and min of y: {}, {}\n'.format(np.max(y), np.min(y)))
     
 
+
     print('Extracting random vals from x...\n')
-    extracted = statistical_tool.extract_randomly(x, 10)
+    print(len(x))
+    weights = np.ones(x.shape)
+    extracted, weights = statistical_tool.extract_randomly([x,y], 10)
     print(extracted)
+
