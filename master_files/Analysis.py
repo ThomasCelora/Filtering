@@ -199,8 +199,11 @@ class CoefficientsAnalysis(object):
                 condition=True
         if condition: 
             print('Preprocess_data dictionary is not compatible with list_of_arrays. Exiting')
-            return list_of_arrays, weights
-        
+            if weights is not None: 
+                return list_of_arrays, weights
+            else: 
+                return list_of_arrays
+
         # Combining the masks of the different arrays
         masks = []
         for i in range(len(list_of_arrays)):
@@ -224,7 +227,6 @@ class CoefficientsAnalysis(object):
                 processed_list[i] = np.log10(np.abs(processed_list[i]))
 
         # removing corresponding entries from weights
-        Weights = None
         if weights != None: 
             Weights = np.ma.masked_array(weights, tot_mask).compressed()
             return processed_list, Weights
@@ -249,8 +251,8 @@ class CoefficientsAnalysis(object):
         print('Extracting randomly from dataset')
 
         # Checking data is compatible
-        new_data = [list_of_data[0]]
         ref_shape = list_of_data[0].shape
+        new_data = [list_of_data[0].flatten()]
         for i in range(1,len(list_of_data)):
             if list_of_data[i].shape == ref_shape:
                 new_data.append(list_of_data[i].flatten())
@@ -563,22 +565,17 @@ class CoefficientsAnalysis(object):
 
         return g
 
-    def PCA_find_regressors_subset(self, data, ranges=None, model_points=None, var_wanted = 1.):
+    def PCA_find_regressors_subset(self, data, var_wanted = 0.9):
         """
-        Idea: pass a large list of quantities that are correlated with a residual/closure coeff.
+        Idea: pass list of quantities that you want to use for regression.
         Check if there is a smaller subset of principal components to be retained that are sufficient
-        to explain the enough of the observed variance in the dataset. 
+        to explain enough of the observed variance in the dataset. 
 
-        AIM: linear dimensionality reductions for regressors
+        Why: if regressors are highly correlated, linear regression is unstable and cannot be trusted
 
         Parameters: 
         -----------
         data: list of gridded data
-
-        ranges: list of lists of 2 floats
-            mins and max in each direction
-
-        model_points: list of lists containing the gridpoints in each direction
 
         var_wanted: float
             should be a number between 0. and 1. : the percetage of variance to be retained.
@@ -605,14 +602,9 @@ class CoefficientsAnalysis(object):
             else: 
                 Data.append(data[i])
 
-        if len(Data)==0: 
+        if len(Data)==1: 
             print('No two vars are compatible. Exiting.')
             return None
-
-        if ranges != None and model_points != None:
-            print('Trimming dataset for PCA analysis.')
-            for i in range(len(Data)):
-                Data[i] = self.trim_data(Data[i], ranges, model_points)
 
         for i in range(len(Data)):
             Data[i] = Data[i].flatten()
@@ -632,7 +624,7 @@ class CoefficientsAnalysis(object):
         n_comp=0
         exp_var_sum = np.cumsum(pca_model.explained_variance_ratio_)
         var_captured = exp_var_sum[n_comp]
-        while var_captured < var_wanted:
+        while var_captured <= var_wanted:
             n_comp +=1
             var_captured= exp_var_sum[n_comp]
         n_comp = n_comp+1
@@ -644,14 +636,18 @@ class CoefficientsAnalysis(object):
             # should be the inverse but var2comp is unitary, so transpose 
             comp_decomp.append(np.einsum('ij->ji', var2comp)[:,i])
 
-        # CREATING THE FIGURE WITH THE COMPONENTS PROFILE TO CHECK THEY'RE UNCORRELATED
-        # this block is temporary and will be removed later.
-        pc_profiles = np.einsum('ij,kj->ik', Data, var2comp)
-        labels = [f'{i} comp' for i in range(n_comp)]
-        pc_for_plotting = [pc_profiles[:,i] for i in range(n_comp)]
-        g = self.visualize_many_correlations(pc_for_plotting, labels)
+
+        # # CREATING THE FIGURE WITH THE COMPONENTS PROFILE TO CHECK THEY'RE UNCORRELATED
+        # # this block is temporary and will be removed later.
+        # pc_profiles = np.einsum('ij,kj->ik', Data, var2comp)
+        # labels = [f'{i} comp' for i in range(n_comp)]
+        # pc_for_plotting = [pc_profiles[:,i] for i in range(n_comp)]
+        # g = self.visualize_many_correlations(pc_for_plotting, labels)
+
+        # print('Built the figure\n')
         
-        return comp_decomp, g
+        # return comp_decomp, g
+        return comp_decomp
 
     def PCA_find_regressors(self, dependent_var, explanatory_vars, pcs_num=1):
         """

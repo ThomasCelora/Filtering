@@ -34,12 +34,15 @@ if __name__ == '__main__':
     meso_pickled_filename = config['Filenames']['meso_pickled_filename']
     MesoModelLoadFile = pickle_directory + meso_pickled_filename
 
+    print('================================================')
     print(f'Starting job on data from {MesoModelLoadFile}')
     print('================================================\n\n')
 
     with open(MesoModelLoadFile, 'rb') as filehandle: 
         meso_model = pickle.load(filehandle)
 
+    # additional_entry = {'acc_mag': r'$|a|$'}
+    # meso_model.upgrade_labels_dict(additional_entry) 
 
     # WHICH DATA YOU WANT TO RUN THE ROUTINE ON?
     dep_var_str = config['PCA_settings']['dependent_var']
@@ -63,9 +66,6 @@ if __name__ == '__main__':
     # READING PREPROCESSING INFO FROM CONFIG FILE
     preprocess_data = json.loads(config['PCA_settings']['preprocess_data']) 
     extractions = int(config['PCA_settings']['extractions'])
-    if extractions == 0: 
-        extractions = None
-
 
     # PRE-PROCESSING 
     data = [dep_var]
@@ -131,7 +131,10 @@ if __name__ == '__main__':
     model_points = meso_model.domain_vars['Points']
     g=statistical_tool.visualize_correlation(x, y, xlabel=xlabel, ylabel=ylabel)
     saving_directory = config['Directories']['figures_dir']
-    filename = f'/{dep_var_str}_PCAmodel_correlation.pdf'
+    filename = f'/PCA_{dep_var_str}_vs'
+    for i in range(len(explanatory_vars_strs)):
+        filename += f'_{explanatory_vars_strs[i]}'
+    filename += ".pdf"
     plt.savefig(saving_directory + filename, format='pdf')
     print(f'Finished correlation plot for {dep_var_str}, saved as {filename}\n\n')
 

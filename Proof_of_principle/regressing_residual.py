@@ -19,7 +19,7 @@ if __name__ == '__main__':
     # # RUN THE REGRESSION ROUTINE GIVEN DEPENDENT DATA AND EXPLANATORY 
     # # VARS. DATA IS PRE-PROCESSED SO TO DEAL WITH POSITIVE AND NEGATIVE 
     # # DATA (EXTRACTING POS OR NEG PART APPROPRIATELY)
-    # ##################################################################
+    # ################################################################## 
     
     # READING SIMULATION SETTINGS FROM CONFIG FILE
     if len(sys.argv) == 1:
@@ -34,11 +34,15 @@ if __name__ == '__main__':
     meso_pickled_filename = config['Filenames']['meso_pickled_filename']
     MesoModelLoadFile = pickle_directory + meso_pickled_filename
 
+    print('================================================')
     print(f'Starting job on data from {MesoModelLoadFile}')
     print('================================================\n\n')
 
     with open(MesoModelLoadFile, 'rb') as filehandle: 
         meso_model = pickle.load(filehandle)
+
+    # additional_entry = {'acc_mag': r'$|a|$'}
+    # meso_model.upgrade_labels_dict(additional_entry)
 
     # WHICH DATA YOU WANT TO RUN THE ROUTINE ON?
     dep_var_str = config['Regression_settings']['dependent_var']
@@ -63,8 +67,6 @@ if __name__ == '__main__':
     preprocess_data = json.loads(config['Regression_settings']['preprocess_data']) 
     add_intercept = not not int(config['Regression_settings']['add_intercept'])
     extractions = int(config['Regression_settings']['extractions'])
-    if extractions == 0: 
-        extractions = None
 
     # PRE-PROCESSING and REGRESSING
     data = [dep_var]
@@ -118,9 +120,11 @@ if __name__ == '__main__':
 
     statistical_tool.visualize_correlation(dep_var_model, dep_var , xlabel, ylabel)
     saving_directory = config['Directories']['figures_dir']
-    filename = '/{}_vs_{}'.format(dep_var_str, json.loads(config['Regression_settings']['regressors']))
-    if add_intercept:
-        filename += "_intercept"
+    filename = f'/Regress_{dep_var_str}_vs'
+    for i in range(1,len(regressors_strs)):
+        filename += f'_{regressors_strs[i]}'
+    # if add_intercept:
+    #     filename += "_intercept"
     filename += ".pdf"
     plt.savefig(saving_directory + filename, format='pdf')
     print(f'Finished regression and scatter plot for {dep_var_str}, saved as {filename}\n\n')
