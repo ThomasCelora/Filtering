@@ -1221,7 +1221,10 @@ class resHD2D(object):
                                 'pi_res_sq' : r'$\tilde{\pi}_{ab}\tilde{\pi}^{ab}$',
                                 'shear_sq' : r'$\tilde{\sigma}_{ab}\tilde{\sigma}^{ab}$',
                                 'Theta_sq': r'$\tilde{\Theta}_a\tilde{\Theta}^a$',
-                                'q_res_sq': r'$\tilde{q}_a \tilde{q}^a$'}
+                                'q_res_sq': r'$\tilde{q}_a \tilde{q}^a$',
+                                'det_shear': r'det$(\sigma)$',
+                                'vort_mod' : r'$|W|$', 
+                                'acc_mag': r'$|a|$'}
 
     def upgrade_labels_dict(self, entry_dict):
         """
@@ -1742,8 +1745,7 @@ class resHD2D(object):
         metric = np.zeros((3,3))
         metric[0,0] = -1.
         metric[1,1] = metric[2,2] = 1.
-
-        spatial_dims = 2 
+        spatial_dims = 2. 
 
         # Computing the Favre density and velocity
         n_t = np.sqrt(-Base.Mink_dot(BC, BC))
@@ -1753,20 +1755,20 @@ class resHD2D(object):
         # Computing the SET decomposition at each point
         eps_t = np.einsum('i,j,ik,jl,kl', u_t, u_t, metric, metric, SET)
         h_ab = np.einsum('ij,jk->ik', metric + np.einsum('i,j->ij', u_t, u_t), metric) # This is a rank (1,1) tensor, i.e. a real projector.
-        q_a = - np.einsum('ij,jk,kl,l->i', h_ab, SET, metric, u_t) 
+        q_a = - np.einsum('ij,jk,kl,l->i', h_ab, SET, metric, u_t)
         s_ab = np.einsum('ij,kl,jl->ik', h_ab, h_ab, SET)
-        s = np.einsum('ij,ji->', s_ab, metric) 
-        p_t = resHD2D.p_Gamma_law(eps_t, n_t, 4.0/3.0) 
+        s = np.einsum('ij,ji->', s_ab, metric)
+        s = np.multiply(1/spatial_dims, s)
+        s_ab_tracefree = s_ab - np.multiply(s, metric + np.einsum('i,j->ij', u_t, u_t)) 
 
-        # Additional quantities needed for residuals
+        p_t = resHD2D.p_Gamma_law(eps_t, n_t, 4.0/3.0) 
         # Pi_res = s - p_t
         Pi_res = s - p_filt
-        s_ab_tracefree = s_ab - np.multiply(s/spatial_dims, metric + np.einsum('i,j->ij', u_t, u_t)) 
+        EOS_res = p_filt - p_t
         T_t = p_t/n_t
-        # EOS_res = p_filt - p_t
-    
-        # return [n_t, u_t, eps_t, q_a, s_ab_tracefree, p_t, Pi_res, T_t, EOS_res], [h,i,j] #Uncomment if EoS residual is modelled
-        return [n_t, u_t, eps_t, q_a, s_ab_tracefree, p_t, Pi_res, T_t], [h,i,j]
+        
+        return [n_t, u_t, eps_t, q_a, s_ab_tracefree, p_t, Pi_res, EOS_res, T_t], [h,i,j] #Uncomment if EoS residual is modelled
+        # return [n_t, u_t, eps_t, q_a, s_ab_tracefree, p_t, Pi_res, T_t], [h,i,j]
 
     def decompose_structures_parallel(self, n_cpus):
         """
@@ -1789,7 +1791,7 @@ class resHD2D(object):
                     args_for_pool.append((BC, SET, p_filt, h,i,j))
 
         with mp.Pool(processes=n_cpus) as pool:
-            print('Running with {} processes\n'.format(pool._processes), flush=True)
+            print('Decomposing structures in parallel with {} processes'.format(pool._processes), flush=True)
             for result in pool.starmap(resHD2D.decompose_structures_task, args_for_pool):
                 h,i,j = result[1]
                 self.meso_vars['n_tilde'][h,i,j] = result[0][0]
@@ -1799,8 +1801,8 @@ class resHD2D(object):
                 self.meso_vars['pi_res'][h,i,j,:,:] = result[0][4]
                 self.meso_vars['p_tilde'][h,i,j] =  result[0][5]
                 self.meso_vars['Pi_res'][h,i,j] = result[0][6]
-                self.meso_vars['T_tilde'][h,i,j] = result[0][7]
-                # self.meso_vars['eos_res'][h,i,j] = result[0][8] # Uncomment if EOS_res is modelled
+                self.meso_vars['eos_res'][h,i,j] = result[0][7] #If EoS is not modelled you should adjust this!
+                self.meso_vars['T_tilde'][h,i,j] = result[0][8] 
 
     def calculate_derivatives_gridpoint(self, nonlocal_var_str, h, i, j, direction, order = 1): 
         """
@@ -2014,7 +2016,7 @@ class resHD2D(object):
             third list contains the indices on meso-grid
         """
         # building blocks: this task is static so no access to self
-        spatial_dims = 2 
+        spatial_dims = 2.
         metric = np.zeros((3,3))
         metric[0,0] = -1
         metric[1,1] = metric[2,2] = 1
@@ -2057,10 +2059,10 @@ class resHD2D(object):
         np.fill_diagonal(projector, 1)
         projector += np.einsum('i,j->ij',u_t_cov, u_t) #This is different from the projector above: look at indices!
         DaT = np.einsum('ij,j->i', projector, nabla_T)
-        Theta_tilde = DaT + np.multiply(T_t, np.einsum('ij,j->i', metric, acc_t))
+        Theta_t = DaT + np.multiply(T_t, np.einsum('ij,j->i', metric, acc_t))
 
-        closure_vars_strs = ['shear_tilde', 'exp_tilde', 'acc_tilde', 'Theta_tilde']
-        closure_vars = [shear_t, exp_t, acc_t, Theta_tilde]
+        closure_vars_strs = ['shear_tilde', 'exp_tilde', 'acc_tilde', 'vort_tilde','Theta_tilde']
+        closure_vars = [shear_t, exp_t, acc_t, vort_t, Theta_t]
         return closure_vars_strs, closure_vars, [h,i,j]
 
     def closure_ingredients_parallel(self, n_cpus):
@@ -2091,7 +2093,7 @@ class resHD2D(object):
                     args_for_pool.append((u_t, nabla_u, T_t, nabla_T, h, i, j))
 
         with mp.Pool(processes=n_cpus) as pool:
-            print('Running with {} processes'.format(pool._processes), flush=True)
+            print('Computing closure ingredients with {} processes'.format(pool._processes), flush=True)
             for result in pool.starmap(resHD2D.closure_ingredients_task, args_for_pool):
                 keys, values, grid_idxs = result
                 # if self.filter_vars['U_success'][tuple(grid_idxs)]: #this check is in practice always True
@@ -2227,12 +2229,6 @@ class resHD2D(object):
         coefficients_names.append('eta')
         coefficients.append(eta)
 
-        # this is just to check - to be removed
-        coefficients_names.append('shear_sq')
-        coefficients.append(shear_sq) 
-        coefficients_names.append('pi_res_sq')
-        coefficients.append(pi_res_sq) 
-
         # CALCULATING THE HEAT CONDUCTIVITIY
         q_res_sq = np.einsum('i,ij,j', q_res, metric, q_res)
         Theta_sq = np.einsum('i,ij,j', Theta, metric, Theta)
@@ -2241,12 +2237,6 @@ class resHD2D(object):
         kappa = sign * np.sqrt(q_res_sq / Theta_sq)
         coefficients_names.append('kappa')
         coefficients.append(kappa)
-
-        # this is just to check - to be removed
-        coefficients_names.append('q_res_sq')
-        coefficients.append(q_res_sq) 
-        coefficients_names.append('Theta_sq')
-        coefficients.append(Theta_sq)
         
         return coefficients_names, coefficients, [h,i,j]
 
@@ -2302,6 +2292,103 @@ class resHD2D(object):
                     finally: 
                         self.meso_vars[key][tuple(grid_idxs)] = values[idx]
 
+    @staticmethod
+    def modelling_coefficients_task(shear, vort, acc, Theta, Pi_res, pi_res, q_res, h, i, j):
+        """
+        Task (to be used in parallel) to compute various quantities that will be used later 
+        for modelling the extracted closure coefficients. 
+        """
+        var_names = []
+        vars = []
+
+        metric = np.zeros((3,3))
+        metric[0,0] = -1
+        metric[1,1] = metric[2,2] = +1
+
+        # Computing various invariants of shear matrix 
+        # det_shear = np.linalg.det(shear)
+        pi_eig, _ = np.linalg.eigh(shear)
+        det_shear = 1.
+        for i in range(len(pi_eig)):
+            if pi_eig[i] != 0.: 
+                det_shear *= pi_eig[i]
+                
+        shear_sq = np.einsum('ij,kl,ik,jl->', shear, shear, metric, metric)
+        
+        var_names.append('det_shear')
+        vars.append(det_shear)
+        var_names.append('shear_sq')
+        vars.append(shear_sq)
+
+        # Q-criterion
+        vort_sq = np.einsum('ij,kl,ik,jl->', vort, vort, metric, metric)
+        Q_criterion = shear_sq - vort_sq
+        var_names.append('Q')
+        vars.append(Q_criterion)
+
+        # Computing the magnitude of vorticity
+        vort_mod = np.sqrt(vort_sq / 2. )
+        var_names.append('vort_mod')
+        vars.append(vort_mod)
+
+        #Computing the magnitude of the acceleration vector
+        acc_mag = np.sqrt(np.einsum('i,ij,j->', acc, metric, acc))
+        var_names.append('acc_mag')
+        vars.append(acc_mag)
+
+        #Computing squares of residuals and also of Theta_tilde
+        Pi_res_sq = Pi_res * Pi_res
+        var_names.append('Pi_res_sq')
+        vars.append(Pi_res_sq)
+        pi_res_sq = np.einsum('ij,kl,ik,jl->', pi_res, pi_res, metric, metric)
+        var_names.append('pi_res_sq')
+        vars.append(pi_res_sq)
+        q_res_sq = np.einsum('i,ij,j', q_res, metric, q_res)
+        var_names.append('q_res_sq')
+        vars.append(q_res_sq)
+        Theta_sq = np.einsum('i,ij,j', Theta, metric, Theta)
+        var_names.append('Theta_sq')
+        vars.append(Theta_sq)
+
+        return var_names, vars, [h,i,j]
+    
+    def modelling_coefficients_parallel(self, n_cpus):
+        """
+        Routine to parallelize the task 'Computing_calibration_vars_task'
+        """
+        args_for_pool=[]
+
+        Nt = self.domain_vars['Nt']
+        Nx = self.domain_vars['Nx']
+        Ny = self.domain_vars['Ny']
+
+        for h in range(Nt):
+            for i in range(Nx):
+                for j in range(Ny):
+                    shear_t = self.meso_vars['shear_tilde'][h,i,j]
+                    vort_t = self.meso_vars['vort_tilde'][h,i,j]
+                    acc_t = self.meso_vars['acc_tilde'][h,i,j]
+                    Theta_t = self.meso_vars['Theta_tilde'][h,i,j]  
+                    Pi_res = self.meso_vars['Pi_res'][h,i,j]
+                    pi_res = self.meso_vars['pi_res'][h,i,j]
+                    q_res = self.meso_vars['q_res'][h,i,j]
+
+                    args_for_pool.append((shear_t, vort_t, acc_t, Theta_t, Pi_res, pi_res, q_res, h, i, j))
+
+        with mp.Pool(processes=n_cpus) as pool: 
+            print('Computing vars for modelling coefficients with {} processes'.format(pool._processes), flush=True)
+            for result in pool.starmap(resHD2D.modelling_coefficients_task, args_for_pool):
+                keys, values, grid_idxs = result
+                for idx, key in enumerate(keys):
+                    try:
+                        self.meso_vars[key]
+                    except KeyError:
+                        print('The key {} does not belong to meso_vars yet, adding it!'.format(key), flush=True)
+                        shape = values[idx].shape
+                        self.meso_vars.update({key : np.zeros(([Nt,Nx,Ny]+ list(shape)))})
+                    finally: 
+                        self.meso_vars[key][tuple(grid_idxs)] = values[idx]
+        
     def EL_style_closure_regression(self, CoefficientAnalysis):
         """
         Takes in a list of correlation quantities (strings? The regressors needed are computed 
