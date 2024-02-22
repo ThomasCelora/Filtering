@@ -42,14 +42,13 @@ conda activate myenv
 # LAUNCHING THE JOBS
 #####################################
 
-python3 -u visualizing_micro.py config_visualizing.txt
+# python3 -u visualizing_micro.py config_visualizing.txt
 # python3 -u visualizing_obs.py config_visualizing.txt
 # python3 -u visualizing_meso.py config_visualizing.txt
-
 # python3 -u visualizing_residuals.py config_calibration.txt 
 
-# python3 -u visualizing_correlations.py config_calibration.txt
-# python3 -u reducing_regressors.py config_calibration.txt 
-# python3 -u hunting_correlations.py config_calibration.txt
-# python3 -u regressing_residual.py config_calibration.txt
+python3 -u visualizing_correlations.py config_calibration.txt
+python3 -u reducing_regressors.py config_calibration.txt 
+python3 -u hunting_correlations.py config_calibration.txt
+python3 -u regressing_residual.py config_calibration.txt
 

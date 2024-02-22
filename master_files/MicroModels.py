@@ -537,7 +537,7 @@ class IdealHD_2D(object):
             self.domain_vars[str] = []   
 
         #Dictionary for primitive var
-        self.prim_strs = ("vx","vy","n","p")
+        self.prim_strs = ("vx","vy","rho","p")
         self.prim_vars = dict.fromkeys(self.prim_strs)
         for str in self.prim_strs:
             self.prim_vars[str] = []
@@ -554,11 +554,16 @@ class IdealHD_2D(object):
         for str in self.structures_strs:
             self.structures[str] = []
 
-        self.labels_var_dict = {'BC' : r'$n^{a}$', 
+        self.labels_var_dict = {'BC' : r'$\rho^{a}$', 
                                 'SET' : r'$T^{ab}$', 
                                 'bar_vel' : r'$u^a$',
                                 'vx' : r'$v_x$', 
-                                'vy' : r'$v_y$'}
+                                'vy' : r'$v_y$', 
+                                'rho' : r'$\rho$', 
+                                'W' : r'$W$', 
+                                'e' : r'$e$', 
+                                'h' : r'$h$', 
+                                'p' : r'$p$'} 
 
     def upgrade_labels_dict(self, entry_dict):
         """
@@ -710,9 +715,9 @@ class IdealHD_2D(object):
                     
                     self.structures['bar_vel'][h,i,j,:] = vel_vec
 
-                    self.structures['BC'][h,i,j,:] = np.multiply(self.prim_vars['n'][h,i,j], vel_vec )
+                    self.structures['BC'][h,i,j,:] = np.multiply(self.prim_vars['rho'][h,i,j], vel_vec )
                     
-                    self.structures['SET'][h,i,j,:,:] = (self.prim_vars["n"][h,i,j] * self.aux_vars['h'][h,i,j]) * np.outer(vel_vec, vel_vec) \
+                    self.structures['SET'][h,i,j,:,:] = (self.prim_vars['rho'][h,i,j] * self.aux_vars['h'][h,i,j]) * np.outer(vel_vec, vel_vec) \
                                                         + self.prim_vars['p'][h,i,j] * self.metric
                     
                     
@@ -775,7 +780,7 @@ if __name__ == '__main__':
     print('Structure strs: {}'.format(micro_model.get_structures_strs()))
     point = [1.502,0.4,0.2]
     # vars = ['SETfl', 'BC', 'Fab', 'SETem']
-    vars = ['BC', 'bar_vel', 'n']
+    vars = ['BC', 'bar_vel', 'rho']
     for var in vars: 
         res = micro_model.get_interpol_var(var, point)
         res2 = micro_model.get_var_gridpoint(var, point)

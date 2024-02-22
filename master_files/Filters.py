@@ -329,7 +329,7 @@ class FindObs_flux_min(object):
         if initial_guess is not None and len(initial_guess) == self.spatial_dims:
             guess = initial_guess
         else: 
-            U = np.multiply(1 / self.micro_model.get_interpol_var('n', point) , self.micro_model.get_interpol_var('BC', point) )
+            U = np.multiply(1 / self.micro_model.get_interpol_var('rho', point) , self.micro_model.get_interpol_var('BC', point) )
             for i in range(1, len(U)):
                 guess.append(U[i] / U[0])
             guess = np.array(guess)
@@ -681,7 +681,7 @@ class FindObs_drift_root(object):
         if initial_guess is not None and len(initial_guess) == self.spatial_dims:
             guess = initial_guess
         else: 
-            U = np.multiply(1 / self.micro_model.get_interpol_var('n', point) , self.micro_model.get_interpol_var('BC', point) )
+            U = np.multiply(1 / self.micro_model.get_interpol_var('rho', point) , self.micro_model.get_interpol_var('BC', point) )
             for i in range(1, len(U)):
                 guess.append(U[i] / U[0])
         guess = np.array(guess)

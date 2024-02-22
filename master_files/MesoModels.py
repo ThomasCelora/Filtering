@@ -1147,7 +1147,7 @@ class resHD2D(object):
         for var in self.meso_structures:
                 self.meso_structures[var] = []
 
-        self.meso_scalars_strs = ['eps_tilde', 'n_tilde', 'p_tilde', 'p_filt', 'eos_res', 'Pi_res', 'T_tilde']
+        self.meso_scalars_strs = ['eps_tilde', 'rho_tilde', 'p_tilde', 'p_filt', 'eos_res', 'Pi_res', 'T_tilde']
         self.meso_vectors_strs = ['u_tilde', 'q_res']
         self.meso_r2tensors_strs = ['pi_res']
         self.meso_vars_strs = self.meso_scalars_strs + self.meso_vectors_strs + self.meso_r2tensors_strs
@@ -1191,14 +1191,10 @@ class resHD2D(object):
         if not compatible:
             print("Meso and Micro models are incompatible:"+error) 
 
-        self.meso_scalars_strs = ['eps_tilde', 'n_tilde', 'p_tilde', 'p_filt', 'eos_res', 'Pi_res', 'T_tilde']
-        self.meso_vectors_strs = ['u_tilde', 'q_res']
-        self.meso_r2tensors_strs = ['pi_res']
-        self.coefficient_strs = ["Gamma"]
         self.labels_var_dict = {'SET' : r'$<T^{ab}>$', 
                                 'BC' : r'$<n^a>$',
                                 'eps_tilde' : r'$\tilde{\varepsilon}$',
-                                'n_tilde' : r'$\tilde{n}$',
+                                'rho_tilde' : r'$\tilde{\rho}$',
                                 'p_tilde' : r'$\tilde{p}$',
                                 'p_filt' : r'$<p>$',
                                 'eos_res' : r'$M$',
@@ -1666,7 +1662,7 @@ class resHD2D(object):
     
 
         # Storing the decomposition with appropriate names. 
-        self.meso_vars['n_tilde'][h,i,j] = n_t
+        self.meso_vars['rho_tilde'][h,i,j] = n_t
         self.meso_vars['u_tilde'][h,i,j,:] = u_t
         self.meso_vars['eps_tilde'][h,i,j] = eps_t
         self.meso_vars['q_res'][h,i,j,:] = q_a
@@ -1794,7 +1790,7 @@ class resHD2D(object):
             print('Decomposing structures in parallel with {} processes'.format(pool._processes), flush=True)
             for result in pool.starmap(resHD2D.decompose_structures_task, args_for_pool):
                 h,i,j = result[1]
-                self.meso_vars['n_tilde'][h,i,j] = result[0][0]
+                self.meso_vars['rho_tilde'][h,i,j] = result[0][0]
                 self.meso_vars['u_tilde'][h,i,j,:] = result[0][1]
                 self.meso_vars['eps_tilde'][h,i,j] = result[0][2]
                 self.meso_vars['q_res'][h,i,j,:] = result[0][3]
@@ -2238,6 +2234,7 @@ class resHD2D(object):
         coefficients_names.append('kappa')
         coefficients.append(kappa)
         
+
         return coefficients_names, coefficients, [h,i,j]
 
     def EL_style_closure_parallel(self, n_cpus):

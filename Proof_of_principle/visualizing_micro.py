@@ -24,10 +24,10 @@ if __name__ == '__main__':
 
     if micro_from_hdf5:
         hdf5_directory = config['Directories']['hdf5_dir']
-        filenames = hdf5_directory 
         print('=========================================================================')
         print(f'Starting job on data from {hdf5_directory}')
         print('=========================================================================\n\n')
+        filenames = hdf5_directory + '/'
         snapshots_opts = json.loads(config['Models_settings']['snapshots_opts'])
         fewer_snaps_required = snapshots_opts['fewer_snaps_required']
         smaller_list = snapshots_opts['smaller_list']
@@ -62,9 +62,11 @@ if __name__ == '__main__':
 
     # FINALLY, PLOTTING
     # Plotting the baryon current
-    vars = ['BC', 'BC', 'BC', 'n', 'W', 'vx']
+    vars = ['BC', 'BC', 'BC', 'W', 'vx', 'vy']
+    norms= ['log', 'symlog', 'symlog', 'log', 'symlog', 'symlog']
+    cmaps = [None, 'seismic', 'seismic', None, 'seismic', 'seismic']
     components = [(0,), (1,), (2,), (), (), ()]
-    fig=visualizer.plot_vars(micro_model, vars, plot_time, x_range, y_range, components_indices = components)
+    fig=visualizer.plot_vars(micro_model, vars, plot_time, x_range, y_range, components_indices = components, norms=norms, cmaps=cmaps)
     fig.tight_layout()
     time_for_filename = str(round(plot_time,2))
     filename = "/micro_T_" + time_for_filename + "_BC.pdf"
@@ -73,15 +75,19 @@ if __name__ == '__main__':
     # Plotting the stress energy tensor
     vars = ['SET', 'SET', 'SET', 'SET', 'SET', 'SET']
     components = [(0,0), (0,1), (0,2), (1,1), (1,2), (2,2)]
-    fig=visualizer.plot_vars(micro_model, vars, plot_time, x_range, y_range, components_indices = components)
+    norms= ['log', 'symlog', 'symlog', 'log', 'symlog', 'log']
+    cmaps = [None, 'seismic', 'seismic', None, 'seismic', None]
+    fig=visualizer.plot_vars(micro_model, vars, plot_time, x_range, y_range, components_indices = components, norms=norms, cmaps=cmaps)
     fig.tight_layout()
     time_for_filename = str(round(plot_time,2))
     filename = "/micro_T_" + time_for_filename + "_SET.pdf"
     plt.savefig(saving_directory + filename, format = "pdf")
 
     # plotting primitive quantities
-    vars = ['W', 'vx', 'vy', 'n', 'p', 'e']
-    fig=visualizer.plot_vars(micro_model, vars, plot_time, x_range, y_range)
+    vars = ['W', 'vx', 'vy', 'rho', 'p', 'e']
+    norms= ['log', 'symlog', 'symlog', 'log', 'log', 'log']
+    cmaps = [None, 'seismic', 'seismic', None, None, None]
+    fig=visualizer.plot_vars(micro_model, vars, plot_time, x_range, y_range, norms=norms, cmaps=cmaps)
     fig.tight_layout()
     time_for_filename = str(round(plot_time,2))
     filename = "/micro_T_" + time_for_filename + "_prims.pdf"

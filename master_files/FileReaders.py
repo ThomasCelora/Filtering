@@ -28,7 +28,7 @@ class METHOD_HDF5(object):
         smaller_list: list
             indices to be retained of list orderd via sorted(glob.glob(directory+str('*.hdf5')))
         """ 
-        hdf5_filenames = sorted( glob.glob(directory+str('*.hdf5')))
+        hdf5_filenames = sorted(glob.glob(directory+str('*.hdf5')))
         if fewer_snaps:
             if smaller_list:
                 temp = [hdf5_filenames[i] for i in smaller_list]
@@ -58,10 +58,10 @@ class METHOD_HDF5(object):
 
         self.translating_prims = dict.fromkeys(micro_model.get_prim_strs())
         for prim_str in micro_model.get_prim_strs():
-            if prim_str == "n":
-                self.translating_prims[prim_str] = "rho"
-            else: 
-                self.translating_prims[prim_str] = prim_str 
+            # if prim_str == "n":
+            #     self.translating_prims[prim_str] = "rho"
+            # else: 
+            self.translating_prims[prim_str] = prim_str 
 
         for prim_var_str in  micro_model.prim_vars:
             try: 
@@ -137,10 +137,10 @@ class METHOD_HDF5(object):
 
         self.translating_prims = dict.fromkeys(micro_model.get_prim_strs())
         for prim_str in micro_model.get_prim_strs():
-            if prim_str == "n":
-                self.translating_prims[prim_str] = "rho"
-            else: 
-                self.translating_prims[prim_str] = prim_str 
+            # if prim_str == "n":
+            #     self.translating_prims[prim_str] = "rho"
+            # else: 
+            self.translating_prims[prim_str] = prim_str 
 
         for prim_var_str in  micro_model.prim_vars:
             try: 

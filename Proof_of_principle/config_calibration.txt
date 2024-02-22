@@ -3,26 +3,27 @@
 
 [Directories]
 
-pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/pickled_files/800X800
+pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/pickled
 
-figures_dir = /home/tc2m23/Filtering/Proof_of_principle/tests/PCA_regression
+figures_dir = /home/tc2m23/Filtering/Proof_of_principle/tests/.
 #/scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/Figures/800X800/ET2/cg=bl=fw=dt/CG4
 #/scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/Figures/800X800/ET2/cg=bl=fw=dt/CG4/fitting_eta
 
 [Filenames] 
-meso_pickled_filename = /rHD2d_ET2_cg=fw=bl=4dx_dt.pickle
+#meso_pickled_filename = /rHD2d_ET2_cg=fw=bl=4dx_dt.pickle
+meso_pickled_filename = /prova.pickle
 
 [Models_settings]
 mesogrid_T_slices_num = 3
 
 [Ranges_for_analysis]
 
-ranges = {"x_range": [0.2, 0.8], "y_range": [0.2, 0.8]}
+ranges = {"x_range": [0.21, 0.24], "y_range": [0.21, 0.24]}
 
 
 [Visualize_correlation]
 
-vars = ["T_tilde", "n_tilde"]
+vars = ["T_tilde", "rho_tilde"]
 preprocess_data = {"pos_or_neg": [1,1], "log_or_not": [1,1]}
 #set extractions 0 if you don't want to extract randomly from sample
 extractions = 0
@@ -31,11 +32,11 @@ extractions = 0
 [PCA_settings]
 
 dependent_var = zeta
-explanatory_vars = ["T_tilde", "n_tilde"]
+explanatory_vars = ["T_tilde", "rho_tilde"]
 pcs_num = 1
 #["det_shear", "shear_sq", "vort_mod", "Q", "acc_mag", "T_tilde", "n_tilde"]
 
-regressors_2_reduce =  ["T_tilde", "n_tilde", "eps_tilde"]
+regressors_2_reduce =  ["T_tilde", "rho_tilde", "p_tilde"]
 variance_wanted = 0.9
 
 # Careful, only one dictionary here
@@ -47,7 +48,7 @@ extractions = 0
 [Regression_settings]
 
 dependent_var = zeta
-regressors = ["T_tilde", "n_tilde"]
+regressors = ["T_tilde", "rho_tilde"]
 preprocess_data = {"pos_or_neg": [1,1,1], "log_or_not": [1,1,1]}
 add_intercept = 1
 #set extractions 0 if you don't want to extract randomly from sample

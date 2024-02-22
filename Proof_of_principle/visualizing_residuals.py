@@ -32,6 +32,7 @@ if __name__ == '__main__':
     meso_pickled_filename = config['Filenames']['meso_pickled_filename']
     MesoModelLoadFile = pickle_directory + meso_pickled_filename
 
+    print('================================================')
     print(f'Starting job on data from {MesoModelLoadFile}')
     print('================================================\n\n')
 

@@ -80,7 +80,7 @@ if __name__ == '__main__':
     vars = [['BC'],['BC']]
     models = [micro_model, meso_model]
     components= [[(0,)],[(0,)]]
-    norms = [[None], [None], ['symlog']]
+    norms = [[None], [None]]
     fig=visualizer.plot_vars_models_comparison(models, vars, time_meso, x_range, y_range, components_indices = components, 
                                                interp_dims = interp_dims, method = diff_method, diff_plot=False, rel_diff=True, norms=norms)
     fig.tight_layout()
@@ -89,7 +89,7 @@ if __name__ == '__main__':
 
     vars = [['BC'],['BC']]
     models = [micro_model, meso_model]
-    norms = [[None], [None], ['symlog']]
+    norms = [[None], [None]]
     components= [[(0,)],[(0,)]]
     fig=visualizer.plot_vars_models_comparison(models, vars, time_meso, x_range, y_range, components_indices = components, 
                                                interp_dims = interp_dims, method = diff_method, diff_plot=True, rel_diff=False, norms=norms)
@@ -111,77 +111,77 @@ if __name__ == '__main__':
 
     # # # PLOTTING THE DECOMPOSED SET 
     # # #############################
-    # vars_strs = ['pi_res', 'pi_res', 'pi_res', 'pi_res', 'pi_res', 'pi_res']
-    # norms = ['mysymlog', 'mysymlog', 'mysymlog', 'mysymlog', 'mysymlog', 'mysymlog']
-    # cmaps = ['seismic', 'seismic', 'seismic', 'seismic', 'seismic', 'seismic']
-    # components = [(0,0), (0,1), (0,2), (1,1), (1,2), (2,2)]
-    # fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components, norms=norms, cmaps=cmaps)
-    # fig.tight_layout()
-    # time_for_filename = str(round(time_meso,2))
-    # filename = "/DecomposedSET_1.pdf"
-    # plt.savefig(saving_directory + filename, format = 'pdf')
+    vars_strs = ['pi_res', 'pi_res', 'pi_res', 'pi_res', 'pi_res', 'pi_res']
+    norms = ['mysymlog', 'mysymlog', 'mysymlog', 'mysymlog', 'mysymlog', 'mysymlog']
+    cmaps = ['seismic', 'seismic', 'seismic', 'seismic', 'seismic', 'seismic']
+    components = [(0,0), (0,1), (0,2), (1,1), (1,2), (2,2)]
+    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components, norms=norms, cmaps=cmaps)
+    fig.tight_layout()
+    time_for_filename = str(round(time_meso,2))
+    filename = "/DecomposedSET_1.pdf"
+    plt.savefig(saving_directory + filename, format = 'pdf')
 
-    # vars_strs = ['q_res', 'q_res', 'q_res', 'Pi_res', 'p_tilde', 'p_filt']
-    # norms = ['mysymlog', 'mysymlog', 'mysymlog', None, None, None]
-    # cmaps = ['seismic', 'seismic', 'seismic', None, None, None]
-    # components = [(0,), (1,), (2,), (), (), ()]
-    # fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components, norms=norms, cmaps=cmaps)
-    # fig.tight_layout()
-    # time_for_filename = str(round(time_meso,2))
-    # filename = "/DecomposedSET_2.pdf"
-    # plt.savefig(saving_directory + filename, format = 'pdf')
-    # print('Finished plotting decomposition of SET')
+    vars_strs = ['q_res', 'q_res', 'q_res', 'Pi_res', 'p_tilde', 'p_filt']
+    norms = ['mysymlog', 'mysymlog', 'mysymlog', None, None, None]
+    cmaps = ['seismic', 'seismic', 'seismic', None, None, None]
+    components = [(0,), (1,), (2,), (), (), ()]
+    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components, norms=norms, cmaps=cmaps)
+    fig.tight_layout()
+    time_for_filename = str(round(time_meso,2))
+    filename = "/DecomposedSET_2.pdf"
+    plt.savefig(saving_directory + filename, format = 'pdf')
+    print('Finished plotting decomposition of SET')
 
     # # # PLOTTING THE DERIVATIVES OF FAVRE VEL AND TEMPERATURE
     # ######################################################### 
-    # favre_vel_components = [0,1,2]
-    # for i in range(len(favre_vel_components)):
-    #     components = [tuple([favre_vel_components[i]])]
-    #     for j in range(3):
-    #         components.append(tuple([j,favre_vel_components[i]]))
-    #     vars_strs = ['u_tilde', 'D_u_tilde', 'D_u_tilde', 'D_u_tilde']
-    #     fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components)
-    #     fig.tight_layout()
-    #     time_for_filename = str(round(time_meso,2))
-    #     filename = "/D_favre_comp={}.pdf".format(favre_vel_components[i])
-    #     plt.savefig(saving_directory + filename, format = 'pdf')
-    # print('Finished plotting derivatives of favre velocity', flush=True)
+    favre_vel_components = [0,1,2]
+    for i in range(len(favre_vel_components)):
+        components = [tuple([favre_vel_components[i]])]
+        for j in range(3):
+            components.append(tuple([j,favre_vel_components[i]]))
+        vars_strs = ['u_tilde', 'D_u_tilde', 'D_u_tilde', 'D_u_tilde']
+        fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components)
+        fig.tight_layout()
+        time_for_filename = str(round(time_meso,2))
+        filename = "/D_favre_comp={}.pdf".format(favre_vel_components[i])
+        plt.savefig(saving_directory + filename, format = 'pdf')
+    print('Finished plotting derivatives of favre velocity', flush=True)
 
-    # vars_strs = ['T_tilde', 'D_T_tilde', 'D_T_tilde', 'D_T_tilde']
-    # components = [(), (0,), (1,), (2,)]
-    # fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components)
-    # fig.tight_layout()
-    # time_for_filename = str(round(time_meso,2))
-    # filename = "/D_T.pdf"
-    # plt.savefig(saving_directory + filename, format = 'pdf')
-    # print('Finished plotting temperature derivatives', flush=True)
+    vars_strs = ['T_tilde', 'D_T_tilde', 'D_T_tilde', 'D_T_tilde']
+    components = [(), (0,), (1,), (2,)]
+    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components)
+    fig.tight_layout()
+    time_for_filename = str(round(time_meso,2))
+    filename = "/D_T.pdf"
+    plt.savefig(saving_directory + filename, format = 'pdf')
+    print('Finished plotting temperature derivatives', flush=True)
 
     # # # PLOTTING SHEAR, ACCELERATION, EXPANSION AND TEMPERATURE DERIVATIVES
     # ########################################################################
-    # vars_strs = ['shear_tilde', 'shear_tilde', 'shear_tilde', 'shear_tilde', 'shear_tilde', 'shear_tilde']
-    # components = [(0,0), (0,1), (0,2), (1,1), (1,2), (2,2)]
-    # fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components)
-    # fig.tight_layout()
-    # time_for_filename = str(round(time_meso,2))
-    # filename = "/Shear_comps.pdf"
-    # plt.savefig(saving_directory + filename, format = 'pdf')
-    # print('Finished plotting shear', flush=True)
+    vars_strs = ['shear_tilde', 'shear_tilde', 'shear_tilde', 'shear_tilde', 'shear_tilde', 'shear_tilde']
+    components = [(0,0), (0,1), (0,2), (1,1), (1,2), (2,2)]
+    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components)
+    fig.tight_layout()
+    time_for_filename = str(round(time_meso,2))
+    filename = "/Shear_comps.pdf"
+    plt.savefig(saving_directory + filename, format = 'pdf')
+    print('Finished plotting shear', flush=True)
 
-    # vars_strs = ['acc_tilde', 'acc_tilde', 'acc_tilde', 'Theta_tilde', 'Theta_tilde', 'Theta_tilde']
-    # components = [(0,), (1,), (2,), (0,), (1,), (2,)]
-    # fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components)
-    # fig.tight_layout()
-    # time_for_filename = str(round(time_meso,2))
-    # filename = "/Acc+Tderivs.pdf"
-    # plt.savefig(saving_directory + filename, format = 'pdf')
-    # print('Finished plotting DaT', flush=True)
+    vars_strs = ['acc_tilde', 'acc_tilde', 'acc_tilde', 'Theta_tilde', 'Theta_tilde', 'Theta_tilde']
+    components = [(0,), (1,), (2,), (0,), (1,), (2,)]
+    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components)
+    fig.tight_layout()
+    time_for_filename = str(round(time_meso,2))
+    filename = "/Acc+Tderivs.pdf"
+    plt.savefig(saving_directory + filename, format = 'pdf')
+    print('Finished plotting DaT', flush=True)
 
-    # vars_strs = ['exp_tilde']
-    # fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range)
-    # fig.tight_layout()
-    # time_for_filename = str(round(time_meso,2))
-    # filename = "/Expansion.pdf"
-    # plt.savefig(saving_directory + filename, format = 'pdf')
-    # print('Finished plotting expansion', flush=True)
+    vars_strs = ['exp_tilde']
+    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range)
+    fig.tight_layout()
+    time_for_filename = str(round(time_meso,2))
+    filename = "/Expansion.pdf"
+    plt.savefig(saving_directory + filename, format = 'pdf')
+    print('Finished plotting expansion', flush=True)
 
     
