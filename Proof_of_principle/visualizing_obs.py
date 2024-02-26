@@ -37,7 +37,7 @@ if __name__ == '__main__':
     
     print(f'Finished reading data from {MesoModelLoadFile}')
 
-    # CHECKING WE ARE COMPARING DATA FROM THE SAME TIME-SLICE
+    # CHECKING WE ARE COMPARING DATA FROM THE SAME TIME-SLICE 
     num_snaps = micro_model.domain_vars['nt']
     central_slice_num = int(num_snaps/2.)
     time_micro = micro_model.domain_vars['t'][central_slice_num]
@@ -58,13 +58,18 @@ if __name__ == '__main__':
     diff_method = diff_plot_settings['method']
     interp_dims = diff_plot_settings['interp_dims']    
     visualizer = Plotter_2D([11.97, 8.36])
+    
+    label_2_update = {'U' : r'$U^a$'}
+    meso_model.upgrade_labels_dict(label_2_update)
 
-    # FINALLY, PLOTTING
+    # FINALLY, PLOTTING 
     models = [micro_model, meso_model]
     vars = [['bar_vel', 'bar_vel', 'bar_vel'],['U', 'U', 'U']]
+    norms = [['log','mysymlog','mysymlog'],['log','mysymlog','mysymlog'],['log','log','log']] 
+    cmaps = [['plasma','seismic','seismic'], ['plasma','seismic','seismic'], ['plasma','plasma','plasma']] 
     components_indices= [[(0,),(1,),(2,)], [(0,), (1,), (2,)]]
     fig = visualizer.plot_vars_models_comparison(models, vars, time_meso, x_range, y_range, components_indices=components_indices, method=diff_method,
-                                                interp_dims=interp_dims, diff_plot=False, rel_diff=False)
+                                                interp_dims=interp_dims, diff_plot=False, rel_diff=True, norms=norms, cmaps=cmaps)
     fig.tight_layout()
     filename="/ObsVSmicro.pdf"
     plt.savefig(saving_directory + filename, format="pdf")
@@ -74,8 +79,10 @@ if __name__ == '__main__':
     models = [micro_model, meso_model]
     vars = [['bar_vel', 'bar_vel', 'bar_vel'],['u_tilde', 'u_tilde', 'u_tilde']]
     components_indices= [[(0,),(1,),(2,)], [(0,), (1,), (2,)]]
+    norms = [['log','mysymlog','mysymlog'],['log','mysymlog','mysymlog'],['log','log','log']] 
+    cmaps = [['plasma','seismic','seismic'],['plasma','seismic','seismic'], ['plasma','plasma','plasma']] 
     fig = visualizer.plot_vars_models_comparison(models, vars, time_meso, x_range, y_range, components_indices=components_indices, method=diff_method,
-                                                interp_dims=interp_dims, diff_plot=False, rel_diff=False)
+                                                interp_dims=interp_dims, diff_plot=False, rel_diff=True, norms=norms, cmaps=cmaps)
     fig.tight_layout()
     filename="/favreVSmicro.pdf"
     plt.savefig(saving_directory + filename, format="pdf")

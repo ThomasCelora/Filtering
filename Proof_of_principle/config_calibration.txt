@@ -5,25 +5,22 @@
 
 pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/pickled
 
-figures_dir = /home/tc2m23/Filtering/Proof_of_principle/tests/.
-#/scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/Figures/800X800/ET2/cg=bl=fw=dt/CG4
-#/scratch/tc2m23/KHIRandom/hydro/ET_1_3.5_step0.5/20dx/Figures/800X800/ET2/cg=bl=fw=dt/CG4/fitting_eta
+figures_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/figures/CG1
 
 [Filenames] 
-#meso_pickled_filename = /rHD2d_ET2_cg=fw=bl=4dx_dt.pickle
-meso_pickled_filename = /prova.pickle
+meso_pickled_filename = /rHD2d_nocg_fw=bl=8dx.pickle
 
 [Models_settings]
 mesogrid_T_slices_num = 3
 
 [Ranges_for_analysis]
 
-ranges = {"x_range": [0.21, 0.24], "y_range": [0.21, 0.24]}
+ranges = {"x_range": [0.04, 0.96], "y_range": [0.04, 0.96]}
 
 
 [Visualize_correlation]
 
-vars = ["T_tilde", "rho_tilde"]
+vars = ["eta", ]
 preprocess_data = {"pos_or_neg": [1,1], "log_or_not": [1,1]}
 #set extractions 0 if you don't want to extract randomly from sample
 extractions = 0

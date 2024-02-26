@@ -12,17 +12,16 @@ pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/pickle
 #the options is activated using the first key, while the list refers to the index of the elements of 
 #ordered filenames' list to be retained (list ordered with glob in FileReaders.METHOD_HDF5 )
 
-snapshots_opts = {"fewer_snaps_required": true, "smaller_list": [6,7,8,9,10,11,12,13,14]}
+snapshots_opts = {"fewer_snaps_required": false, "smaller_list": [6,7,8,9,10,11,12,13,14]}
 
 [Meso_model_settings]
 
-meso_grid = {"x_range": [0.2, 0.25], "y_range": [0.2, 0.25], "num_T_slices": 3, "coarse_grain_factor": 1, "coarse_grain_time": false}
+meso_grid = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97], "num_T_slices": 3, "coarse_grain_factor": 1, "coarse_grain_time": false}
 
-filtering_options = {"box_len_ratio": 2.0, "filter_width_ratio": 2.0}
+filtering_options = {"box_len_ratio": 8.0, "filter_width_ratio": 8.0}
 
 n_cpus = 40
 
 [Pickled_filenames]
 
-#meso_pickled = /rHD2d_nocg_fw=bl=8dx.pickle
-meso_pickled = /prova
+meso_pickled = /rHD2d_nocg_fw=bl=8dx.pickle

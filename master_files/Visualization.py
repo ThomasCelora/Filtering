@@ -344,12 +344,12 @@ class Plotter_2D(object):
                 
         inv_fig_shape = (n_cols, n_rows)
         if not norms or np.array(norms).shape != inv_fig_shape:
-            # print('Norms provided are not compatible with figure, setting these to auto')
+            print('Norms provided are not compatible with figure, setting these to auto')
             norms = [None for _ in range(n_rows)]
             norms = [norms for _ in range(n_cols)]
     
         if not cmaps or np.array(cmaps).shape != inv_fig_shape:
-            # print('Colormaps not compatible with figure, setting these to auto')
+            print('Colormaps not compatible with figure, setting these to auto')
             cmaps = [None for _ in range(n_rows)]
             cmaps = [cmaps for _ in range(n_cols)]
 
@@ -359,12 +359,32 @@ class Plotter_2D(object):
       
         for j in range(len(models)):
             for i in range(n_rows):                
+
                 data_to_plot, extent = self.get_var_data(models[j], var_strs[j][i], t, x_range, y_range, components_indices[j][i], 'raw_data', None)
-                im=axes[i,j].imshow(data_to_plot, extent=extent, norm=norms[j][i], cmap=cmaps[j][i])
-                divider = make_axes_locatable(axes[i,j])
-                cax = divider.append_axes('right', size='5%', pad=0.05)
-                fig.colorbar(im, cax=cax, orientation='vertical')
+
+                if norms[j][i] == 'mysymlog': 
+                    ticks, labels, nodes = MySymLogPlotting.get_mysymlog_var_ticks(data_to_plot)
+                    data_to_plot = MySymLogPlotting.symlog_var(data_to_plot)
+                    mynorm = MyThreeNodesNorm(nodes)
+                    im = axes[i,j].imshow(data_to_plot, extent=extent, norm=mynorm, cmap=cmaps[j][i])
+                    divider = make_axes_locatable(axes[i,j])
+                    cax = divider.append_axes('right', size='5%', pad=0.05)
+                    cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                    cbar.set_ticks(ticks)
+                    cbar.ax.set_yticklabels(labels)
+
+                elif norms[j][i] != 'mysymlog':
+                    im = axes[i,j].imshow(data_to_plot, extent=extent, norm=norms[j][i], cmap=cmaps[j][i])
+                    divider = make_axes_locatable(axes[i,j])
+                    cax = divider.append_axes('right', size='5%', pad=0.05)
+                    fig.colorbar(im, cax=cax, orientation='vertical')
+
+                # im=axes[i,j].imshow(data_to_plot, extent=extent, norm=norms[j][i], cmap=cmaps[j][i])
+                # divider = make_axes_locatable(axes[i,j])
+                # cax = divider.append_axes('right', size='5%', pad=0.05)
+                # fig.colorbar(im, cax=cax, orientation='vertical')
                 # title = models[j].get_model_name() + "\n"+var_strs[j][i]
+
                 title = models[j].get_model_name() + '\n'
                 if hasattr(models[j], 'labels_var_dict'):
                     if var_strs[j][i] in models[j].labels_var_dict.keys():
@@ -381,6 +401,7 @@ class Plotter_2D(object):
                 axes[i,j].set_ylabel(r'$x$')
 
 
+
         if diff_plot and len(models)==2:
             try:
                 for i in range(len(var_strs[0])):
@@ -390,10 +411,31 @@ class Plotter_2D(object):
                         print("Cannot plot the difference between the vars: data not aligned.")
                         continue
                     data_to_plot = data1 - data2
-                    im = axes[i,2].imshow(data_to_plot, extent=extent1, norm=norms[2][i], cmap=cmaps[2][i])
-                    divider = make_axes_locatable(axes[i,2])
-                    cax = divider.append_axes('right', size='5%', pad=0.05)
-                    fig.colorbar(im, cax=cax, orientation='vertical')
+
+                    if norms[2][i] == 'mysymlog': 
+                        ticks, labels, nodes = MySymLogPlotting.get_mysymlog_var_ticks(data_to_plot)
+                        data_to_plot = MySymLogPlotting.symlog_var(data_to_plot)
+                        mynorm = MyThreeNodesNorm(nodes)
+                        im = axes[i,2].imshow(data_to_plot, extent=extent, norm=mynorm, cmap=cmaps[2][i])
+                        divider = make_axes_locatable(axes[i,2])
+                        cax = divider.append_axes('right', size='5%', pad=0.05)
+                        cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                        cbar.set_ticks(ticks)
+                        cbar.ax.set_yticklabels(labels)
+
+                    elif norms[2][i] != 'mysymlog':
+                        im = axes[i,2].imshow(data_to_plot, extent=extent, norm=norms[2][i], cmap=cmaps[2][i])
+                        divider = make_axes_locatable(axes[i,2])
+                        cax = divider.append_axes('right', size='5%', pad=0.05)
+                        fig.colorbar(im, cax=cax, orientation='vertical')
+
+
+                    # im = axes[i,2].imshow(data_to_plot, extent=extent1, norm=norms[2][i], cmap=cmaps[2][i])
+                    # divider = make_axes_locatable(axes[i,2])
+                    # cax = divider.append_axes('right', size='5%', pad=0.05)
+                    # fig.colorbar(im, cax=cax, orientation='vertical')
+
+
                     axes[i,2].set_title('Models difference')
                     axes[i,2].set_xlabel(r'$y$')
                     axes[i,2].set_ylabel(r'$x$')
@@ -417,10 +459,29 @@ class Plotter_2D(object):
                     else:
                         column = 2
 
-                    im = axes[i,column].imshow(data_to_plot, extent=extent1, norm=norms[column][i], cmap=cmaps[column][i])
-                    divider = make_axes_locatable(axes[i,column])
-                    cax = divider.append_axes('right', size='5%', pad=0.05)
-                    fig.colorbar(im, cax=cax, orientation='vertical')
+
+                    if norms[column][i] == 'mysymlog': 
+                        ticks, labels, nodes = MySymLogPlotting.get_mysymlog_var_ticks(data_to_plot)
+                        data_to_plot = MySymLogPlotting.symlog_var(data_to_plot)
+                        mynorm = MyThreeNodesNorm(nodes)
+                        im = axes[i,column].imshow(data_to_plot, extent=extent, norm=mynorm, cmap=cmaps[column][i])
+                        divider = make_axes_locatable(axes[i,column])
+                        cax = divider.append_axes('right', size='5%', pad=0.05)
+                        cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                        cbar.set_ticks(ticks)
+                        cbar.ax.set_yticklabels(labels)
+
+                    elif norms[column][i] != 'mysymlog':
+                        im = axes[i,column].imshow(data_to_plot, extent=extent, norm=norms[column][i], cmap=cmaps[column][i])
+                        divider = make_axes_locatable(axes[i,column])
+                        cax = divider.append_axes('right', size='5%', pad=0.05)
+                        fig.colorbar(im, cax=cax, orientation='vertical')
+
+                    # im = axes[i,column].imshow(data_to_plot, extent=extent1, norm=norms[column][i], cmap=cmaps[column][i])
+                    # divider = make_axes_locatable(axes[i,column])
+                    # cax = divider.append_axes('right', size='5%', pad=0.05)
+                    # fig.colorbar(im, cax=cax, orientation='vertical')
+
                     axes[i,column].set_title('Relative difference')
                     axes[i,column].set_xlabel(r'$y$')
                     axes[i,column].set_ylabel(r'$x$')

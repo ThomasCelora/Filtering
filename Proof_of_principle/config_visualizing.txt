@@ -7,14 +7,12 @@ hdf5_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/METHOD_output
 
 pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/pickled
 
-#figures_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/figures
-figures_dir = /home/tc2m23/Filtering/Proof_of_principle/tests/.
+figures_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/figures/CG1
 
 
 [Filenames] 
 
-#meso_pickled_filename = /rHD2d_ET2_cg=fw=bl=4dx_dt.pickle
-meso_pickled_filename = /prova.pickle
+meso_pickled_filename = /rHD2d_nocg_fw=bl=8dx.pickle
 
 
 [Models_settings]
@@ -28,8 +26,9 @@ mesogrid_T_slices_num = 3
 [Plot_settings]
 # method sets that used for producing difference plots: set it to 'interpolate' when plotting models with different grids
 # interp_dims is relevant when 'interpolate' method is used: should be set to the dims of the coarser grid
+# Else, set method to "raw_data" to use gridded data directly 
 
-plot_ranges = {"x_range": [0.2, 0.25], "y_range": [0.2, 0.25]}
+plot_ranges = {"x_range": [0.04, 0.96], "y_range": [0.04, 0.96]}
 
-diff_plot_settings = {"method": "raw_data", "interp_dims": [700, 700]}
+diff_plot_settings = {"method": "raw_data", "interp_dims": [300, 300]}
 

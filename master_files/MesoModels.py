@@ -1147,7 +1147,7 @@ class resHD2D(object):
         for var in self.meso_structures:
                 self.meso_structures[var] = []
 
-        self.meso_scalars_strs = ['eps_tilde', 'rho_tilde', 'p_tilde', 'p_filt', 'eos_res', 'Pi_res', 'T_tilde']
+        self.meso_scalars_strs = ['eps_tilde', 'n_tilde', 'p_tilde', 'p_filt', 'eos_res', 'Pi_res', 'T_tilde']
         self.meso_vectors_strs = ['u_tilde', 'q_res']
         self.meso_r2tensors_strs = ['pi_res']
         self.meso_vars_strs = self.meso_scalars_strs + self.meso_vectors_strs + self.meso_r2tensors_strs
@@ -1194,7 +1194,7 @@ class resHD2D(object):
         self.labels_var_dict = {'SET' : r'$<T^{ab}>$', 
                                 'BC' : r'$<n^a>$',
                                 'eps_tilde' : r'$\tilde{\varepsilon}$',
-                                'rho_tilde' : r'$\tilde{\rho}$',
+                                'n_tilde' : r'$\tilde{n}$',
                                 'p_tilde' : r'$\tilde{p}$',
                                 'p_filt' : r'$<p>$',
                                 'eos_res' : r'$M$',
@@ -1220,7 +1220,8 @@ class resHD2D(object):
                                 'q_res_sq': r'$\tilde{q}_a \tilde{q}^a$',
                                 'det_shear': r'det$(\sigma)$',
                                 'vort_mod' : r'$|W|$', 
-                                'acc_mag': r'$|a|$'}
+                                'acc_mag': r'$|a|$', 
+                                'U' : r'$U^a$'}
 
     def upgrade_labels_dict(self, entry_dict):
         """
@@ -1662,7 +1663,7 @@ class resHD2D(object):
     
 
         # Storing the decomposition with appropriate names. 
-        self.meso_vars['rho_tilde'][h,i,j] = n_t
+        self.meso_vars['n_tilde'][h,i,j] = n_t
         self.meso_vars['u_tilde'][h,i,j,:] = u_t
         self.meso_vars['eps_tilde'][h,i,j] = eps_t
         self.meso_vars['q_res'][h,i,j,:] = q_a
@@ -1790,7 +1791,7 @@ class resHD2D(object):
             print('Decomposing structures in parallel with {} processes'.format(pool._processes), flush=True)
             for result in pool.starmap(resHD2D.decompose_structures_task, args_for_pool):
                 h,i,j = result[1]
-                self.meso_vars['rho_tilde'][h,i,j] = result[0][0]
+                self.meso_vars['n_tilde'][h,i,j] = result[0][0]
                 self.meso_vars['u_tilde'][h,i,j,:] = result[0][1]
                 self.meso_vars['eps_tilde'][h,i,j] = result[0][2]
                 self.meso_vars['q_res'][h,i,j,:] = result[0][3]
@@ -2302,14 +2303,7 @@ class resHD2D(object):
         metric[0,0] = -1
         metric[1,1] = metric[2,2] = +1
 
-        # Computing various invariants of shear matrix 
-        # det_shear = np.linalg.det(shear)
-        pi_eig, _ = np.linalg.eigh(shear)
-        det_shear = 1.
-        for i in range(len(pi_eig)):
-            if pi_eig[i] != 0.: 
-                det_shear *= pi_eig[i]
-                
+        det_shear = np.linalg.det(shear)    
         shear_sq = np.einsum('ij,kl,ik,jl->', shear, shear, metric, metric)
         
         var_names.append('det_shear')
@@ -2359,7 +2353,7 @@ class resHD2D(object):
         Nx = self.domain_vars['Nx']
         Ny = self.domain_vars['Ny']
 
-        for h in range(Nt):
+        for h in range(Nt): 
             for i in range(Nx):
                 for j in range(Ny):
                     shear_t = self.meso_vars['shear_tilde'][h,i,j]
@@ -2374,8 +2368,10 @@ class resHD2D(object):
 
         with mp.Pool(processes=n_cpus) as pool: 
             print('Computing vars for modelling coefficients with {} processes'.format(pool._processes), flush=True)
+            
             for result in pool.starmap(resHD2D.modelling_coefficients_task, args_for_pool):
                 keys, values, grid_idxs = result
+
                 for idx, key in enumerate(keys):
                     try:
                         self.meso_vars[key]
@@ -2385,7 +2381,7 @@ class resHD2D(object):
                         self.meso_vars.update({key : np.zeros(([Nt,Nx,Ny]+ list(shape)))})
                     finally: 
                         self.meso_vars[key][tuple(grid_idxs)] = values[idx]
-        
+
     def EL_style_closure_regression(self, CoefficientAnalysis):
         """
         Takes in a list of correlation quantities (strings? The regressors needed are computed 

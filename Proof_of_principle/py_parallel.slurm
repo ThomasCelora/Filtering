@@ -7,7 +7,7 @@
 #SBATCH --output=outputs/Meso-pickling-%A.out  
 #SBATCH --nodes=1      
 #SBATCH --ntasks=40                
-#SBATCH --time=02:00:00 
+#SBATCH --time=03:00:00 
 
 # uncomment if job array
 ##SBATCH --array=1-6

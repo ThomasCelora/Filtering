@@ -50,7 +50,7 @@ if __name__ == '__main__':
     furthest_slice_number = int((num_T_slices-1)/2)
     if coarse_time:
         furthest_slice_number = int(coarse_factor * furthest_slice_number)
-    print(furthest_slice_number)
+
     t_range = [micro_model.domain_vars['t'][central_slice_num-furthest_slice_number], micro_model.domain_vars['t'][central_slice_num+furthest_slice_number]]
     x_range = meso_grid['x_range']
     y_range = meso_grid['y_range']
@@ -119,6 +119,7 @@ if __name__ == '__main__':
     meso_model.EL_style_closure_parallel(n_cpus)
     time_taken = time.perf_counter() - start_time
     print('Finished computing the EL_style closure in parallel, time taken: {}\n'.format(time_taken), flush=True)
+
 
     start_time = time.perf_counter()
     meso_model.modelling_coefficients_parallel(n_cpus)
