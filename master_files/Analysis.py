@@ -130,6 +130,8 @@ class CoefficientsAnalysis(object):
 
     def get_pos_or_neg_mask(self, pos_or_neg, array):
         """
+        NOT USED ANYMORE!!!!!!
+        
         Function that return the mask that would be applied to an array in order to select 
         positive or negative values
 
@@ -164,12 +166,41 @@ class CoefficientsAnalysis(object):
         if max is None: 
             max = np.amax(var)
 
-        restricted_var = ma.masked_where(var < min, var, copy = True)
-        restricted_var = ma.masked_where(restricted_var > max, restricted_var, copy=True)
+        restricted_var = ma.masked_where(var <= min, var, copy = True)
+        restricted_var = ma.masked_where(restricted_var >= max, restricted_var, copy=True)
         restricted_var = restricted_var.compressed()
         
         return restricted_var
     
+    def get_mask_min_max(self, array, min=None, max=None):
+        """
+        Given an input 'array' and a list of 'value_ranges' to be considered, return 
+        mask that would have to be applied to array to mask the entries outside the given
+        range
+
+        Parameters:
+        -----------
+        min, max: floats
+            the ranges to be considered
+
+        array: nd.array
+
+        Returns:
+        -------- 
+        Mask
+        """
+        if min is None: 
+            min = -np.inf
+        if max is None: 
+            max = np.inf
+
+        masked_array = ma.masked_where(array<min, array, copy=True)
+        masked_array = ma.masked_where(masked_array>max, masked_array, copy=True)
+
+        mask = masked_array.mask
+
+        return mask
+
     def preprocess_data(self, list_of_arrays, preprocess_data, weights=None):
         """
         Takes input list of arrays with dictionary on how to preprocess_data 
@@ -221,11 +252,17 @@ class CoefficientsAnalysis(object):
             else: 
                 return list_of_arrays
 
+        # USE THIS IF YOU WANNA REVERT TO PREVIOUS STUFF
+        # for i in range(len(list_of_arrays)):
+        #     pos_or_neg = preprocess_data['pos_or_neg'][i]
+        #     temp = self.get_pos_or_neg_mask(pos_or_neg, list_of_arrays[i]) 
+        #     masks.append(temp)
+
         # Combining the masks of the different arrays
         masks = []
         for i in range(len(list_of_arrays)):
-            pos_or_neg = preprocess_data['pos_or_neg'][i]
-            temp = self.get_pos_or_neg_mask(pos_or_neg, list_of_arrays[i]) 
+            min, max = preprocess_data['value_ranges'][i]
+            temp = self.get_mask_min_max(list_of_arrays[i], min, max)
             masks.append(temp)
         
         tot_mask = masks[0]
@@ -238,9 +275,9 @@ class CoefficientsAnalysis(object):
             temp = ma.masked_array(list_of_arrays[i], tot_mask)
             processed_list.append(temp.compressed())
             #when array is compressed, this is automatically flattened!
-        
+            
         for i in range(len(processed_list)):
-            if preprocess_data['log_or_not'][i]:
+            if preprocess_data['log_abs'][i]:
                 processed_list[i] = np.log10(np.abs(processed_list[i]))
 
         # removing corresponding entries from weights
@@ -779,7 +816,7 @@ class CoefficientsAnalysis(object):
 
 
 if __name__ == '__main__':
-    pass
+    # pass
     # #TESTING REGRESSION
     # x0 = np.arange(100).reshape((10,10))
     # x1 = np.sin(np.arange(100).reshape((10,10)))
@@ -791,38 +828,26 @@ if __name__ == '__main__':
     # print('Coefficients: {}'.format(result))
     # print('Errors: {}\n'.format(errors))
 
-    # # #TESTING PRE-PROCESS DATA
-    # x = np.zeros((100,100))
-    # for idx in np.ndindex(x.shape):
-    #     signum = [-1,1][random.randint(0,1)]
-    #     x[idx] = signum * random.randint(0,100)
+    # #TESTING PRE-PROCESS DATA
+    x = np.arange(1, 200)
+    y = np.arange(29, 228)
 
-    # y = np.zeros((100,100))
-    # for idx in np.ndindex(x.shape):
-    #     signum = [-1,1][random.randint(0,1)]
-    #     if signum==1:  
-    #         exp = random.randint(-5,5)
-    #     elif signum ==-1: 
-    #         exp = random.randint(-3,3)
-    #     y[idx] = signum * (10 ** exp)
+    print('Min and max of x: {}, {}\n'.format(np.min(x), np.max(x)))
+    print('Min and max of y: {}, {}\n'.format(np.min(y), np.max(y)))
 
-    # print('Max and min of x: {}, {}\n'.format(np.max(x), np.min(x)))
-    # print('Max and min of y: {}, {}\n'.format(np.max(y), np.min(y)))
+    preprocess_data = {"value_ranges": [[None, None], [None, None]], 
+                    "log_abs": [1, 1]}
 
-
-
-    # preprocess_data = {'pos_or_neg' : [1,0], 
-    #                    'log_or_not' : [0,1]}
     
-    # statistical_tool = CoefficientsAnalysis()
-    # data = [x,y]
+    statistical_tool = CoefficientsAnalysis()
+    data = [x,y]
 
 
-    # x, y = statistical_tool.preprocess_data(data, preprocess_data)
+    x, y = statistical_tool.preprocess_data(data, preprocess_data)
 
-    # print('Processing data....\n')
-    # print('Max and min of x: {}, {}\n'.format(np.max(x), np.min(x)))
-    # print('Max and min of y: {}, {}\n'.format(np.max(y), np.min(y)))
+    print('Processing data....\n')
+    print('Min and max of x: {}, {}\n'.format(np.min(x), np.max(x)))
+    print('Min and max of y: {}, {}\n'.format(np.min(y), np.max(y)))
     
 
 
@@ -831,26 +856,3 @@ if __name__ == '__main__':
     # weights = np.ones(x.shape)
     # extracted, weights = statistical_tool.extract_randomly([x,y], 10)
     # print(extracted)
-
-
-    # TESTING ADDING R-VALUE TO CORRELATION PLOTS
-    # a = np.zeros(500)
-    # for i in range(len(a)):
-    #     err = random.randint(1,10)
-    #     a[i] = err
-
-    # b = np.zeros((500,))
-    # c = np.zeros((500,))
-    # for i in range(len(b)):
-    #     err = random.randint(10,100)
-    #     b[i]  = 3 * a[i] + err
-
-    # for i in range(len(b)):
-    #     err = random.randint(10,100)
-    #     b[i]  = 5 * a[i] + err
-
-    # labels = ['a','b','c']
-    # statistical_tool = CoefficientsAnalysis()
-    # g = statistical_tool.visualize_many_correlations([a,b,c],labels)
-    # g = statistical_tool.visualize_correlation(a,b)
-    # plt.show()
