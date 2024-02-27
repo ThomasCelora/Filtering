@@ -17,6 +17,7 @@ import seaborn as sns
 import warnings
 from sklearn.linear_model import LinearRegression
 from sklearn.decomposition import PCA 
+from scipy import stats
 # import statsmodels.api as sm
 
 from system.BaseFunctionality import *
@@ -153,6 +154,22 @@ class CoefficientsAnalysis(object):
 
         return mask
         
+    def restrict_data_range_mask(self, var, min=None, max=None): 
+        """
+        Takes input var and make a copy of array masking those entries that are outside the (min, max) range
+        Return compressed masked array. 
+        """
+        if min is None: 
+            min = np.amin(var)
+        if max is None: 
+            max = np.amax(var)
+
+        restricted_var = ma.masked_where(var < min, var, copy = True)
+        restricted_var = ma.masked_where(restricted_var > max, restricted_var, copy=True)
+        restricted_var = restricted_var.compressed()
+        
+        return restricted_var
+    
     def preprocess_data(self, list_of_arrays, preprocess_data, weights=None):
         """
         Takes input list of arrays with dictionary on how to preprocess_data 
@@ -259,23 +276,15 @@ class CoefficientsAnalysis(object):
             else: 
                 print(f'The {i}th array in the dataset is not compatible with the first: ignoring it.')
 
-        # setting up the mask 
-        mask_index = np.zeros(new_data[i].shape)
-        for i in range(len(mask_index)):
-            mask_index[i] = False
-
-        max_idx = len(new_data[0]) - 1
-        extracted_idxs = []
-        for i in range(num_extractions):
-            new_extraction = random.choice(list(set(range(0,max_idx)) - set(extracted_idxs)))
-            extracted_idxs.append(new_extraction)
-            mask_index[new_extraction] = True
-        # need to invert the mask as it is True on the extracted indices
-        mask_index = np.logical_not(mask_index)
-        
-        # finally: mask, compress and return
-        for i in range(len(new_data)):
-            new_data[i] = np.ma.masked_array(new_data[i], mask_index).compressed()
+        available_indices = list(np.arange(len(new_data[0])))
+        selected_indices = random.sample(available_indices, num_extractions)
+        new_data = []
+        for i in range(len(list_of_data)):
+            shortened_list = []
+            for j in range(len(selected_indices)):
+                shortened_list.append(list_of_data[i][selected_indices[j]])
+            shortened_array = np.array(shortened_list)
+            new_data.append(shortened_array)
                 
         return np.array(new_data)
 
@@ -499,7 +508,9 @@ class CoefficientsAnalysis(object):
                 new_labels = [legend_dict[label] for label in labels]
                 scatter.legend(handles, new_labels)
 
-        # print('Figure produced inside Coeff Analysis')
+            r, _ = stats.pearsonr(X,Y)
+            g.ax_joint.annotate(r"$r = {:.2f}$".format(r), xy=(.1, .9), xycoords=g.ax_joint.transAxes)
+
         return g
 
     def visualize_many_correlations(self, data, labels):
@@ -554,14 +565,21 @@ class CoefficientsAnalysis(object):
         Data=np.column_stack(Data)
         Data_df = pd.DataFrame(Data, columns=labels)
 
+        def corrfunc(x, y, **kws):
+            r, _ = stats.pearsonr(x, y)
+            ax = plt.gca()
+            ax.annotate(r"$r = {:.2f}$".format(r), xy=(.1, .9), xycoords=ax.transAxes)
+
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message='is_categorical_dtype is deprecated')
             warnings.filterwarnings('ignore', message='use_inf_as_na option is deprecated')
             g=sns.PairGrid(Data_df)
-            g.map_upper(sns.scatterplot, s=4, c='red')
-            g.map_lower(sns.kdeplot, color='red')
+            g.map_lower(sns.scatterplot, s=4, c='red')
+            g.map_upper(sns.kdeplot, color='red')
             g.map_diag(sns.histplot, kde=True, color='red')
             g.fig.tight_layout()
+
+            g.map_lower(corrfunc)
 
         return g
 
@@ -761,7 +779,7 @@ class CoefficientsAnalysis(object):
 
 
 if __name__ == '__main__':
-
+    pass
     # #TESTING REGRESSION
     # x0 = np.arange(100).reshape((10,10))
     # x1 = np.sin(np.arange(100).reshape((10,10)))
@@ -773,44 +791,66 @@ if __name__ == '__main__':
     # print('Coefficients: {}'.format(result))
     # print('Errors: {}\n'.format(errors))
 
-    # #TESTING PRE-PROCESS DATA
-    x = np.zeros((100,100))
-    for idx in np.ndindex(x.shape):
-        signum = [-1,1][random.randint(0,1)]
-        x[idx] = signum * random.randint(0,100)
+    # # #TESTING PRE-PROCESS DATA
+    # x = np.zeros((100,100))
+    # for idx in np.ndindex(x.shape):
+    #     signum = [-1,1][random.randint(0,1)]
+    #     x[idx] = signum * random.randint(0,100)
 
-    y = np.zeros((100,100))
-    for idx in np.ndindex(x.shape):
-        signum = [-1,1][random.randint(0,1)]
-        if signum==1:  
-            exp = random.randint(-5,5)
-        elif signum ==-1: 
-            exp = random.randint(-3,3)
-        y[idx] = signum * (10 ** exp)
+    # y = np.zeros((100,100))
+    # for idx in np.ndindex(x.shape):
+    #     signum = [-1,1][random.randint(0,1)]
+    #     if signum==1:  
+    #         exp = random.randint(-5,5)
+    #     elif signum ==-1: 
+    #         exp = random.randint(-3,3)
+    #     y[idx] = signum * (10 ** exp)
 
-    print('Max and min of x: {}, {}\n'.format(np.max(x), np.min(x)))
-    print('Max and min of y: {}, {}\n'.format(np.max(y), np.min(y)))
+    # print('Max and min of x: {}, {}\n'.format(np.max(x), np.min(x)))
+    # print('Max and min of y: {}, {}\n'.format(np.max(y), np.min(y)))
 
 
 
-    preprocess_data = {'pos_or_neg' : [1,0], 
-                       'log_or_not' : [0,1]}
+    # preprocess_data = {'pos_or_neg' : [1,0], 
+    #                    'log_or_not' : [0,1]}
     
-    statistical_tool = CoefficientsAnalysis()
-    data = [x,y]
+    # statistical_tool = CoefficientsAnalysis()
+    # data = [x,y]
 
 
-    x, y = statistical_tool.preprocess_data(data, preprocess_data)
+    # x, y = statistical_tool.preprocess_data(data, preprocess_data)
 
-    print('Processing data....\n')
-    print('Max and min of x: {}, {}\n'.format(np.max(x), np.min(x)))
-    print('Max and min of y: {}, {}\n'.format(np.max(y), np.min(y)))
+    # print('Processing data....\n')
+    # print('Max and min of x: {}, {}\n'.format(np.max(x), np.min(x)))
+    # print('Max and min of y: {}, {}\n'.format(np.max(y), np.min(y)))
     
 
 
-    print('Extracting random vals from x...\n')
-    print(len(x))
-    weights = np.ones(x.shape)
-    extracted, weights = statistical_tool.extract_randomly([x,y], 10)
-    print(extracted)
+    # print('Extracting random vals from x...\n')
+    # print(len(x))
+    # weights = np.ones(x.shape)
+    # extracted, weights = statistical_tool.extract_randomly([x,y], 10)
+    # print(extracted)
 
+
+    # TESTING ADDING R-VALUE TO CORRELATION PLOTS
+    # a = np.zeros(500)
+    # for i in range(len(a)):
+    #     err = random.randint(1,10)
+    #     a[i] = err
+
+    # b = np.zeros((500,))
+    # c = np.zeros((500,))
+    # for i in range(len(b)):
+    #     err = random.randint(10,100)
+    #     b[i]  = 3 * a[i] + err
+
+    # for i in range(len(b)):
+    #     err = random.randint(10,100)
+    #     b[i]  = 5 * a[i] + err
+
+    # labels = ['a','b','c']
+    # statistical_tool = CoefficientsAnalysis()
+    # g = statistical_tool.visualize_many_correlations([a,b,c],labels)
+    # g = statistical_tool.visualize_correlation(a,b)
+    # plt.show()

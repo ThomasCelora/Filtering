@@ -1219,7 +1219,8 @@ class resHD2D(object):
                                 'Theta_sq': r'$\tilde{\Theta}_a\tilde{\Theta}^a$',
                                 'q_res_sq': r'$\tilde{q}_a \tilde{q}^a$',
                                 'det_shear': r'det$(\sigma)$',
-                                'vort_mod' : r'$|W|$', 
+                                'vort_mod' : r'$|W|$',
+                                'vort_sq' : r'$\omega_{ab}\omega^{ab}$',
                                 'acc_mag': r'$|a|$', 
                                 'U' : r'$U^a$'}
 
@@ -2313,12 +2314,15 @@ class resHD2D(object):
 
         # Q-criterion
         vort_sq = np.einsum('ij,kl,ik,jl->', vort, vort, metric, metric)
+        var_names.append('vort_sq')
+        vars.append(vort_sq)
+
         Q_criterion = shear_sq - vort_sq
         var_names.append('Q')
         vars.append(Q_criterion)
 
         # Computing the magnitude of vorticity
-        vort_mod = np.sqrt(vort_sq / 2. )
+        vort_mod = np.sqrt(vort_sq / 2.)
         var_names.append('vort_mod')
         vars.append(vort_mod)
 
