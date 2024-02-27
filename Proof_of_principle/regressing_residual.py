@@ -6,6 +6,7 @@ import configparser
 import json
 import time
 import math
+from scipy import stats
 
 from FileReaders import *
 from MicroModels import *
@@ -41,8 +42,8 @@ if __name__ == '__main__':
     with open(MesoModelLoadFile, 'rb') as filehandle: 
         meso_model = pickle.load(filehandle)
 
-    # additional_entry = {'acc_mag': r'$|a|$'}
-    # meso_model.upgrade_labels_dict(additional_entry)
+    dict_to_add = {'vort_sq' : r'$\omega_{ab}\omega^{ab}$'}
+    meso_model.upgrade_labels_dict(dict_to_add)
 
     # WHICH DATA YOU WANT TO RUN THE ROUTINE ON?
     dep_var_str = config['Regression_settings']['dependent_var']
@@ -76,8 +77,8 @@ if __name__ == '__main__':
     model_points = meso_model.domain_vars['Points']
     new_data = statistical_tool.trim_dataset(data, ranges, model_points)
     new_data = statistical_tool.preprocess_data(new_data, preprocess_data)
-    if extractions != 0: 
-        new_data = statistical_tool.extract_randomly(new_data, extractions)
+    # if extractions != 0: 
+    #     new_data = statistical_tool.extract_randomly(new_data, extractions)
     
     dep_var = new_data[0]
     regressors = []
@@ -96,12 +97,18 @@ if __name__ == '__main__':
     dep_var_model = np.zeros(dep_var.shape)
     for i in range(len(regressors)):
         dep_var_model += np.multiply(coeffs[i], regressors[i]) 
+
+    if extractions != 0: 
+        data_for_scatter = [dep_var, dep_var_model]
+        new_data = statistical_tool.extract_randomly(data_for_scatter, extractions)
+        dep_var, dep_var_model = new_data[0], new_data[1]
+
     
     # FINALLY: PLOTTING
     ylabel = dep_var_str
     if hasattr(meso_model, 'labels_var_dict') and dep_var_str in meso_model.labels_var_dict.keys():
         ylabel = meso_model.labels_var_dict[dep_var_str] 
-    if preprocess_data['log_or_not'][0] == 1: 
+    if preprocess_data['log_abs'][0] == 1: 
         ylabel = r"$\log($" + ylabel + r"$)$"
 
     xlabel = ""
@@ -114,7 +121,7 @@ if __name__ == '__main__':
         var_name = regressors_strs[i]
         if hasattr(meso_model, 'labels_var_dict') and regressors_strs[i] in meso_model.labels_var_dict.keys():
             var_name = meso_model.labels_var_dict[regressors_strs[i]] 
-        if preprocess_data['log_or_not'][i] == 1: 
+        if preprocess_data['log_abs'][i] == 1: 
             var_name = r"$\log($" + var_name + r"$)$"
         xlabel +=var_name        
 
@@ -129,4 +136,4 @@ if __name__ == '__main__':
     plt.savefig(saving_directory + filename, format='pdf')
     print(f'Finished regression and scatter plot for {dep_var_str}, saved as {filename}\n\n')
 
-        
+

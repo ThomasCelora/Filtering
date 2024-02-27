@@ -54,7 +54,7 @@ if __name__ == '__main__':
     y = meso_model.meso_vars['pi_res_sq']
     data = [x,y]    
     data = statistical_tool.trim_dataset(data, ranges, model_points)
-    preprocess_data = {"pos_or_neg": [1,1], "log_or_not": [1,1]}
+    preprocess_data = {"value_ranges": [[None, None], [None, None]], "log_abs": [1, 1]}
     data = statistical_tool.preprocess_data(data, preprocess_data)
     data = statistical_tool.extract_randomly(data, 10000)
     x, y = data[0], data[1]
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     y = meso_model.meso_vars['Theta_sq']
     data = [x,y]    
     data = statistical_tool.trim_dataset(data, ranges, model_points)
-    preprocess_data = {"pos_or_neg": [1,1], "log_or_not": [1,1]}
+    preprocess_data = {"value_ranges": [[None, None], [None, None]], "log_abs": [1, 1]}
     data = statistical_tool.preprocess_data(data, preprocess_data)
     data = statistical_tool.extract_randomly(data, 10000)
     x, y = data[0], data[1]
@@ -91,7 +91,7 @@ if __name__ == '__main__':
     y = np.power(meso_model.meso_vars['exp_tilde'], 2)
     data = [x,y]    
     data = statistical_tool.trim_dataset(data, ranges, model_points)
-    preprocess_data = {"pos_or_neg": [1,1], "log_or_not": [1,1]}
+    preprocess_data = {"value_ranges": [[None, None], [None, None]], "log_abs": [1, 1]}
     data = statistical_tool.preprocess_data(data, preprocess_data)
     data = statistical_tool.extract_randomly(data, 10000)
     x, y = data[0], data[1]
@@ -109,39 +109,39 @@ if __name__ == '__main__':
     # PLOTTING RESIDUALS VS CORRESPONDING CLOSURE INGREDIENTS 
     # #############################################################
 
-    # num_slices_meso = int(config['Models_settings']['mesogrid_T_slices_num'])
-    # time_meso = meso_model.domain_vars['T'][int((num_slices_meso-1)/2)] 
-    # visualizer = Plotter_2D()  
+    num_slices_meso = int(config['Models_settings']['mesogrid_T_slices_num'])
+    time_meso = meso_model.domain_vars['T'][int((num_slices_meso-1)/2)] 
+    visualizer = Plotter_2D()  
 
-    # vars_strs = ['zeta', 'exp_tilde', 'Pi_res']
-    # norms = ['mysymlog', 'symlog', 'log']
-    # cmaps = ['seismic', 'seismic', 'plasma']
-    # fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, norms=norms, cmaps=cmaps)
-    # fig.tight_layout()
-    # time_for_filename = str(round(time_meso,2))
-    # filename = "/Bulk_viscosity.pdf"
-    # plt.savefig(saving_directory + filename, format = 'pdf')
-    # print('Finished bulk viscosity')
+    vars_strs = ['zeta', 'exp_tilde', 'Pi_res']
+    norms = ['mysymlog', 'symlog', 'log']
+    cmaps = ['seismic', 'seismic', 'plasma']
+    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, norms=norms, cmaps=cmaps)
+    fig.tight_layout()
+    time_for_filename = str(round(time_meso,2))
+    filename = "/Bulk_viscosity.pdf"
+    plt.savefig(saving_directory + filename, format = 'pdf')
+    print('Finished bulk viscosity')
 
-    # vars_strs = ['eta', 'shear_sq', 'pi_res_sq']
-    # norms = ['mysymlog', 'log', 'log']
-    # cmaps = ['seismic', 'plasma', 'plasma']
-    # fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, norms=norms, cmaps=cmaps)
-    # fig.tight_layout()
-    # time_for_filename = str(round(time_meso,2))
-    # filename = "/Shear_viscosity.pdf"
-    # plt.savefig(saving_directory + filename, format = 'pdf')
-    # print('Finished shear viscosity')
+    vars_strs = ['eta', 'shear_sq', 'pi_res_sq']
+    norms = ['mysymlog', 'log', 'log']
+    cmaps = ['seismic', 'plasma', 'plasma']
+    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, norms=norms, cmaps=cmaps)
+    fig.tight_layout()
+    time_for_filename = str(round(time_meso,2))
+    filename = "/Shear_viscosity.pdf"
+    plt.savefig(saving_directory + filename, format = 'pdf')
+    print('Finished shear viscosity')
 
-    # vars_strs = ['kappa', 'Theta_sq', 'q_res_sq']
-    # norms = ['mysymlog', 'log', 'log']
-    # cmaps = ['seismic', 'plasma', 'plasma']
-    # fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, norms=norms, cmaps=cmaps)
-    # fig.tight_layout()
-    # time_for_filename = str(round(time_meso,2))
-    # filename = "/Heat_conductivity.pdf"
-    # plt.savefig(saving_directory + filename, format = 'pdf')
-    # print('Finished heat conductivity')
+    vars_strs = ['kappa', 'Theta_sq', 'q_res_sq']
+    norms = ['mysymlog', 'log', 'log']
+    cmaps = ['seismic', 'plasma', 'plasma']
+    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, norms=norms, cmaps=cmaps)
+    fig.tight_layout()
+    time_for_filename = str(round(time_meso,2))
+    filename = "/Heat_conductivity.pdf"
+    plt.savefig(saving_directory + filename, format = 'pdf')
+    print('Finished heat conductivity')
 
 
     

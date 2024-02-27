@@ -114,7 +114,7 @@ if __name__ == '__main__':
     ylabel = dep_var_str
     if hasattr(meso_model, 'labels_var_dict') and dep_var_str in meso_model.labels_var_dict.keys():
             ylabel = meso_model.labels_var_dict[dep_var_str] 
-    if preprocess_data['log_or_not'][0] ==1: 
+    if preprocess_data['log_abs'][0] ==1: 
         ylabel = r"$\log($" + ylabel + r"$)$"
 
     xlabel = ""
@@ -124,7 +124,7 @@ if __name__ == '__main__':
         text = explanatory_vars_strs[i]
         if hasattr(meso_model, 'labels_var_dict') and explanatory_vars_strs[i] in meso_model.labels_var_dict.keys():
             text = meso_model.labels_var_dict[explanatory_vars_strs[i]] 
-        if preprocess_data['log_or_not'][i+1]==1:
+        if preprocess_data['log_abs'][i+1]==1:
             text = r"$\log($" + text + r"$)$"
         xlabel += coeff_for_label  + text
 

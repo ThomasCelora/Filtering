@@ -7,7 +7,7 @@ hdf5_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/METHOD_output
 
 pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/pickled
 
-figures_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/figures/CG1
+figures_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/figures/CG1/CG1_fw8
 
 
 [Filenames] 

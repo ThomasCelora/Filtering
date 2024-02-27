@@ -5,7 +5,7 @@
 
 pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/pickled
 
-figures_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/figures/CG1
+figures_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/figures/CG1/CG1_fw8/fitting_eta/full_data
 
 [Filenames] 
 meso_pickled_filename = /rHD2d_nocg_fw=bl=8dx.pickle
@@ -15,15 +15,21 @@ mesogrid_T_slices_num = 3
 
 [Ranges_for_analysis]
 
-ranges = {"x_range": [0.04, 0.96], "y_range": [0.04, 0.96]}
+ranges = {"x_range": [0.04, 0.96], "y_range": [0.03, 0.96]}
 
 
-[Visualize_correlation]
+[Visualize_correlations]
 
-vars = ["eta", ]
-preprocess_data = {"pos_or_neg": [1,1], "log_or_not": [1,1]}
+vars = ["eta", "T_tilde", "n_tilde"]
+#preprocess_data = {"pos_or_neg": [1,1,1], "log_or_not": [1,1,1]}
+
+# Set values to null  if you do not want to restrict the data 
+preprocess_data = {"value_ranges": [[1e-6, null], [null, null], [null, null]], 
+                    "log_abs": [1, 1, 1]}
+
 #set extractions 0 if you don't want to extract randomly from sample
-extractions = 0
+extractions = 10000
+
 
 
 [PCA_settings]
@@ -31,25 +37,35 @@ extractions = 0
 dependent_var = zeta
 explanatory_vars = ["T_tilde", "rho_tilde"]
 pcs_num = 1
-#["det_shear", "shear_sq", "vort_mod", "Q", "acc_mag", "T_tilde", "n_tilde"]
 
 regressors_2_reduce =  ["T_tilde", "rho_tilde", "p_tilde"]
 variance_wanted = 0.9
 
 # Careful, only one dictionary here
-preprocess_data = {"pos_or_neg": [1,1,1], "log_or_not": [1,1,1]}
+#preprocess_data = {"pos_or_neg": [1,1,1], "log_or_not": [1,1,1]}
+
+# Set values to null  if you do not want to restrict the data 
+preprocess_data = {"value_ranges": [[null, null], [null, null], [null, null]], 
+                    "log_abs": [1, 1, 1]}
+
 #set extractions 0 if you don't want to extract randomly from sample
 extractions = 0
 
 
 [Regression_settings]
 
-dependent_var = zeta
-regressors = ["T_tilde", "rho_tilde"]
-preprocess_data = {"pos_or_neg": [1,1,1], "log_or_not": [1,1,1]}
+dependent_var = eta
+regressors = ["T_tilde", "n_tilde"]
 add_intercept = 1
-#set extractions 0 if you don't want to extract randomly from sample
-extractions = 0
+
+#preprocess_data = {"pos_or_neg": [1,1,1], "log_or_not": [1,1,1]}
+
+# Set values to null  if you do not want to restrict the data 
+preprocess_data = {"value_ranges": [[1e-6, null], [null, null], [null, null]], 
+                    "log_abs": [1, 1, 1]}
+
+#set extractions 0 if you don't want to extract randomly from sample: extraction only in the scatter plot? Not in regression? 
+extractions = 10000
 
 
 
