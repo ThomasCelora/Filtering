@@ -533,10 +533,13 @@ class CoefficientsAnalysis(object):
             warnings.filterwarnings("ignore", message='is_categorical_dtype is deprecated')
             warnings.filterwarnings('ignore', message='use_inf_as_na option is deprecated')
             g=sns.JointGrid()
-            scatter = sns.scatterplot(x=X, y=Y, ax=g.ax_joint, s=4, c='red', hue=hue_array, style=style_array, 
-                                      palette=palette, markers=markers)
-            sns.histplot(x=X, ax=g.ax_marg_x, kde=True, color= 'red')
-            sns.histplot(y=Y, ax=g.ax_marg_y, kde=True, color= 'red')
+
+            sns.set_theme(style="dark")
+            sns.scatterplot(x=X, y=Y, s=4, color=".15", ax=g.ax_joint, hue=hue_array, style=style_array, palette=palette, markers=markers)
+            sns.histplot(x=X, y=Y, bins=50, ax=g.ax_joint, pthresh=.1, cmap="mako")
+            sns.kdeplot(x=X, y=Y, levels=5, ax=g.ax_joint, color="w", linewidths=1)
+            sns.histplot(x=X, ax=g.ax_marg_x, kde=True, color= 'black')
+            sns.histplot(y=Y, ax=g.ax_marg_y, kde=True, color= 'black')
             g.set_axis_labels(xlabel=xlabel, ylabel=ylabel)
             g.fig.tight_layout()
 
@@ -588,12 +591,6 @@ class CoefficientsAnalysis(object):
 
         if len(Idx_to_delete) >= 1:
             data=list(np.delete(data, Idx_to_delete, axis=0))
-
-        # if ranges != None and model_points != None:
-        #     print('Trimming dataset for correlation plot')
-        #     for i in range(len(data)):
-        #         data[i]=self.trim_data(data[i], ranges, model_points)
-        #     print('Finished trimming data')
         
         Data = []
         for i in range(len(data)):
@@ -610,10 +607,25 @@ class CoefficientsAnalysis(object):
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message='is_categorical_dtype is deprecated')
             warnings.filterwarnings('ignore', message='use_inf_as_na option is deprecated')
-            g=sns.PairGrid(Data_df)
-            g.map_lower(sns.scatterplot, s=4, c='red')
-            g.map_upper(sns.kdeplot, color='red')
-            g.map_diag(sns.histplot, kde=True, color='red')
+            g=sns.PairGrid(Data_df) #, plot_kws=dict(scatter_kws=dict(s=4)))
+            # g.map_lower(sns.scatterplot, s=4, c='red')
+            # g.map_upper(sns.kdeplot, color='red')
+            # g.map_diag(sns.histplot, kde=True, color='red')
+
+            def hide_current_axis(*args, **kwds):
+                plt.gca().set_visible(False)
+
+            g.map_upper(hide_current_axis)
+            g.map_diag(sns.histplot,  kde=True, color='black')
+            g.map_lower(sns.scatterplot, s=4, color=".15")
+            g.map_lower(sns.histplot, pthresh=.1, cmap="mako")#, bins=50
+            g.map_lower(sns.kdeplot, levels=5, color='w', linewidths=1)
+
+            # sns.set_theme(style="dark")
+            # sns.scatterplot(x=X, y=Y, s=5, color=".15", ax=g.ax_joint, hue=hue_array, style=style_array, palette=palette, markers=markers)
+            # sns.histplot(x=X, y=Y, bins=50, ax=g.ax_joint, pthresh=.1, cmap="mako")
+            # sns.kdeplot(x=X, y=Y, levels=5, ax=g.ax_joint, color="w", linewidths=1)
+
             g.fig.tight_layout()
 
             g.map_lower(corrfunc)
@@ -829,25 +841,25 @@ if __name__ == '__main__':
     # print('Errors: {}\n'.format(errors))
 
     # #TESTING PRE-PROCESS DATA
-    x = np.arange(1, 200)
-    y = np.arange(29, 228)
+    # x = np.arange(1, 200)
+    # y = np.arange(29, 228)
 
-    print('Min and max of x: {}, {}\n'.format(np.min(x), np.max(x)))
-    print('Min and max of y: {}, {}\n'.format(np.min(y), np.max(y)))
+    # print('Min and max of x: {}, {}\n'.format(np.min(x), np.max(x)))
+    # print('Min and max of y: {}, {}\n'.format(np.min(y), np.max(y)))
 
-    preprocess_data = {"value_ranges": [[None, None], [None, None]], 
-                    "log_abs": [1, 1]}
+    # preprocess_data = {"value_ranges": [[None, None], [None, None]], 
+    #                 "log_abs": [1, 1]}
 
     
-    statistical_tool = CoefficientsAnalysis()
-    data = [x,y]
+    # statistical_tool = CoefficientsAnalysis()
+    # data = [x,y]
 
 
-    x, y = statistical_tool.preprocess_data(data, preprocess_data)
+    # x, y = statistical_tool.preprocess_data(data, preprocess_data)
 
-    print('Processing data....\n')
-    print('Min and max of x: {}, {}\n'.format(np.min(x), np.max(x)))
-    print('Min and max of y: {}, {}\n'.format(np.min(y), np.max(y)))
+    # print('Processing data....\n')
+    # print('Min and max of x: {}, {}\n'.format(np.min(x), np.max(x)))
+    # print('Min and max of y: {}, {}\n'.format(np.min(y), np.max(y)))
     
 
 
@@ -856,3 +868,20 @@ if __name__ == '__main__':
     # weights = np.ones(x.shape)
     # extracted, weights = statistical_tool.extract_randomly([x,y], 10)
     # print(extracted)
+
+
+    n = 10000
+    mean = [0, 0]
+    cov = [(2, .4), (.4, .2)]
+    rng = np.random.RandomState(0)
+    x, y = rng.multivariate_normal(mean, cov, n).T
+
+    mu, sigma = 0, 4 # mean and standard deviation
+    z = np.random.normal(mu, sigma, n)
+
+    statistical_tool = CoefficientsAnalysis()
+    # statistical_tool.visualize_correlation(x,y)
+    labels=['x','y','z']
+    data=[x,y,z]
+    statistical_tool.visualize_many_correlations(data,labels)
+    plt.show()
