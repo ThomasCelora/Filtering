@@ -325,6 +325,98 @@ class CoefficientsAnalysis(object):
                 
         return np.array(new_data)
 
+    def weighted_mean(self, data, weights):
+        """
+        Return mean of data weighted wrt weights.
+
+        Parameters:
+        -----------
+        data: 1D array 
+        weights: 1D array
+
+        Returns:
+        --------
+        Weighted mean
+
+        Notes:
+        ------
+        data and weights are assumed to be 1D arrays of same shape
+        """
+        mean = 0.
+        tot_weights = 0.
+
+        for i in range(len(data)):
+            mean += data[i] * weights[i]
+            tot_weights += weights[i]
+
+        mean = mean/ tot_weights
+        return mean
+        
+    def weighted_covariance(self, x, y, weights):
+        """
+        Return covariance of x vs y weighed wrt weights
+
+        Parameters:
+        -----------
+        x, y, weights: 1D arrays of same length
+
+        Returns: 
+        --------
+        weighted covariance (float)
+
+        Notes:
+        ------
+        x, y, weights are assumed to be flattened and checked for compatibility already
+
+        """
+        x_mean = self.weighted_mean(x, weights)
+        y_mean = self.weighted_mean(y, weights)
+
+        weighted_cov = 0.
+        tot_weights = 0.
+        for i in range(len(x)):
+            weighted_cov += weights[i] * (x[i]- x_mean) * (y[i] - y_mean)
+            tot_weights += weights[i]
+
+        weighted_cov = weighted_cov / tot_weights
+        return weighted_cov
+
+    def weigthed_pearson(self, x, y, weights=None):
+        """
+        Return the weighted correlation coefficient
+
+        Parameters:
+        -----------
+        x, y , weights: nd.arrays
+
+        Returns:
+        --------
+        weighted correlation coefficient
+        """
+        if x.shape != y.shape:
+            print('Arrays do not have the same shape, returning None\n')
+            return None
+        
+        if weights is not None:
+            if x.shape != weights.shape:
+                print('weights do not have the same shape as input arrays, setting these to 1 everywhere\n')
+                weights = np.ones(x.shape)
+        else: 
+            print('No weigths passed, setting these to 1. everywhere')
+            weights = np.ones(x.shape)
+
+
+        X = x.flatten()
+        Y = y.flatten()
+        W = weights.flatten()
+
+        corr_x = self.weighted_covariance(X, X, W)
+        corr_y = self.weighted_covariance(Y, Y, W)
+        corr_xy = self.weighted_covariance(X, Y, W)
+
+        weighted_pearson = corr_xy / np.sqrt(corr_x * corr_y)
+        return weighted_pearson
+
     def scalar_regression(self, y, X, weights=None, add_intercept=False):
         """
         Routine to perform ordinary or weighted (multivariate) regression on some gridded data. 
@@ -494,7 +586,7 @@ class CoefficientsAnalysis(object):
             results.append(self.scalar_regression(yc, Xc, ranges, model_points, weights, add_intercept))
         return results
 
-    def visualize_correlation(self, x, y, xlabel=None, ylabel=None, hue_array=None, style_array=None, legend_dict=None, palette=None, markers=None):
+    def visualize_correlation(self, x, y, xlabel=None, ylabel=None, weights=None, hue_array=None, style_array=None, legend_dict=None, palette=None, markers=None):
         """
         Method that returns an instance of JointGrid, with plotted the scatter plot and univariate distributions.
         Possibility to cut data to lie within ranges.
@@ -522,8 +614,20 @@ class CoefficientsAnalysis(object):
             print('Cannot check correlation: data is misaligned!')
             return None
 
+        if weights is not None:
+            if weights.shape != x.shape:
+                print('Weights not compatible with data: ignoring them.')
+                Weights = None
+            else: 
+                Weights = weights
+        else:
+            Weights = None
+
         X=x.flatten()
         Y=y.flatten()
+        if Weights is not None: 
+            Weights = Weights.flatten()
+
         if hue_array is not None: 
             hue_array = hue_array.flatten()
         if style_array is not None: 
@@ -548,8 +652,13 @@ class CoefficientsAnalysis(object):
                 new_labels = [legend_dict[label] for label in labels]
                 scatter.legend(handles, new_labels)
 
-            r, _ = stats.pearsonr(X,Y)
-            g.ax_joint.annotate(r"$r = {:.2f}$".format(r), xy=(.1, .9), xycoords=g.ax_joint.transAxes)
+            if Weights is not None: 
+                rw = self.weigthed_pearson(X,Y,Weights)
+                g.ax_joint.annotate(r"$r_w = {:.2f}$".format(rw), xy=(.1, .9), xycoords=g.ax_joint.transAxes)
+            else:
+                r, _ = stats.pearsonr(X,Y)
+                g.ax_joint.annotate(r"$r = {:.2f}$".format(r), xy=(.1, .9), xycoords=g.ax_joint.transAxes)
+                
 
         return g
 
@@ -604,6 +713,7 @@ class CoefficientsAnalysis(object):
             ax = plt.gca()
             ax.annotate(r"$r = {:.2f}$".format(r), xy=(.1, .9), xycoords=ax.transAxes)
 
+
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message='is_categorical_dtype is deprecated')
             warnings.filterwarnings('ignore', message='use_inf_as_na option is deprecated')
@@ -627,7 +737,6 @@ class CoefficientsAnalysis(object):
             # sns.kdeplot(x=X, y=Y, levels=5, ax=g.ax_joint, color="w", linewidths=1)
 
             g.fig.tight_layout()
-
             g.map_lower(corrfunc)
 
         return g
@@ -869,19 +978,33 @@ if __name__ == '__main__':
     # extracted, weights = statistical_tool.extract_randomly([x,y], 10)
     # print(extracted)
 
-
+    import random
     n = 10000
     mean = [0, 0]
     cov = [(2, .4), (.4, .2)]
     rng = np.random.RandomState(0)
     x, y = rng.multivariate_normal(mean, cov, n).T
 
+    ws = []
+    for i in range(len(x)):
+        ws.append(random.uniform(0.5,1.))
+    ws = np.array(ws)
+
+    # print(x.shape, ws.shape)
+    # r, _ = stats.pearsonr(x,y)
+
+    statistical_tool = CoefficientsAnalysis()
+
+    # wr = statistical_tool.weigthed_pearson(x,y,ws)
+    # print(f'stats.pearsonr: {r}')
+    # print(f'my_pearson: {wr}')
+
     mu, sigma = 0, 4 # mean and standard deviation
     z = np.random.normal(mu, sigma, n)
 
     statistical_tool = CoefficientsAnalysis()
-    # statistical_tool.visualize_correlation(x,y)
+    # statistical_tool.visualize_correlation(x,y,weights=ws)
     labels=['x','y','z']
     data=[x,y,z]
-    statistical_tool.visualize_many_correlations(data,labels)
+    statistical_tool.visualize_many_correlations(data, labels)
     plt.show()
