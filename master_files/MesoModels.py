@@ -1219,12 +1219,14 @@ class resHD2D(object):
                                 'Theta_sq': r'$\tilde{\Theta}_a\tilde{\Theta}^a$',
                                 'q_res_sq': r'$\tilde{q}_a \tilde{q}^a$',
                                 'det_shear': r'det$(\sigma)$',
-                                'vort_mod' : r'$|W|$',
                                 'vort_sq' : r'$\omega_{ab}\omega^{ab}$',
                                 'acc_mag': r'$|a|$', 
-                                'U' : r'$U^a$'}
+                                'U' : r'$U^a$',
+                                'Q1' : r'$\tilde{\sigma}_{ab}\tilde{\sigma}^{ab} - \tilde{\omega}_{ab}\tilde{\omega}^{ab}$',
+                                'Q2' : r'$\tilde{\sigma}_{ab}\tilde{\sigma}^{ab}/\tilde{\omega}_{ab}\tilde{\omega}^{ab}$',
+                                'weights' : r'$w$'}
 
-    def upgrade_labels_dict(self, entry_dict):
+    def update_labels_dict(self, entry_dict):
         """
         pretty self-explanatory
         """
@@ -2304,32 +2306,31 @@ class resHD2D(object):
         metric[0,0] = -1
         metric[1,1] = metric[2,2] = +1
 
+        # Computing various invariants of the velocity gradients
         det_shear = np.linalg.det(shear)    
-        shear_sq = np.einsum('ij,kl,ik,jl->', shear, shear, metric, metric)
-        
         var_names.append('det_shear')
         vars.append(det_shear)
+
+        shear_sq = np.einsum('ij,kl,ik,jl->', shear, shear, metric, metric)
         var_names.append('shear_sq')
         vars.append(shear_sq)
 
-        # Q-criterion
         vort_sq = np.einsum('ij,kl,ik,jl->', vort, vort, metric, metric)
         var_names.append('vort_sq')
         vars.append(vort_sq)
 
-        Q_criterion = shear_sq - vort_sq
-        var_names.append('Q')
-        vars.append(Q_criterion)
-
-        # Computing the magnitude of vorticity
-        vort_mod = np.sqrt(vort_sq / 2.)
-        var_names.append('vort_mod')
-        vars.append(vort_mod)
-
-        #Computing the magnitude of the acceleration vector
         acc_mag = np.sqrt(np.einsum('i,ij,j->', acc, metric, acc))
         var_names.append('acc_mag')
         vars.append(acc_mag)
+
+        # Computing quantities related to the Q-criterion
+        Q1 = shear_sq - vort_sq
+        var_names.append('Q1')
+        vars.append(Q1)
+
+        Q2 = shear_sq/vort_sq
+        var_names.append('Q2')
+        vars.append(Q2)
 
         #Computing squares of residuals and also of Theta_tilde
         Pi_res_sq = Pi_res * Pi_res
@@ -2385,6 +2386,122 @@ class resHD2D(object):
                         self.meso_vars.update({key : np.zeros(([Nt,Nx,Ny]+ list(shape)))})
                     finally: 
                         self.meso_vars[key][tuple(grid_idxs)] = values[idx]
+
+    def weights_Q1_skew(self):
+        """
+        Build weights for gridpoints: downplay points where shear is small, but take into 
+        account both positive and negative values of Q1
+        """
+        def symlog(array):
+            return np.sign(array) * np.log10(np.abs(array)+1) 
+        
+        Q1 = self.meso_vars['Q1']
+        symlog_Q1 = symlog(Q1)
+        
+        M_pos = np.amax(symlog_Q1)
+        m_neg = np.amin(symlog_Q1)
+
+        symlog_Q1_pos = np.ma.masked_where(symlog_Q1 < 0, symlog_Q1, copy=True).compressed()
+        symlog_Q1_neg = np.ma.masked_where(symlog_Q1 > 0, symlog_Q1, copy=True).compressed()
+        M_neg = np.amax(symlog_Q1_neg)
+        m_pos = np.amin(symlog_Q1_pos)
+
+        print(f'm_neg, M_neg, m_pos, M_pos: {m_neg}, {M_neg}, {m_pos}, {M_pos}\n')
+
+        c_pos = (M_pos + m_pos)/2.
+        c_neg = (M_neg + m_neg)/2.
+
+        print(f'c_pos, c_neg: {c_pos}, {c_neg}')
+
+        def get_weights(x, c_pos, c_neg):
+            if x >= 0: 
+                result = (np.tanh(x-c_pos)+1)/2
+            else: 
+                result = (-np.tanh(x-c_neg)+1)/2
+            return (result+1.)/2.
+        
+        Nt = self.domain_vars['Nt']
+        Nx = self.domain_vars['Nx']
+        Ny = self.domain_vars['Ny']
+
+        weights = np.zeros((Nt, Nx, Ny))
+        for h in range(Nt):
+            for i in range(Nx):
+                for j in range(Ny):
+                    weights[h,i,j] = get_weights(symlog_Q1[h,i,j], c_pos, c_neg)
+
+        self.meso_vars.update({'weights' : weights})
+
+    def weights_Q1_non_neg(self):
+        """
+        Build weights for gridpoints: downplay points where Q1 is negative
+        """
+        def symlog(array):
+            return np.sign(array) * np.log10(np.abs(array)+1) 
+        
+        Q1 = self.meso_vars['Q1']
+        symlog_Q1 = symlog(Q1)
+        symlog_Q1_pos = np.ma.masked_where(symlog_Q1 < 0, symlog_Q1, copy=True).compressed()
+        symlog_Q1_neg = np.ma.masked_where(symlog_Q1 > 0, symlog_Q1, copy=True).compressed()
+
+        M_pos = np.amax(symlog_Q1_pos)
+        m_pos = np.amin(symlog_Q1_pos)
+        M_neg = np.amax(symlog_Q1_neg)
+        m_neg = np.amin(symlog_Q1_neg)
+
+
+        print(f'm_neg, M_neg, m_pos, M_pos: {m_neg}, {M_neg}, {m_pos}, {M_pos}\n')
+
+        c = (M_pos + m_neg)/2.
+        a_pos = (M_pos + m_pos)/2.
+        a_neg = np.abs(M_neg + m_neg)/2.
+        a = (a_pos + a_neg)/2.
+
+        print(f'c, a: {c}, {a}')
+
+        def get_weights(x, c, a):
+            result = np.tanh((x-c)/a)
+            return (result+1.)/2.
+        
+        Nt = self.domain_vars['Nt']
+        Nx = self.domain_vars['Nx']
+        Ny = self.domain_vars['Ny']
+
+        weights = np.zeros((Nt, Nx, Ny))
+        for h in range(Nt):
+            for i in range(Nx):
+                for j in range(Ny):
+                    weights[h,i,j] = get_weights(symlog_Q1[h,i,j], c, a)
+
+        self.meso_vars.update({'weights' : weights})
+
+    def weights_Q2(self): 
+        """
+        Build weights for gridpoints based on Q2
+        """
+        Q2 = self.meso_vars['Q2']
+        Q2 = np.log10(Q2)
+
+        M = np.amax(Q2)
+        m = np.amin(Q2)
+        scale = (M+m)/2
+
+        def get_weights(x, scale):
+            result = np.tanh(x/scale)
+            result = (result +1)/2
+            return result
+        
+        Nt = self.domain_vars['Nt']
+        Nx = self.domain_vars['Nx']
+        Ny = self.domain_vars['Ny']
+
+        weights = np.zeros((Nt, Nx, Ny))
+        for h in range(Nt):
+            for i in range(Nx):
+                for j in range(Ny):
+                    weights[h,i,j] = get_weights(Q2[h,i,j], scale)
+
+        self.meso_vars.update({'weights' : weights})
 
     def EL_style_closure_regression(self, CoefficientAnalysis):
         """
