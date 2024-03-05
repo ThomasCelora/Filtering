@@ -2406,12 +2406,8 @@ class resHD2D(object):
         M_neg = np.amax(symlog_Q1_neg)
         m_pos = np.amin(symlog_Q1_pos)
 
-        print(f'm_neg, M_neg, m_pos, M_pos: {m_neg}, {M_neg}, {m_pos}, {M_pos}\n')
-
         c_pos = (M_pos + m_pos)/2.
         c_neg = (M_neg + m_neg)/2.
-
-        print(f'c_pos, c_neg: {c_pos}, {c_neg}')
 
         def get_weights(x, c_pos, c_neg):
             if x >= 0: 
@@ -2449,15 +2445,10 @@ class resHD2D(object):
         M_neg = np.amax(symlog_Q1_neg)
         m_neg = np.amin(symlog_Q1_neg)
 
-
-        print(f'm_neg, M_neg, m_pos, M_pos: {m_neg}, {M_neg}, {m_pos}, {M_pos}\n')
-
         c = (M_pos + m_neg)/2.
         a_pos = (M_pos + m_pos)/2.
         a_neg = np.abs(M_neg + m_neg)/2.
         a = (a_pos + a_neg)/2.
-
-        print(f'c, a: {c}, {a}')
 
         def get_weights(x, c, a):
             result = np.tanh((x-c)/a)
@@ -2709,4 +2700,5 @@ if __name__ == '__main__':
     parallel_time = time.perf_counter() - start_time
     print('Finished decomposing in parallel, time taken {}\n'.format(parallel_time))
     # print('Speed-up factor: {}'.format(serial_time/parallel_time))
+    
     

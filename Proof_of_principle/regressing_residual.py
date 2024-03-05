@@ -43,7 +43,7 @@ if __name__ == '__main__':
         meso_model = pickle.load(filehandle)
 
     dict_to_add = {'vort_sq' : r'$\omega_{ab}\omega^{ab}$'}
-    meso_model.upgrade_labels_dict(dict_to_add)
+    meso_model.update_labels_dict(dict_to_add)
 
     # WHICH DATA YOU WANT TO RUN THE ROUTINE ON?
     dep_var_str = config['Regression_settings']['dependent_var']
@@ -69,23 +69,52 @@ if __name__ == '__main__':
     add_intercept = not not int(config['Regression_settings']['add_intercept'])
     extractions = int(config['Regression_settings']['extractions'])
 
+    # BUILDING THE WEIGHTS
+    weighing_func_str = config['Regression_settings']['weighing_func']
+    if weighing_func_str == 'Q2':
+        meso_model.weights_Q2()
+        weights = meso_model.meso_vars['weights']
+        print(f'Finished building weights using {meso_model.weights_Q2.__name__}\n')
+    elif weighing_func_str == 'Q1_skew':
+        meso_model.weights_Q1_skew()
+        weights = meso_model.meso_vars['weights']
+        print(f'Finished building weights using {meso_model.weights_Q1_skew.__name__}\n')
+    elif weighing_func_str == 'Q1_non_neg':
+        meso_model.weights_Q1_non_neg()
+        weights = meso_model.meso_vars['weights']
+        print(f'Finished building weights using {meso_model.weights_Q1_non_neg.__name__}\n')
+    else:
+        print(f'The string for building weights {weighing_func_str} does not match any of the implemented routines.\n')
+        weights = None
+
     # PRE-PROCESSING and REGRESSING
     data = [dep_var]
     for i in range(len(regressors)):
         data.append(regressors[i])
     statistical_tool = CoefficientsAnalysis() 
     model_points = meso_model.domain_vars['Points']
-    new_data = statistical_tool.trim_dataset(data, ranges, model_points)
-    new_data = statistical_tool.preprocess_data(new_data, preprocess_data)
-    # if extractions != 0: 
-    #     new_data = statistical_tool.extract_randomly(new_data, extractions)
+
+    if weights is not None:
+        new_data = statistical_tool.trim_dataset(data + [weights], ranges, model_points)
+        weights = new_data[-1]
+        del new_data[-1]
+        new_data, weights = statistical_tool.preprocess_data(new_data, preprocess_data, weights=weights)
+        # if extractions != 0: 
+        #     new_data = statistical_tool.extract_randomly(new_data + [weights], extractions)
+        #     weights = new_data[-1]
+        #     del new_data[-1]
+    else:
+        new_data = statistical_tool.trim_dataset(data, ranges, model_points)
+        new_data = statistical_tool.preprocess_data(new_data, preprocess_data)
+        # if extractions != 0: 
+        #     new_data = statistical_tool.extract_randomly(new_data, extractions)
     
     dep_var = new_data[0]
     regressors = []
     for i in range(1,len(new_data)):
         regressors.append(new_data[i])
 
-    coeffs, std_errors = statistical_tool.scalar_regression(dep_var, regressors, add_intercept=add_intercept)
+    coeffs, std_errors = statistical_tool.scalar_regression(dep_var, regressors, add_intercept=add_intercept, weights=weights)
     print('regression coeffs: {}\n'.format(coeffs))
     print('Corresponding std errors: {}\n'.format(std_errors)) 
     
@@ -100,7 +129,13 @@ if __name__ == '__main__':
 
     if extractions != 0: 
         data_for_scatter = [dep_var, dep_var_model]
-        new_data = statistical_tool.extract_randomly(data_for_scatter, extractions)
+        if weights is not None:
+            new_data = statistical_tool.extract_randomly(data_for_scatter + [weights], extractions)
+            weights = new_data[-1]
+            del new_data[-1]
+        else:
+            new_data = statistical_tool.extract_randomly(data_for_scatter, extractions)
+
         dep_var, dep_var_model = new_data[0], new_data[1]
 
     
@@ -125,13 +160,15 @@ if __name__ == '__main__':
             var_name = r"$\log($" + var_name + r"$)$"
         xlabel +=var_name        
 
-    statistical_tool.visualize_correlation(dep_var_model, dep_var , xlabel, ylabel)
+    statistical_tool.visualize_correlation(dep_var_model, dep_var , xlabel, ylabel, weights = weights)
     saving_directory = config['Directories']['figures_dir']
+    # if weights is not None:
+    #     filename = '/' + weighing_func_str + '_Regress_'
+    # else:
+    #     filename = '/Regress_'
     filename = f'/Regress_{dep_var_str}_vs'
     for i in range(1,len(regressors_strs)):
         filename += f'_{regressors_strs[i]}'
-    # if add_intercept:
-    #     filename += "_intercept"
     filename += ".pdf"
     plt.savefig(saving_directory + filename, format='pdf')
     print(f'Finished regression and scatter plot for {dep_var_str}, saved as {filename}\n\n')

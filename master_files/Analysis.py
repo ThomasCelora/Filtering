@@ -281,7 +281,7 @@ class CoefficientsAnalysis(object):
                 processed_list[i] = np.log10(np.abs(processed_list[i]))
 
         # removing corresponding entries from weights
-        if weights != None: 
+        if weights is not None: 
             Weights = np.ma.masked_array(weights, tot_mask).compressed()
             return processed_list, Weights
         else: 
@@ -323,7 +323,7 @@ class CoefficientsAnalysis(object):
             shortened_array = np.array(shortened_list)
             new_data.append(shortened_array)
                 
-        return np.array(new_data)
+        return new_data
 
     def weighted_mean(self, data, weights):
         """
@@ -457,16 +457,16 @@ class CoefficientsAnalysis(object):
             print('None of the passed regressors is compatible with dep data. Exiting.')
             return None
         
-        if weights:
+        if weights is not None:
             if np.shape(y) != np.shape(weights):
                 print(f'The weights passed are not not aligned with data, setting these to 1')
-                weights=np.ones(y.shape)
+                Weights=np.ones(y.shape)
      
 
         # FLATTENING (IF NOT DONE YET IN PRE-PROCESSING) + FITTING
         Y = y.flatten()
-        if weights:
-            Weights = Weights.flatten()
+        if weights is not None:
+            Weights = weights.flatten()
         
         XX =[]
         if add_intercept:
@@ -491,7 +491,7 @@ class CoefficientsAnalysis(object):
 
         # VERSION USING SKLEARN:
         model=LinearRegression(fit_intercept=False)
-        if weights:
+        if weights is not None:
             print('Fitting with weights')
             model.fit(XX, Y, sample_weight=Weights)
         else:

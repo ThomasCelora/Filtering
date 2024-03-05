@@ -40,7 +40,7 @@ if __name__ == '__main__':
         meso_model = pickle.load(filehandle)
 
     dict_to_add = {'vort_sq' : r'$\omega_{ab}\omega^{ab}$'}
-    meso_model.upgrade_labels_dict(dict_to_add)
+    meso_model.update_labels_dict(dict_to_add)
 
     # WHICH DATA YOU WANT TO RUN THE ROUTINE ON?
     var_strs = json.loads(config['Visualize_correlations']['vars']) 
@@ -61,14 +61,45 @@ if __name__ == '__main__':
     preprocess_data = json.loads(config['Visualize_correlations']['preprocess_data']) 
     extractions = int(config['Visualize_correlations']['extractions'])
 
+    # BUILDING THE WEIGHTS
+    weighing_func_str = config['Visualize_correlations']['weighing_func']
+    if weighing_func_str == 'Q2':
+        meso_model.weights_Q2()
+        weights = meso_model.meso_vars['weights']
+        print(f'Finished building weights using {meso_model.weights_Q2.__name__}\n')
+    elif weighing_func_str == 'Q1_skew':
+        meso_model.weights_Q1_skew()
+        weights = meso_model.meso_vars['weights']
+        print(f'Finished building weights using {meso_model.weights_Q1_skew.__name__}\n')
+    elif weighing_func_str == 'Q1_non_neg':
+        meso_model.weights_Q1_non_neg()
+        weights = meso_model.meso_vars['weights']
+        print(f'Finished building weights using {meso_model.weights_Q1_non_neg.__name__}\n')
+    else:
+        print(f'The string for building weights {weighing_func_str} does not match any of the implemented routines.\n')
+        weights = None
+
+
     # PRE-PROCESSING DATA
     statistical_tool = CoefficientsAnalysis() 
     model_points = meso_model.domain_vars['Points']
-    new_data = statistical_tool.trim_dataset(vars, ranges, model_points)
-    new_data = statistical_tool.preprocess_data(new_data, preprocess_data)
-    if extractions != 0: 
-        new_data = statistical_tool.extract_randomly(new_data, extractions)
-    vars =new_data
+    if weights is not None:
+        new_data = statistical_tool.trim_dataset(vars + [weights], ranges, model_points)
+        weights = new_data[-1]
+        del new_data[-1]
+        new_data, weights = statistical_tool.preprocess_data(new_data, preprocess_data, weights=weights)
+        if extractions != 0: 
+            new_data = statistical_tool.extract_randomly(new_data + [weights], extractions)
+            weights = new_data[-1]
+            del new_data[-1]
+            vars = new_data
+    
+    else:
+        new_data = statistical_tool.trim_dataset(vars, ranges, model_points)
+        new_data = statistical_tool.preprocess_data(new_data, preprocess_data)
+        if extractions != 0: 
+            new_data = statistical_tool.extract_randomly(new_data, extractions)
+        vars = new_data
 
     # FINALLY, THE CORRELATION PLOT
     labels = []
@@ -81,12 +112,14 @@ if __name__ == '__main__':
         labels.append(label)
     
     if len(var_strs) ==2:
-        statistical_tool.visualize_correlation(vars[0], vars[1], xlabel=labels[0], ylabel=labels[1])
+        statistical_tool.visualize_correlation(vars[0], vars[1], xlabel=labels[0], ylabel=labels[1], weights = weights)
     else: 
-        statistical_tool.visualize_many_correlations(vars, labels)
+        statistical_tool.visualize_many_correlations(vars, labels, weights = weights)
     
     saving_directory = config['Directories']['figures_dir']
     filename = '/Correlation'
+    if weights is not None:
+        filename = '/' + weighing_func_str + 'Correlation'
     for i in range(len(var_strs)):
         filename += "_" + var_strs[i] 
     filename += ".pdf"
