@@ -662,7 +662,7 @@ class CoefficientsAnalysis(object):
 
         return g
 
-    def visualize_many_correlations(self, data, labels):
+    def visualize_many_correlations(self, data, labels, weights=None):
         """
         Method that returns an instance of PairGrid of correlation plots for a list of vars.
         Plotted is: 
@@ -705,6 +705,16 @@ class CoefficientsAnalysis(object):
         for i in range(len(data)):
             Data.append(data[i].flatten())
 
+        if weights is not None: 
+            if weights.shape != ref_shape:
+                print('The weights passed are not compatible with the data. Ignoring them and moving on')
+                Weights = None
+            else: 
+                Weights = weights.flatten()
+        else: 
+            Weights = None    
+        
+
         Data=np.column_stack(Data)
         Data_df = pd.DataFrame(Data, columns=labels)
 
@@ -712,6 +722,13 @@ class CoefficientsAnalysis(object):
             r, _ = stats.pearsonr(x, y)
             ax = plt.gca()
             ax.annotate(r"$r = {:.2f}$".format(r), xy=(.1, .9), xycoords=ax.transAxes)
+
+        def corrfunc_weights(x, y, **kws):
+            X = np.array(x)
+            Y = np.array(y)
+            r_w = self.weigthed_pearson(X, Y, Weights)
+            ax = plt.gca()
+            ax.annotate(r"$r_w = {:.2f}$".format(r_w), xy=(.1, .9), xycoords=ax.transAxes)
 
 
         with warnings.catch_warnings():
@@ -736,8 +753,12 @@ class CoefficientsAnalysis(object):
             # sns.histplot(x=X, y=Y, bins=50, ax=g.ax_joint, pthresh=.1, cmap="mako")
             # sns.kdeplot(x=X, y=Y, levels=5, ax=g.ax_joint, color="w", linewidths=1)
 
-            g.fig.tight_layout()
-            g.map_lower(corrfunc)
+            # g.fig.tight_layout()
+            g.figure.tight_layout()
+            if Weights is not None:
+                g.map_lower(corrfunc_weights)
+            else:
+                g.map_lower(corrfunc)
 
         return g
 
@@ -1006,5 +1027,5 @@ if __name__ == '__main__':
     # statistical_tool.visualize_correlation(x,y,weights=ws)
     labels=['x','y','z']
     data=[x,y,z]
-    statistical_tool.visualize_many_correlations(data, labels)
+    statistical_tool.visualize_many_correlations(data, labels, weights=ws)
     plt.show()
