@@ -82,13 +82,13 @@ if __name__ == '__main__':
         print(f'Finished building weights using {meso_model.weights_Q1_non_neg.__name__}\n')
 
     elif  weighing_func_str == "residual_weights":
-        residual_str = config['Regression_settings']['residual_str']
+        residual_str = config['Visualize_correlations']['residual_str']
         meso_model.residual_weights(residual_str)
         weights = meso_model.meso_vars['weights']
         print(f'Finished building weights using {meso_model.residual_weights.__name__}\n')
     
     elif  weighing_func_str == "denominator_weights":
-        residual_str = config['Regression_settings']['denominator_str']
+        residual_str = config['Visualize_correlations']['denominator_str']
         meso_model.denominator_weights(residual_str)
         weights = meso_model.meso_vars['weights']
         print(f'Finished building weights using {meso_model.denominator_weights.__name__}\n')
@@ -137,7 +137,7 @@ if __name__ == '__main__':
     saving_directory = config['Directories']['figures_dir']
     filename = '/Correlation'
     if weights is not None:
-        filename = '/' + weighing_func_str + 'Correlation'
+        filename = '/Correlation'
     for i in range(len(var_strs)):
         filename += "_" + var_strs[i] 
 
