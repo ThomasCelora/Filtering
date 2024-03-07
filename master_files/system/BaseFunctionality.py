@@ -158,7 +158,10 @@ class MySymLogPlotting(object):
         --------
         The symlog of the input num (separate copy)
         """
-        result = np.sign(num) * np.log10(np.abs(num)+1)
+        if np.abs(num) +1. == 1.0:
+            result = num
+        else:
+            result = np.sign(num) * np.log10(np.abs(num)+1.)
         return result
 
     @staticmethod
@@ -186,11 +189,11 @@ class MySymLogPlotting(object):
         count_zeros=0
         temp = np.empty_like(var)
         for index in np.ndindex(var.shape):
-            if var[index] == 0: 
+            value = var[index]
+            if value == 0: 
                 count_zeros +=1
             else: 
-                value = var[index]
-                temp[index] = np.sign(value) * np.log10(np.abs(value)+1)
+                temp[index] = MySymLogPlotting.symlog_num(value)
         if count_zeros >= 1:
             print('Careful: there are {} zeros in the data'.format(count_zeros))
         return temp
@@ -227,24 +230,15 @@ class MySymLogPlotting(object):
         ticks = []
         ticks_labels = []
         nodes = []
-        
-        pos_var = np.where(var > 0, var, 0).flatten()
-        pos_var = pos_var[pos_var!=0]
-        
-        neg_var = np.where(var < 0, var, 0).flatten()
-        neg_var = neg_var[neg_var!=0]
+    
 
-        pos_var_small = np.where(pos_var < 1, pos_var, 0)
-        pos_var_small = pos_var_small[pos_var_small!=0]
-        
-        pos_var_large = np.where(pos_var >= 1, pos_var, 0)
-        pos_var_large = pos_var_large[pos_var_large!=0]
-        
-        neg_var_small = np.where(neg_var > -1 , neg_var, 0)
-        neg_var_small = neg_var_small[neg_var_small!=0]
-        
-        neg_var_large = np.where(neg_var <= -1, neg_var, 0)
-        neg_var_large = neg_var_large[neg_var_large!=0]
+        pos_var = np.ma.masked_where(var <0., var, copy=True).compressed()
+        pos_var_small = np.ma.masked_where(pos_var >=1., pos_var, copy=True).compressed()
+        pos_var_large = np.ma.masked_where(pos_var <1., pos_var, copy=True).compressed()
+
+        neg_var = np.ma.masked_where(var >0., var, copy=True).compressed()
+        neg_var_small = np.ma.masked_where(neg_var <=-1., neg_var, copy=True).compressed()
+        neg_var_large = np.ma.masked_where(neg_var >-1., neg_var, copy=True).compressed()
 
         # Working out nodes, ticks and ticks_labels for the negative range
         if len(neg_var_large) >0: 
@@ -260,7 +254,7 @@ class MySymLogPlotting(object):
             
             
             if len(neg_var_small) == 0: 
-                print('Actually: only negative large values', flush=True)
+                # print('Actually: only negative large values', flush=True)
                 vmax = np.amax(neg_var_large)
                 new_nodes = [MySymLogPlotting.symlog_num(vmax)]
                 new_ticks = new_nodes
@@ -290,7 +284,9 @@ class MySymLogPlotting(object):
             vmin = np.amin(neg_var_small)
             vmax = np.amax(neg_var_small)
 
+            # print(vmin, vmax, "\n")
             new_nodes = [MySymLogPlotting.symlog_num(vmin), MySymLogPlotting.symlog_num(vmax)]
+            # print(new_nodes)
             new_ticks = new_nodes
             new_ticks_labels = [r'$-10^{%d}$'%(int(d)) for d in np.log10([-vmin,-vmax])]
 
@@ -310,7 +306,9 @@ class MySymLogPlotting(object):
             vmin = np.amin(pos_var_small)
             vmax = np.amax(pos_var_small)
 
+            # print(vmin, vmax)
             new_nodes = [MySymLogPlotting.symlog_num(vmin), MySymLogPlotting.symlog_num(vmax)]
+            # print(new_nodes)
             new_ticks = new_nodes
             new_ticks_labels = [r'$10^{%d}$'%(int(d)) for d in np.log10([vmin,vmax])]
     
@@ -319,10 +317,10 @@ class MySymLogPlotting(object):
             nodes += new_nodes
 
         else: # len(pos_var_large) > 0: 
-            # print('There are positive large values', flush=True)
+            print('There are positive large values', flush=True)
 
             if len(pos_var_small) >0:
-                # print('And also positive small values', flush=True)
+                print('And also positive small values', flush=True)
                 vmin = np.amin(pos_var_small)
                 vmax = np.amax(pos_var_small)
 
@@ -360,7 +358,6 @@ class MySymLogPlotting(object):
                 nodes += new_nodes
 
         return ticks, ticks_labels, nodes
-
 
 class MyThreeNodesNorm(mpl.colors.Normalize):
     """
