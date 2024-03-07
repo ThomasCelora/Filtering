@@ -5,9 +5,10 @@
 
 pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/pickled
 
-figures_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/figures/CG1/CG1_fw8/weights/fitting_eta/Q2
+figures_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/figures/CG1/CG1_fw8/fitting/weights/fitting_eta/eta_pos/residual
 
 [Filenames] 
+
 meso_pickled_filename = /rHD2d_nocg_fw=bl=8dx.pickle
 
 [Models_settings]
@@ -15,23 +16,59 @@ mesogrid_T_slices_num = 3
 
 [Ranges_for_analysis]
 
-ranges = {"x_range": [0.04, 0.96], "y_range": [0.04, 0.97]}
+ranges = {"x_range": [0.04, 0.96], "y_range": [0.04, 0.96]}
 
 
 [Visualize_correlations]
 
-vars = ["eta", "shear_sq", "vort_sq", "T_tilde", "n_tilde"]
+vars = ["eta", "shear_sq", "vort_sq", "det_shear", "T_tilde", "n_tilde"]
 
 # Set values to null  if you do not want to restrict the data 
-preprocess_data = {"value_ranges": [[0, null], [null, null], [null, null], [null, null], [null, null]], 
-                    "log_abs": [1, 1, 1, 1, 1]}
+preprocess_data = {"value_ranges": [[0, null], [null, null], [null, null], [null, null], [null, null], [null, null]], 
+                    "log_abs": [1, 1, 1, 1, 1, 1]}
 
 #set extractions 0 if you don't want to extract randomly from sample
 extractions = 30000
 
-# possible options for building weights are: 'Q2' 'Q1_skew' 'Q1_non_neg'
-weighing_func = Q1_non_neg
+#Options for building weights: 'Q2' 'Q1_skew' 'Q1_non_neg' 'residual_weights' 'denominator_weights'. Any other choice correspond to no weights
 
+weighing_func = residual_weights
+
+# this is only relevant when weights are built using 'residual_weights': specify a positive residual you want to consider for the weights
+residual_str = pi_res_sq
+
+# this is only relevant when weights are built using 'denominator_weights': specify the positive quantity at the denominator of extracted coefficient
+denominator_str = shear_sq
+
+# Set format_fig to either pdf or png
+format_fig = png
+
+
+[Regression_settings]
+
+dependent_var = eta
+regressors = ["vort_sq", "det_shear"]
+add_intercept = 1
+
+# Set values to null  if you do not want to restrict the data 
+preprocess_data = {"value_ranges": [[0, null], [null, null], [null, null], [null, null], [null, null], [null, null]], 
+                    "log_abs": [1, 1, 1, 1, 1, 1]}
+
+#set extractions 0 if you don't want to extract randomly from sample: extraction only in the scatter plot? Not in regression? 
+extractions = 30000
+
+#Options for building weights: 'Q2' 'Q1_skew' 'Q1_non_neg' 'residual_weights' 'denominator_weights'. Any other choice correspond to no weights
+
+weighing_func = residual_weights
+
+# this is only relevant when weights are built using 'residual_weights': specify a positive residual you want to consider for the weights
+residual_str = pi_res_sq
+
+# this is only relevant when weights are built using 'denominator_weights': specify the positive quantity at the denominator of extracted coefficient
+denominator_str = shear_sq
+
+# Set format_fig to either pdf or png
+format_fig = png
 
 
 [PCA_settings]
@@ -52,22 +89,3 @@ preprocess_data = {"value_ranges": [[null, null], [null, null], [null, null]],
 
 #set extractions 0 if you don't want to extract randomly from sample
 extractions = 0
-
-
-[Regression_settings]
-
-dependent_var = eta
-regressors = ["n_tilde", "T_tilde"]
-add_intercept = 1
-
-# Set values to null  if you do not want to restrict the data 
-preprocess_data = {"value_ranges": [[1e-6, null], [null, null], [null, null]], 
-                    "log_abs": [1, 1, 1]}
-
-#set extractions 0 if you don't want to extract randomly from sample: extraction only in the scatter plot? Not in regression? 
-extractions = 30000
-
-# possible options for building weights are: 'Q2' 'Q1_skew' 'Q1_non_neg'
-weighing_func = Q2
-
-

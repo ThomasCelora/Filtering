@@ -13,6 +13,8 @@ from multimethod import multimethod
 import matplotlib.pyplot as plt
 import seaborn as sns
 import scipy.stats as scst    
+from scipy.linalg import det
+
 
 from system.BaseFunctionality import *
 from MicroModels import * 
@@ -1218,7 +1220,7 @@ class resHD2D(object):
                                 'shear_sq' : r'$\tilde{\sigma}_{ab}\tilde{\sigma}^{ab}$',
                                 'Theta_sq': r'$\tilde{\Theta}_a\tilde{\Theta}^a$',
                                 'q_res_sq': r'$\tilde{q}_a \tilde{q}^a$',
-                                'det_shear': r'det$(\sigma)$',
+                                'det_shear': r'$det(\sigma)$',
                                 'vort_sq' : r'$\omega_{ab}\omega^{ab}$',
                                 'acc_mag': r'$|a|$', 
                                 'U' : r'$U^a$',
@@ -2307,7 +2309,8 @@ class resHD2D(object):
         metric[1,1] = metric[2,2] = +1
 
         # Computing various invariants of the velocity gradients
-        det_shear = np.linalg.det(shear)    
+        # det_shear = np.linalg.det(shear)    
+        det_shear = det(shear)
         var_names.append('det_shear')
         vars.append(det_shear)
 
@@ -2392,11 +2395,11 @@ class resHD2D(object):
         Build weights for gridpoints: downplay points where shear is small, but take into 
         account both positive and negative values of Q1
         """
-        def symlog(array):
-            return np.sign(array) * np.log10(np.abs(array)+1) 
+        # def symlog(array):
+        #     return np.sign(array) * np.log10(np.abs(array)+1) 
         
         Q1 = self.meso_vars['Q1']
-        symlog_Q1 = symlog(Q1)
+        symlog_Q1 = MySymLogPlotting.symlog_var(Q1)
         
         M_pos = np.amax(symlog_Q1)
         m_neg = np.amin(symlog_Q1)
@@ -2432,11 +2435,11 @@ class resHD2D(object):
         """
         Build weights for gridpoints: downplay points where Q1 is negative
         """
-        def symlog(array):
-            return np.sign(array) * np.log10(np.abs(array)+1) 
+        # def symlog(array):
+        #     return np.sign(array) * np.log10(np.abs(array)+1) 
         
         Q1 = self.meso_vars['Q1']
-        symlog_Q1 = symlog(Q1)
+        symlog_Q1 = MySymLogPlotting.symlog_var(Q1)
         symlog_Q1_pos = np.ma.masked_where(symlog_Q1 < 0, symlog_Q1, copy=True).compressed()
         symlog_Q1_neg = np.ma.masked_where(symlog_Q1 > 0, symlog_Q1, copy=True).compressed()
 
@@ -2470,8 +2473,7 @@ class resHD2D(object):
         """
         Build weights for gridpoints based on Q2
         """
-        Q2 = self.meso_vars['Q2']
-        Q2 = np.log10(Q2)
+        Q2 = np.log10(self.meso_vars['Q2'])
 
         M = np.amax(Q2)
         m = np.amin(Q2)
@@ -2491,6 +2493,65 @@ class resHD2D(object):
             for i in range(Nx):
                 for j in range(Ny):
                     weights[h,i,j] = get_weights(Q2[h,i,j], scale)
+
+        self.meso_vars.update({'weights' : weights})
+
+    def residual_weights(self, residual_str):
+        """
+        Build weights based on residual corresponding to input 'residual_str'. 
+        Downplay points where this is small, that is those points where a closure is less required!
+        """
+
+        residual = np.log10(self.meso_vars[residual_str])
+
+        M = np.amax(residual)
+        m = np.amin(residual)
+        scale = (M+m)/2
+
+        def get_weights(x, scale):
+            result = np.tanh(x/scale)
+            result = (result +1)/2
+            return result
+        
+        Nt = self.domain_vars['Nt']
+        Nx = self.domain_vars['Nx']
+        Ny = self.domain_vars['Ny']
+
+        weights = np.zeros((Nt, Nx, Ny))
+        for h in range(Nt):
+            for i in range(Nx):
+                for j in range(Ny):
+                    weights[h,i,j] = get_weights(residual[h,i,j], scale)
+
+        self.meso_vars.update({'weights' : weights})
+
+    def denominator_weights(self, coeff_denominator_str):
+        """
+        Build weights based on quantity corresponding to 'coeff_denominator_str'. 
+        Downplay points where this is small, that is points where the extracted coefficient are less 
+        trustworthy
+        """
+
+        denominator = np.log10(self.meso_vars[coeff_denominator_str])
+
+        M = np.amax(denominator)
+        m = np.amin(denominator)
+        scale = (M+m)/2
+
+        def get_weights(x, scale):
+            result = np.tanh(x/scale)
+            result = (result +1)/2
+            return result
+        
+        Nt = self.domain_vars['Nt']
+        Nx = self.domain_vars['Nx']
+        Ny = self.domain_vars['Ny']
+
+        weights = np.zeros((Nt, Nx, Ny))
+        for h in range(Nt):
+            for i in range(Nx):
+                for j in range(Ny):
+                    weights[h,i,j] = get_weights(denominator[h,i,j], scale)
 
         self.meso_vars.update({'weights' : weights})
 

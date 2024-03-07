@@ -42,6 +42,9 @@ if __name__ == '__main__':
     dict_to_add = {'vort_sq' : r'$\omega_{ab}\omega^{ab}$'}
     meso_model.update_labels_dict(dict_to_add)
 
+    dict_to_add = {'det_shear' : r'$det(\sigma)$'}
+    meso_model.update_labels_dict(dict_to_add)
+
     # WHICH DATA YOU WANT TO RUN THE ROUTINE ON?
     var_strs = json.loads(config['Visualize_correlations']['vars']) 
     vars = []
@@ -67,14 +70,29 @@ if __name__ == '__main__':
         meso_model.weights_Q2()
         weights = meso_model.meso_vars['weights']
         print(f'Finished building weights using {meso_model.weights_Q2.__name__}\n')
+
     elif weighing_func_str == 'Q1_skew':
         meso_model.weights_Q1_skew()
         weights = meso_model.meso_vars['weights']
         print(f'Finished building weights using {meso_model.weights_Q1_skew.__name__}\n')
+
     elif weighing_func_str == 'Q1_non_neg':
         meso_model.weights_Q1_non_neg()
         weights = meso_model.meso_vars['weights']
         print(f'Finished building weights using {meso_model.weights_Q1_non_neg.__name__}\n')
+
+    elif  weighing_func_str == "residual_weights":
+        residual_str = config['Regression_settings']['residual_str']
+        meso_model.residual_weights(residual_str)
+        weights = meso_model.meso_vars['weights']
+        print(f'Finished building weights using {meso_model.residual_weights.__name__}\n')
+    
+    elif  weighing_func_str == "denominator_weights":
+        residual_str = config['Regression_settings']['denominator_str']
+        meso_model.denominator_weights(residual_str)
+        weights = meso_model.meso_vars['weights']
+        print(f'Finished building weights using {meso_model.denominator_weights.__name__}\n')
+    
     else:
         print(f'The string for building weights {weighing_func_str} does not match any of the implemented routines.\n')
         weights = None
@@ -122,7 +140,12 @@ if __name__ == '__main__':
         filename = '/' + weighing_func_str + 'Correlation'
     for i in range(len(var_strs)):
         filename += "_" + var_strs[i] 
-    filename += ".pdf"
-    plt.savefig(saving_directory + filename, format='pdf')
+
+    format = str(config['Regression_settings']['format_fig'])
+    filename += "." + format
+    dpi = None
+    if format == 'png':
+        dpi = 400
+    plt.savefig(saving_directory + filename, format=format, dpi=dpi)
     print(f'Finished producing correlation plot for {var_strs}, saved as {filename}\n')
 
