@@ -41,9 +41,6 @@ if __name__ == '__main__':
     with open(MesoModelLoadFile, 'rb') as filehandle: 
         meso_model = pickle.load(filehandle)
 
-    # additional_entry = {'acc_mag': r'$|a|$'}
-    # meso_model.upgrade_labels_dict(additional_entry) 
-
     # WHICH DATA YOU WANT TO RUN THE ROUTINE ON?
     dep_var_str = config['PCA_settings']['dependent_var']
     explanatory_vars_strs = json.loads(config['PCA_settings']['explanatory_vars'])
@@ -65,7 +62,7 @@ if __name__ == '__main__':
 
     # READING PREPROCESSING INFO FROM CONFIG FILE
     preprocess_data = json.loads(config['PCA_settings']['preprocess_data']) 
-    extractions = int(config['PCA_settings']['extractions'])
+    extractions = int(config['PCA_settings']['extractions']) #This is only used for plotting, like in regression routines
 
     # PRE-PROCESSING 
     data = [dep_var]
@@ -75,8 +72,8 @@ if __name__ == '__main__':
     model_points = meso_model.domain_vars['Points']
     new_data = statistical_tool.trim_dataset(data, ranges, model_points)
     new_data = statistical_tool.preprocess_data(new_data, preprocess_data)
-    if extractions != 0: 
-        new_data = statistical_tool.extract_randomly(new_data, extractions)
+    # if extractions != 0: 
+    #     new_data = statistical_tool.extract_randomly(new_data, extractions)
     
     dep_var = new_data[0]
     explanatory_vars = []
@@ -110,6 +107,9 @@ if __name__ == '__main__':
     print('\nProducing correlation plot using info from PCA')
     x = dep_var_model
     y = dep_var
+    if extractions != 0: 
+        new_data = statistical_tool.extract_randomly([x,y], extractions)
+        x, y = new_data[0], new_data[1]
     
     ylabel = dep_var_str
     if hasattr(meso_model, 'labels_var_dict') and dep_var_str in meso_model.labels_var_dict.keys():
@@ -117,25 +117,33 @@ if __name__ == '__main__':
     if preprocess_data['log_abs'][0] ==1: 
         ylabel = r"$\log($" + ylabel + r"$)$"
 
-    xlabel = ""
-    for i in range(len(explanatory_vars_strs)):
-        sign, val = int(np.sign(coeffs[i])), str(round(np.abs(coeffs[i]),3))
-        coeff_for_label = r"$+{}$".format(val) if sign == 1 else r"$-{}$".format(val)
-        text = explanatory_vars_strs[i]
-        if hasattr(meso_model, 'labels_var_dict') and explanatory_vars_strs[i] in meso_model.labels_var_dict.keys():
-            text = meso_model.labels_var_dict[explanatory_vars_strs[i]] 
-        if preprocess_data['log_abs'][i+1]==1:
-            text = r"$\log($" + text + r"$)$"
-        xlabel += coeff_for_label  + text
-
-    model_points = meso_model.domain_vars['Points']
-    g=statistical_tool.visualize_correlation(x, y, xlabel=xlabel, ylabel=ylabel)
+    g=statistical_tool.visualize_correlation(x, y, xlabel="highest PC model", ylabel=ylabel)
     saving_directory = config['Directories']['figures_dir']
-    filename = f'/PCA_{dep_var_str}_vs'
+    filename = f'/PCA_hunt_{dep_var_str}'
+    format = str(config['Regression_settings']['format_fig'])
+    filename += "." + format
+    dpi = None
+    if format == 'png':
+        dpi = 400
+
+    # Building the text for the annotation box
+    text_for_box = "Coefficients:" +  r"$(\log)$" + "\n"
+    legend_entries = []
     for i in range(len(explanatory_vars_strs)):
-        filename += f'_{explanatory_vars_strs[i]}'
-    filename += ".pdf"
-    plt.savefig(saving_directory + filename, format='pdf')
+        label = explanatory_vars_strs[i] + " :    "
+        if hasattr(meso_model, 'labels_var_dict') and explanatory_vars_strs[i] in meso_model.labels_var_dict.keys():
+            label = meso_model.labels_var_dict[explanatory_vars_strs[i]] + " :  "
+        sign, val = int(np.sign(coeffs[i])), '%.3f' %np.abs(coeffs[i]) 
+        coeff_for_label = r"$+{}$".format(val) if sign == 1 else r"$-{}$".format(val)
+        label += coeff_for_label + "\n"
+        legend_entries.append(label)
+    for i in range(len(legend_entries)):
+        text_for_box += legend_entries[i]
+
+    bbox_args = dict(boxstyle="round", fc="0.95")
+    plt.annotate(text=text_for_box, xy = (0.99,0.1), xycoords='figure fraction', bbox=bbox_args, ha="right", va="bottom", fontsize = 9)
+
+    plt.savefig(saving_directory + filename, format=format, dpi=dpi)
     print(f'Finished correlation plot for {dep_var_str}, saved as {filename}\n\n')
 
     
