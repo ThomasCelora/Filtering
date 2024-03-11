@@ -15,8 +15,10 @@ import h5py
 import pickle
 import seaborn as sns
 import warnings
+import random
 from sklearn.linear_model import LinearRegression
 from sklearn.decomposition import PCA 
+from sklearn.model_selection import train_test_split
 from scipy import stats
 # import statsmodels.api as sm
 
@@ -80,8 +82,9 @@ class CoefficientsAnalysis(object):
             for i in range(len(ranges)):
                 IdxsToRemove.append([ j for j in range(num_points[i]) if j < start_indices[i] or j > end_indices[i]])
 
-            for i in range(len(ranges)):
-                newdata = np.delete(data, IdxsToRemove[i], axis=i)
+            newdata = np.delete(data, IdxsToRemove[0], axis=0)
+            for i in range(1, len(ranges)):
+                newdata = np.delete(newdata, IdxsToRemove[i], axis=i)
 
             return newdata
         
@@ -215,9 +218,9 @@ class CoefficientsAnalysis(object):
             each value of the dictionary must be a list long as the arrays passed (checked for)
             Expected keys are: 
 
-            'pos_or_neg' is 1 (0) if you want to select positive (negative) values
+            'value_ranges': value correspond to list of min, max to be considered 
 
-            'log_or_not' is 1 if you want to take the logarithm of the data 
+            'log_abs' is 1 if you want to take the logarithm of the (absolute) data 
 
         weights: np.array, default to None
             the array with weights for each gridpoint. 
@@ -252,7 +255,7 @@ class CoefficientsAnalysis(object):
             else: 
                 return list_of_arrays
 
-        # USE THIS IF YOU WANNA REVERT TO PREVIOUS STUFF
+        # USE THIS IF YOU WANNA REVERT TO PREVIOUS STUFF: pos_or_neg key in preprocess dictionary
         # for i in range(len(list_of_arrays)):
         #     pos_or_neg = preprocess_data['pos_or_neg'][i]
         #     temp = self.get_pos_or_neg_mask(pos_or_neg, list_of_arrays[i]) 
@@ -287,6 +290,51 @@ class CoefficientsAnalysis(object):
         else: 
             return processed_list
 
+    def split_train_test(self, list_of_arrays, test_percentage=0.2):
+        """
+        Given a list of arrays, check compatibility among them, then each is split into 
+        training set and test set (corresponding indices are selected from each array).
+
+        Parameters:
+        -----------
+        list_of_arrays: list of np.arrays, their compatibility is checked 
+
+        test_percentage: float, default to 0.2 
+
+        Returns: 
+        --------
+        training_arrays, test_arrays
+
+        Notes:
+        ------
+        List of arrays can contain weights as well. 
+        Yhese are treated on the same footage as the rest of the arrays.
+        """
+        print('Splitting dataset into training and test set')
+        # Checking data is compatible
+        ref_shape = list_of_arrays[0].shape
+        new_data = [list_of_arrays[0].flatten()]
+        for i in range(1,len(list_of_arrays)):
+            if list_of_arrays[i].shape == ref_shape:
+                new_data.append(list_of_arrays[i].flatten())
+            else: 
+                print(f'The {i}th array in the dataset is not compatible with the first: ignoring it.')
+
+        
+        # Using sklearn to do the split quickly. 
+        len_array = len(new_data[0])
+        available_indices = list(np.arange(0, len_array, dtype='int'))
+
+        train_idxs, test_idxs = train_test_split(available_indices, test_size=test_percentage, shuffle=True)
+        train_data = [new_data[i][train_idxs] for i in range(len(new_data))]
+        test_data = [new_data[i][test_idxs] for i in range(len(new_data))]
+
+        for i in range(len(train_data)):
+            train_data[i] = np.array(train_data[i])
+            test_data[i] = np.array(test_data[i])
+
+        return train_data, test_data
+
     def extract_randomly(self, list_of_data, num_extractions):
         """
         Extract randomly from data. 
@@ -315,15 +363,15 @@ class CoefficientsAnalysis(object):
 
         available_indices = list(np.arange(len(new_data[0])))
         selected_indices = random.sample(available_indices, num_extractions)
-        new_data = []
-        for i in range(len(list_of_data)):
+        extracted_data = []
+        for i in range(len(new_data)):
             shortened_list = []
             for j in range(len(selected_indices)):
-                shortened_list.append(list_of_data[i][selected_indices[j]])
+                shortened_list.append(new_data[i][selected_indices[j]])
             shortened_array = np.array(shortened_list)
-            new_data.append(shortened_array)
+            extracted_data.append(shortened_array)
                 
-        return new_data
+        return extracted_data
 
     def weighted_mean(self, data, weights):
         """
@@ -825,14 +873,12 @@ class CoefficientsAnalysis(object):
             n_comp +=1
             var_captured= exp_var_sum[n_comp]
         n_comp = n_comp+1
-
         # WORKING OUT THE COMPONENTS DECOMPOSITION
         var2comp = pca_model.components_ # shape: n_comp * n_var
         comp_decomp = []
         for i in range(n_comp):
             # should be the inverse but var2comp is unitary, so transpose 
             comp_decomp.append(np.einsum('ij->ji', var2comp)[:,i])
-
 
         # # CREATING THE FIGURE WITH THE COMPONENTS PROFILE TO CHECK THEY'RE UNCORRELATED
         # # this block is temporary and will be removed later.
@@ -999,33 +1045,53 @@ if __name__ == '__main__':
     # extracted, weights = statistical_tool.extract_randomly([x,y], 10)
     # print(extracted)
 
-    import random
-    n = 10000
-    mean = [0, 0]
-    cov = [(2, .4), (.4, .2)]
-    rng = np.random.RandomState(0)
-    x, y = rng.multivariate_normal(mean, cov, n).T
+    # n = 500
+    # mean = [0, 0]
+    # cov = [(2, .4), (.4, .2)]
+    # rng = np.random.RandomState(0)
+    # x, y = rng.multivariate_normal(mean, cov, n).T
 
-    ws = []
-    for i in range(len(x)):
-        ws.append(random.uniform(0.5,1.))
-    ws = np.array(ws)
+    # ws = []
+    # for i in range(len(x)):
+    #     ws.append(random.uniform(0.5,1.))
+    # ws = np.array(ws)
 
-    # print(x.shape, ws.shape)
-    # r, _ = stats.pearsonr(x,y)
+    # # print(x.shape, ws.shape)
+    # # r, _ = stats.pearsonr(x,y)
 
+    # statistical_tool = CoefficientsAnalysis()
+
+    # # wr = statistical_tool.weigthed_pearson(x,y,ws)
+    # # print(f'stats.pearsonr: {r}')
+    # # print(f'my_pearson: {wr}')
+
+    # # mu, sigma = 0, 4 # mean and standard deviation
+    # # z = np.random.normal(mu, sigma, n)
+
+    # statistical_tool = CoefficientsAnalysis()
+    # g = statistical_tool.visualize_correlation(x,y,weights=ws)
+    # legend_labels = ['pippo', 'pluto']
+    # text_for_box = r'$pippo$' + '\n' + '%.3f' %1.234454
+    # # plt.text(0.85, 0.1, text_for_box, fontsize=12, transform=plt.gcf().transFigure)
+    # bbox_args = dict(boxstyle="round", fc="0.95")
+    # plt.annotate(text=text_for_box, xy = (0.99,0.1), xycoords='figure fraction', bbox=bbox_args, ha="right", va="bottom", fontsize = 9)
+    
+
+
+    # # plt.legend(bbox_to_anchor=(1.02, 0.2), loc='upper left', borderaxespad=0)
+
+    # # labels=['x','y','z']
+    # # data=[x,y,z]
+    # # statistical_tool.visualize_many_correlations(data, labels, weights=ws)
+    # plt.show()
+
+    
+    a = np.arange(0,50,1)
+    b = np.arange(150,200,1)
+    data = [a,b]
+    print(data)
     statistical_tool = CoefficientsAnalysis()
+    data_train, data_test = statistical_tool.split_train_test(data)
 
-    # wr = statistical_tool.weigthed_pearson(x,y,ws)
-    # print(f'stats.pearsonr: {r}')
-    # print(f'my_pearson: {wr}')
-
-    mu, sigma = 0, 4 # mean and standard deviation
-    z = np.random.normal(mu, sigma, n)
-
-    statistical_tool = CoefficientsAnalysis()
-    # statistical_tool.visualize_correlation(x,y,weights=ws)
-    labels=['x','y','z']
-    data=[x,y,z]
-    statistical_tool.visualize_many_correlations(data, labels, weights=ws)
-    plt.show()
+    print(f'data_train: {data_train}\n')
+    print(f'data_test: {data_test}\n')
