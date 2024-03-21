@@ -235,7 +235,7 @@ class Plotter_2D(object):
                 ticks, labels, nodes = MySymLogPlotting.get_mysymlog_var_ticks(data_to_plot)
                 data_to_plot = MySymLogPlotting.symlog_var(data_to_plot)
                 mynorm = MyThreeNodesNorm(nodes)
-                im = ax.imshow(data_to_plot, extent=extent, norm=mynorm, cmap=cmaps[i])
+                im = ax.imshow(data_to_plot, extent=extent, origin='lower', norm=mynorm, cmap=cmaps[i])
                 divider = make_axes_locatable(ax)
                 cax = divider.append_axes('right', size='5%', pad=0.05)
                 cbar = fig.colorbar(im, cax=cax, orientation='vertical')
@@ -243,7 +243,7 @@ class Plotter_2D(object):
                 cbar.ax.set_yticklabels(labels)
 
             elif norms[i] != 'mysymlog':
-                im = ax.imshow(data_to_plot, extent=extent, norm=norms[i], cmap=cmaps[i])
+                im = ax.imshow(data_to_plot, extent=extent, origin='lower', norm=norms[i], cmap=cmaps[i])
                 divider = make_axes_locatable(ax)
                 cax = divider.append_axes('right', size='5%', pad=0.05)
                 fig.colorbar(im, cax=cax, orientation='vertical')
@@ -366,7 +366,7 @@ class Plotter_2D(object):
                     ticks, labels, nodes = MySymLogPlotting.get_mysymlog_var_ticks(data_to_plot)
                     data_to_plot = MySymLogPlotting.symlog_var(data_to_plot)
                     mynorm = MyThreeNodesNorm(nodes)
-                    im = axes[i,j].imshow(data_to_plot, extent=extent, norm=mynorm, cmap=cmaps[j][i])
+                    im = axes[i,j].imshow(data_to_plot, extent=extent, origin='lower', norm=mynorm, cmap=cmaps[j][i])
                     divider = make_axes_locatable(axes[i,j])
                     cax = divider.append_axes('right', size='5%', pad=0.05)
                     cbar = fig.colorbar(im, cax=cax, orientation='vertical')
@@ -374,7 +374,7 @@ class Plotter_2D(object):
                     cbar.ax.set_yticklabels(labels)
 
                 elif norms[j][i] != 'mysymlog':
-                    im = axes[i,j].imshow(data_to_plot, extent=extent, norm=norms[j][i], cmap=cmaps[j][i])
+                    im = axes[i,j].imshow(data_to_plot, extent=extent, origin='lower', norm=norms[j][i], cmap=cmaps[j][i])
                     divider = make_axes_locatable(axes[i,j])
                     cax = divider.append_axes('right', size='5%', pad=0.05)
                     fig.colorbar(im, cax=cax, orientation='vertical')
@@ -385,7 +385,8 @@ class Plotter_2D(object):
                 # fig.colorbar(im, cax=cax, orientation='vertical')
                 # title = models[j].get_model_name() + "\n"+var_strs[j][i]
 
-                title = models[j].get_model_name() + '\n'
+                # title = models[j].get_model_name() + '\n'
+                title = ''
                 if hasattr(models[j], 'labels_var_dict'):
                     if var_strs[j][i] in models[j].labels_var_dict.keys():
                         title += models[j].labels_var_dict[var_strs[j][i]]
@@ -416,7 +417,7 @@ class Plotter_2D(object):
                         ticks, labels, nodes = MySymLogPlotting.get_mysymlog_var_ticks(data_to_plot)
                         data_to_plot = MySymLogPlotting.symlog_var(data_to_plot)
                         mynorm = MyThreeNodesNorm(nodes)
-                        im = axes[i,2].imshow(data_to_plot, extent=extent, norm=mynorm, cmap=cmaps[2][i])
+                        im = axes[i,2].imshow(data_to_plot, extent=extent, origin='lower', norm=mynorm, cmap=cmaps[2][i])
                         divider = make_axes_locatable(axes[i,2])
                         cax = divider.append_axes('right', size='5%', pad=0.05)
                         cbar = fig.colorbar(im, cax=cax, orientation='vertical')
@@ -424,7 +425,7 @@ class Plotter_2D(object):
                         cbar.ax.set_yticklabels(labels)
 
                     elif norms[2][i] != 'mysymlog':
-                        im = axes[i,2].imshow(data_to_plot, extent=extent, norm=norms[2][i], cmap=cmaps[2][i])
+                        im = axes[i,2].imshow(data_to_plot, extent=extent, origin='lower', norm=norms[2][i], cmap=cmaps[2][i])
                         divider = make_axes_locatable(axes[i,2])
                         cax = divider.append_axes('right', size='5%', pad=0.05)
                         fig.colorbar(im, cax=cax, orientation='vertical')
@@ -464,7 +465,7 @@ class Plotter_2D(object):
                         ticks, labels, nodes = MySymLogPlotting.get_mysymlog_var_ticks(data_to_plot)
                         data_to_plot = MySymLogPlotting.symlog_var(data_to_plot)
                         mynorm = MyThreeNodesNorm(nodes)
-                        im = axes[i,column].imshow(data_to_plot, extent=extent, norm=mynorm, cmap=cmaps[column][i])
+                        im = axes[i,column].imshow(data_to_plot, extent=extent, origin='lower', norm=mynorm, cmap=cmaps[column][i])
                         divider = make_axes_locatable(axes[i,column])
                         cax = divider.append_axes('right', size='5%', pad=0.05)
                         cbar = fig.colorbar(im, cax=cax, orientation='vertical')
@@ -472,7 +473,7 @@ class Plotter_2D(object):
                         cbar.ax.set_yticklabels(labels)
 
                     elif norms[column][i] != 'mysymlog':
-                        im = axes[i,column].imshow(data_to_plot, extent=extent, norm=norms[column][i], cmap=cmaps[column][i])
+                        im = axes[i,column].imshow(data_to_plot, extent=extent, origin='lower', norm=norms[column][i], cmap=cmaps[column][i])
                         divider = make_axes_locatable(axes[i,column])
                         cax = divider.append_axes('right', size='5%', pad=0.05)
                         fig.colorbar(im, cax=cax, orientation='vertical')
@@ -495,7 +496,7 @@ class Plotter_2D(object):
         for i in range(len(models_names)):
             suptitle += models_names[i] + ", "
         suptitle += "models."
-        fig.suptitle(suptitle)
+        # fig.suptitle(suptitle)
         fig.tight_layout()
         # plt.subplot_tool()
         return fig
