@@ -19,7 +19,8 @@ import random
 from sklearn.linear_model import LinearRegression
 from sklearn.decomposition import PCA 
 from sklearn.model_selection import train_test_split
-from scipy import stats
+# from scipy import stats
+from scipy.stats import gaussian_kde, wasserstein_distance, pearsonr
 # import statsmodels.api as sm
 
 from system.BaseFunctionality import *
@@ -169,8 +170,8 @@ class CoefficientsAnalysis(object):
         if max is None: 
             max = np.amax(var)
 
-        restricted_var = ma.masked_where(var <= min, var, copy = True)
-        restricted_var = ma.masked_where(restricted_var >= max, restricted_var, copy=True)
+        restricted_var = ma.masked_where(var < min, var, copy = True)
+        restricted_var = ma.masked_where(restricted_var > max, restricted_var, copy=True)
         restricted_var = restricted_var.compressed()
         
         return restricted_var
@@ -199,6 +200,7 @@ class CoefficientsAnalysis(object):
 
         masked_array = ma.masked_where(array<min, array, copy=True)
         masked_array = ma.masked_where(masked_array>max, masked_array, copy=True)
+        masked_array = ma.masked_where(masked_array == 0, masked_array, copy=True)
 
         mask = masked_array.mask
 
@@ -373,6 +375,29 @@ class CoefficientsAnalysis(object):
                 
         return extracted_data
 
+    def centralize_dataset(self, list_of_arrays):
+        """
+        """
+        print('Centralizing the dataset')
+        # Checking data is compatible
+        ref_shape = list_of_arrays[0].shape
+        new_data = [list_of_arrays[0].flatten()]
+        for i in range(1,len(list_of_arrays)):
+            if list_of_arrays[i].shape == ref_shape:
+                new_data.append(list_of_arrays[i].flatten())
+            else: 
+                print(f'The {i}th array in the dataset is not compatible with the first: ignoring it.')
+        
+        means = []
+        centralized_data = []
+        for i in range(len(new_data)):
+            x = new_data[i]
+            x_mean = np.mean(x)
+            centralized_data.append(x - x_mean)
+            means.append(x_mean)
+
+        return centralized_data, means
+
     def weighted_mean(self, data, weights):
         """
         Return mean of data weighted wrt weights.
@@ -465,7 +490,7 @@ class CoefficientsAnalysis(object):
         weighted_pearson = corr_xy / np.sqrt(corr_x * corr_y)
         return weighted_pearson
 
-    def scalar_regression(self, y, X, weights=None, add_intercept=False):
+    def scalar_regression(self, y, X, weights=None, add_intercept=False, centralize=False):
         """
         Routine to perform ordinary or weighted (multivariate) regression on some gridded data. 
 
@@ -525,6 +550,7 @@ class CoefficientsAnalysis(object):
         
         for i in range(len(X)):
             XX.append(X[i].flatten())
+
         XX = np.einsum('ij->ji', XX)
         
         # # VERSION USING STATSMODELS
@@ -540,10 +566,10 @@ class CoefficientsAnalysis(object):
         # VERSION USING SKLEARN:
         model=LinearRegression(fit_intercept=False)
         if weights is not None:
-            print('Fitting with weights')
+            # print('Fitting with weights')
             model.fit(XX, Y, sample_weight=Weights)
         else:
-            print('Fitting without weights')
+            # print('Fitting without weights')
             model.fit(XX,Y)
         regress_coeff = list(model.coef_)
         
@@ -704,7 +730,7 @@ class CoefficientsAnalysis(object):
                 rw = self.weigthed_pearson(X,Y,Weights)
                 g.ax_joint.annotate(r"$r_w = {:.2f}$".format(rw), xy=(.1, .9), xycoords=g.ax_joint.transAxes)
             else:
-                r, _ = stats.pearsonr(X,Y)
+                r, _ = pearsonr(X,Y)
                 g.ax_joint.annotate(r"$r = {:.2f}$".format(r), xy=(.1, .9), xycoords=g.ax_joint.transAxes)
                 
 
@@ -767,7 +793,7 @@ class CoefficientsAnalysis(object):
         Data_df = pd.DataFrame(Data, columns=labels)
 
         def corrfunc(x, y, **kws):
-            r, _ = stats.pearsonr(x, y)
+            r, _ = pearsonr(x, y)
             ax = plt.gca()
             ax.annotate(r"$r = {:.2f}$".format(r), xy=(.1, .9), xycoords=ax.transAxes)
 
@@ -976,6 +1002,82 @@ class CoefficientsAnalysis(object):
 
         return highest_pcs_decomp, corresponding_scores
 
+    def wasserstein_distance(self, x, y, sample_points=100):
+        """
+        Given two data arrays, first build the gaussian_kde of the distributions for each.
+        Then sample the distributions at 'sample_points' linearly distributed sample points,
+        and evaluate the Wasserstein distance between the two. 
+
+        Parameters:
+        -----------
+        x, y: nd.array 
+    
+        Returns:
+        --------
+        the Wasserstein distance between the two distributions extracted from the sample data
+        """
+
+        if x.shape != y.shape: 
+            print('The two arrays passed are not compatible, exiting')
+            return None
+    
+        X = x.flatten()
+        Y = y.flatten()
+
+        kde_x = gaussian_kde(X, bw_method='scott' )
+        kde_y = gaussian_kde(Y, bw_method='scott' )
+
+        min, max = np.amin([X, Y]), np.amax([X, Y])
+        eval_points = np.linspace(min, max, sample_points)
+
+        kde_sampled_x = kde_x(eval_points)
+        kde_sampled_y = kde_y(eval_points)   
+
+        w = wasserstein_distance(kde_sampled_x, kde_sampled_y)
+        return w    
+
+    def compare_distributions(self, x, y, xlabel=None, ylabel=None):
+        """
+        Given two arrays x, y, compute and plot the respective distributions. 
+        These are extracted from data using a gaussian_kde.
+        
+        Parameters:
+        -----------
+        x, y: nd.array 
+    
+        Returns:
+        --------
+        the figure for later usage
+        """
+
+        if x.shape != y.shape: 
+            print('The two arrays passed are not compatible, exiting')
+            return None
+    
+        X = x.flatten()
+        Y = y.flatten()
+
+        kde_X = gaussian_kde(X, bw_method='scott' )
+        kde_Y = gaussian_kde(Y, bw_method='scott' )
+
+        min, max = np.amin([X, Y]), np.amax([X, Y])
+
+        fig, ax = plt.subplots()
+        _, bins_X, _ = ax.hist(X, bins='scott', alpha=0.5, density=True, color='firebrick')
+        _, bins_Y, _ = ax.hist(Y, bins='scott', alpha=0.5, density=True, color='steelblue')
+
+        num_eval_points = np.min([len(bins_X), len(bins_Y)])
+        eval_points = np.linspace(min, max, num_eval_points)
+        pdf_X_eval = kde_X(eval_points)
+        pdf_Y_eval = kde_Y(eval_points)
+
+        ax.plot(eval_points, pdf_X_eval, c='firebrick', label=xlabel)
+        ax.plot(eval_points, pdf_Y_eval, c='steelblue', label=ylabel)
+        
+        plt.legend()
+
+        return fig
+
     # Not sure about these two methods. 
     def JointPlot(self, model, y_var_str, x_var_str, t, x_range, y_range,\
                   interp_dims, method, y_component_indices, x_component_indices):
@@ -1085,13 +1187,14 @@ if __name__ == '__main__':
     # # statistical_tool.visualize_many_correlations(data, labels, weights=ws)
     # plt.show()
 
-    
-    a = np.arange(0,50,1)
-    b = np.arange(150,200,1)
-    data = [a,b]
-    print(data)
-    statistical_tool = CoefficientsAnalysis()
-    data_train, data_test = statistical_tool.split_train_test(data)
+    size = 10000
+    a = np.random.normal(loc=0.0, scale=1, size=size)
+    b = np.random.normal(loc=1, scale=1.5, size=size)
 
-    print(f'data_train: {data_train}\n')
-    print(f'data_test: {data_test}\n')
+    statistical_tool = CoefficientsAnalysis()
+    dist = statistical_tool.wasserstein_distance(a,b)
+    print(f'wasserstein_distance: {dist}\n')
+
+    fig = statistical_tool.compare_distributions(a,b,'pippo', 'pluto')
+    plt.show()
+

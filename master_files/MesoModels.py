@@ -2309,8 +2309,11 @@ class resHD2D(object):
         metric[1,1] = metric[2,2] = +1
 
         # Computing various invariants of the velocity gradients
-        # det_shear = np.linalg.det(shear)    
-        det_shear = det(shear)
+
+        # This is required as the determinant is an invariant (does not change under coordinates changes) 
+        # only when the tensor is written as a rank (1,1)
+        shear_rank11 = np.einsum('ij,jk->ik', shear, metric)
+        det_shear = det(shear_rank11)
         var_names.append('det_shear')
         vars.append(det_shear)
 

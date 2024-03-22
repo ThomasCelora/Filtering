@@ -806,6 +806,20 @@ class FindObs_root_parallel(object):
         self.micro_model = micro_model
         self.L = box_len
 
+    def set_box_length(self, box_len):
+        """
+        Method to change the width of the filter. 
+
+        Parameters:
+        -----------
+        filter_width: float
+
+        Returns:
+        --------
+        None
+        """
+        self.L = box_len
+
     @staticmethod
     def get_tetrad_from_vels(spatial_vels):
         """
@@ -886,7 +900,7 @@ class FindObs_root_parallel(object):
         # print('Initialized process in the pool', flush=True)
 
     @staticmethod
-    def find_observer_Gauss(point, pos_in_list_points):
+    def find_observer_Gauss(point, pos_in_list_points, initial_guess=None):
         """
         CPU-bound task to be run in parralel. 
         The routine combines what has been split into many in the serial 
@@ -921,15 +935,19 @@ class FindObs_root_parallel(object):
         # Building the initial guess 
         # point = point_pos[0]
         # pos_in_list_points = point_pos[1]
-        guess = []
-        BC_point = interpn(micro_grid, micro_BC, point)[0]
-        n_point = np.sqrt(-Base.Mink_dot(BC_point, BC_point))
-        U_point = np.multiply( 1 / n_point , BC_point)
-        # U_point = np.multiply( 1 / self.micro_model.get_interpol_var('n', point), self.micro_model.get_interpol_var('BC', point)
-        for i in range(1, len(U_point)):
-            guess.append(U_point[i] / U_point[0])
+        # CHECK IF YOU REALLY WANT THIS: USEFUL FOR ROOTVSMIN.PY
+        if initial_guess is not None: 
+            guess = initial_guess
+        else:
+            guess = []
+            BC_point = interpn(micro_grid, micro_BC, point)[0]
+            n_point = np.sqrt(-Base.Mink_dot(BC_point, BC_point))
+            U_point = np.multiply( 1 / n_point , BC_point)
+            # U_point = np.multiply( 1 / self.micro_model.get_interpol_var('n', point), self.micro_model.get_interpol_var('BC', point)
+            for i in range(1, len(U_point)):
+                guess.append(U_point[i] / U_point[0])
         
-        
+
         # Routine to compute drift residual via Gauss-Legendre quadrature.
         def residual_gauss(spatial_vels, point): #, micro_model):
             # spatial_dims = micro_model.get_spatial_dims()
@@ -965,7 +983,7 @@ class FindObs_root_parallel(object):
         if not sol.success: 
             return sol.success, pos_in_list_points
 
-    def find_observers_parallel(self, points, n_cpus):
+    def find_observers_parallel(self, points, n_cpus, initial_guesses=None):
         """
         Method to run find_observer_Gauss in parallel on a list of points
 
@@ -1000,6 +1018,13 @@ class FindObs_root_parallel(object):
         BC = self.micro_model.vars['BC']
         grid = self.micro_model.domain_vars['points'] 
         args_for_pool = [ (points[i], i) for i in range(len(points))]
+        if initial_guesses is not None: 
+            if len(initial_guesses) == len(points):
+                print('Using provided initial guesses')
+                args_for_pool = [ (points[i], i, initial_guesses[i]) for i in range(len(points))]
+        else: 
+            args_for_pool = [ (points[i], i) for i in range(len(points))]
+
         init = FindObs_root_parallel.initializer
         # initargs = (spatial_dims, L)
         initargs = (L, grid, BC)
