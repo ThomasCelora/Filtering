@@ -67,14 +67,19 @@ class Plotter_2D(object):
         Returns
         -------
         data_to_plot : numpy array of floats
-            the (2D) data to be plotted by plt.imshow().
+            the 2D data to be plotted by plt.imshow()
         extent: list of floats 
+
             
 
         Notes:
         ------
         Logic: if method is raw_data, then no interp_dims are needed. 
-        Better to have 'raw_data' and no interp_dims = None as default 
+        Better to have 'raw_data' and interp_dims = None as default 
+
+        data_to_plot is transposed and extent is built to be used with: 
+        origin=lower, extent=L,R,B,T by imshow
+
         """
         if var_str in model.get_all_var_strs():
 
@@ -104,7 +109,8 @@ class Plotter_2D(object):
                 data_to_plot = np.zeros((nx, ny))
                 
                 points = [t, xs, ys]
-                extent = [points[2][0],points[2][-1],points[1][0],points[1][-1]]
+                # extent = [points[2][0],points[2][-1],points[1][0],points[1][-1]]
+                extent = [points[1][0],points[1][-1],points[2][0],points[2][-1]]
 
                 for i in range(nx):
                     for j in range(ny):
@@ -121,7 +127,8 @@ class Plotter_2D(object):
                         
                 gridpoints = model.get_gridpoints()
                 points = [gridpoints[0][h], gridpoints[1][i_s:i_f+1], gridpoints[2][j_s:j_f+1]]
-                extent = [points[2][0],points[2][-1],points[1][0],points[1][-1]]
+                # extent = [points[2][0],points[2][-1],points[1][0],points[1][-1]]
+                extent = [points[1][0],points[1][-1],points[2][0],points[2][-1]]
 
                 data_shape = (i_f - i_s + 1, j_f - j_s + 1) 
                 data_to_plot = np.zeros(data_shape)
@@ -134,6 +141,7 @@ class Plotter_2D(object):
                 print('Data method is not a valid choice! Must be interpolate or raw_data.')
                 return None
             # return data_to_plot, points
+            data_to_plot = np.transpose(data_to_plot)
             return data_to_plot, extent
         
         else:
@@ -255,8 +263,8 @@ class Plotter_2D(object):
             if component_indices != ():
                 title = title + ", {}-component".format(component_indices)
             ax.set_title(title)
-            ax.set_xlabel(r'$y$') 
-            ax.set_ylabel(r'$x$')
+            ax.set_xlabel(r'$x$') 
+            ax.set_ylabel(r'$y$')
 
         time_for_filename = str(round(t,2))
         fig.suptitle('Snapshot from model {} at time {}'.format(model.get_model_name(), time_for_filename), fontsize = 12)
@@ -398,8 +406,8 @@ class Plotter_2D(object):
                 if components_indices[j][i] != ():
                     title += " {}-component".format(components_indices[j][i])
                 axes[i,j].set_title(title)
-                axes[i,j].set_xlabel(r'$y$')
-                axes[i,j].set_ylabel(r'$x$')
+                axes[i,j].set_xlabel(r'$x$')
+                axes[i,j].set_ylabel(r'$y$')
 
 
 
