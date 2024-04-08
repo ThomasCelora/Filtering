@@ -7,9 +7,11 @@ Created on Mon Jun  5 03:14:43 2023
 
 
 import matplotlib.pyplot as plt
+from matplotlib import colors 
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.ticker import LogLocator
 import numpy as np
 import h5py
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.interpolate import interpn 
 from system.BaseFunctionality import *
 

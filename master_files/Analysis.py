@@ -264,30 +264,39 @@ class CoefficientsAnalysis(object):
         #     masks.append(temp)
 
         # Combining the masks of the different arrays
-        masks = []
-        for i in range(len(list_of_arrays)):
-            min, max = preprocess_data['value_ranges'][i]
-            temp = self.get_mask_min_max(list_of_arrays[i], min, max)
-            masks.append(temp)
-        
-        tot_mask = masks[0]
-        for i in range(1,len(masks)):
-            tot_mask = np.logical_or(tot_mask, masks[i])
-        
-        # Masking the full dataset with combined mask, then taking log
-        processed_list = []
-        for i in range(len(list_of_arrays)):
-            temp = ma.masked_array(list_of_arrays[i], tot_mask)
-            processed_list.append(temp.compressed())
-            #when array is compressed, this is automatically flattened!
+        if preprocess_data.__contains__('value_ranges'):
+            masks = []
+            for i in range(len(list_of_arrays)):
+                min, max = preprocess_data['value_ranges'][i]
+                temp = self.get_mask_min_max(list_of_arrays[i], min, max)
+                masks.append(temp)
             
-        for i in range(len(processed_list)):
-            if preprocess_data['log_abs'][i]:
-                processed_list[i] = np.log10(np.abs(processed_list[i]))
+            tot_mask = masks[0]
+            for i in range(1,len(masks)):
+                tot_mask = np.logical_or(tot_mask, masks[i])
+            
+            # Masking the full dataset with combined mask, then taking log
+            processed_list = []
+            for i in range(len(list_of_arrays)):
+                temp = ma.masked_array(list_of_arrays[i], tot_mask)
+                processed_list.append(temp.compressed())
+            
+            if weights is not None: 
+                Weights = np.ma.masked_array(weights, tot_mask).compressed()
+                #when array is compressed, this is automatically flattened!
+            
+        if preprocess_data.__contains__('sqrt'):
+            for i in range(len(processed_list)):
+                if preprocess_data['sqrt'][i]:
+                    processed_list[i] = np.sqrt(processed_list[i])
+        
+        if preprocess_data.__contains__('log_abs'):
+            for i in range(len(processed_list)):
+                if preprocess_data['log_abs'][i]:
+                    processed_list[i] = np.log10(np.abs(processed_list[i]))
 
         # removing corresponding entries from weights
         if weights is not None: 
-            Weights = np.ma.masked_array(weights, tot_mask).compressed()
             return processed_list, Weights
         else: 
             return processed_list
@@ -573,14 +582,15 @@ class CoefficientsAnalysis(object):
             model.fit(XX,Y)
         regress_coeff = list(model.coef_)
         
-        # COMPUTING STD ERRORS ON REGRESSED COEFFICIENTS
-        n_data = len(Y)
-        Y_hat = model.predict(XX)
-        res = Y - Y_hat 
-        res_sum_of_sq = np.dot(res,res)
-        sigma_res_sq = res_sum_of_sq / (n_data-n_reg)
-        var_beta = np.linalg.inv(np.einsum('ji,jl->il',XX,XX)) * sigma_res_sq
-        bse = [var_beta[i,i]**0.5 for i in range(n_reg)]
+        # # COMPUTING STD ERRORS ON REGRESSED COEFFICIENTS
+        # n_data = len(Y)
+        # Y_hat = model.predict(XX)
+        # res = Y - Y_hat 
+        # res_sum_of_sq = np.dot(res,res)
+        # sigma_res_sq = res_sum_of_sq / (n_data-n_reg)
+        # var_beta = np.linalg.inv(np.einsum('ji,jl->il',XX,XX)) * sigma_res_sq
+        # bse = [var_beta[i,i]**0.5 for i in range(n_reg)]
+        bse=None
 
         return regress_coeff, bse
 
@@ -1002,7 +1012,7 @@ class CoefficientsAnalysis(object):
 
         return highest_pcs_decomp, corresponding_scores
 
-    def wasserstein_distance(self, x, y, sample_points=100):
+    def wasserstein_distance(self, x, y, sample_points=200):
         """
         Given two data arrays, first build the gaussian_kde of the distributions for each.
         Then sample the distributions at 'sample_points' linearly distributed sample points,
@@ -1077,6 +1087,45 @@ class CoefficientsAnalysis(object):
         plt.legend()
 
         return fig
+
+    def scatter_distrib_compare(self, x, y, figsize=[9,4]):
+        """
+        WORK IN PROGRESS
+        """
+        if x.shape != y.shape: 
+            print('The two arrays passed are not compatible, exiting')
+            return None
+    
+        X = x.flatten()
+        Y = y.flatten()
+
+        # fig, axes = plt.subplots(1,3, figsize=figsize)
+        fig, axes = plt.subplots(1,2, figsize=figsize)
+        axes = axes.flatten()
+
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message='is_categorical_dtype is deprecated')
+            warnings.filterwarnings('ignore', message='use_inf_as_na option is deprecated')
+
+            sns.set_theme(style="dark")
+            sns.scatterplot(x=X, y=Y, s=4, color=".15", ax=axes[0])
+            sns.histplot(x=X, y=Y, bins=50, ax=axes[0], pthresh=.1, cmap="mako")
+            sns.kdeplot(x=X, y=Y, levels=5, ax=axes[0], color="w", linewidths=1)
+
+            # axes[0].set_axis_labels(xlabel=xlabel, ylabel=ylabel)
+
+            sns.histplot(X, stat='density', kde=True, color='firebrick', ax=axes[1], label='X')
+            sns.histplot(Y, stat='density', kde=True, color='steelblue', ax=axes[1], label='Y')
+
+            # sns.histplot(X, stat='probability', kde=True, color='firebrick', ax=axes[2])
+            # sns.histplot(Y, stat='probability', kde=True, color='steelblue', ax=axes[2])
+
+            # Can update legend afterwards using: h, _ = axes.get_legend_handles_labels() + axes.legend(h, updated_labels)
+            
+        fig.tight_layout()
+        return fig, axes
+
 
     # Not sure about these two methods. 
     def JointPlot(self, model, y_var_str, x_var_str, t, x_range, y_range,\
@@ -1195,6 +1244,8 @@ if __name__ == '__main__':
     dist = statistical_tool.wasserstein_distance(a,b)
     print(f'wasserstein_distance: {dist}\n')
 
-    fig = statistical_tool.compare_distributions(a,b,'pippo', 'pluto')
+    # fig = statistical_tool.compare_distributions(a,b,'pippo', 'pluto')
+    fig, _ = statistical_tool.scatter_distrib_compare(a,b)
+
     plt.show()
 

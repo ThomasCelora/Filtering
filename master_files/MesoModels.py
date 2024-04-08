@@ -2388,7 +2388,10 @@ class resHD2D(object):
                         self.meso_vars[key]
                     except KeyError:
                         print('The key {} does not belong to meso_vars yet, adding it!'.format(key), flush=True)
-                        shape = values[idx].shape
+                        try: 
+                            shape = values[idx].shape
+                        except AttributeError: 
+                            shape = []
                         self.meso_vars.update({key : np.zeros(([Nt,Nx,Ny]+ list(shape)))})
                     finally: 
                         self.meso_vars[key][tuple(grid_idxs)] = values[idx]

@@ -317,10 +317,10 @@ class MySymLogPlotting(object):
             nodes += new_nodes
 
         else: # len(pos_var_large) > 0: 
-            print('There are positive large values', flush=True)
+            # print('There are positive large values', flush=True)
 
             if len(pos_var_small) >0:
-                print('And also positive small values', flush=True)
+                # print('And also positive small values', flush=True)
                 vmin = np.amin(pos_var_small)
                 vmax = np.amax(pos_var_small)
 
