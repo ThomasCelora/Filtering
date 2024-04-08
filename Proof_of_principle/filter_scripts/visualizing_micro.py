@@ -1,6 +1,6 @@
 import sys
 # import os
-sys.path.append('../master_files/')
+sys.path.append('../../master_files/')
 import configparser
 import json
 import pickle
@@ -10,6 +10,10 @@ from MicroModels import *
 from Visualization import *
 
 if __name__ == '__main__':
+
+    ####################################################################################################
+    # SCRIPT TO PLOT MICRO-MODEL QUANTITIES: THIS IS THE DATA DIRECTLY FROM SIMULATIONS
+    ####################################################################################################
 
     # READING SIMULATION SETTINGS FROM CONFIG FILE
     if len(sys.argv) == 1:
@@ -28,7 +32,7 @@ if __name__ == '__main__':
         print(f'Starting job on data from {hdf5_directory}')
         print('=========================================================================\n\n')
         filenames = hdf5_directory + '/'
-        snapshots_opts = json.loads(config['Models_settings']['snapshots_opts'])
+        snapshots_opts = json.loads(config['Micro_model_settings']['snapshots_opts'])
         fewer_snaps_required = snapshots_opts['fewer_snaps_required']
         smaller_list = snapshots_opts['smaller_list']
         FileReader = METHOD_HDF5(filenames, fewer_snaps_required, smaller_list)
@@ -84,7 +88,7 @@ if __name__ == '__main__':
     plt.savefig(saving_directory + filename, format = "pdf")
 
     # plotting primitive quantities
-    vars = ['W', 'vx', 'vy', 'rho', 'p', 'e']
+    vars = ['W', 'vx', 'vy', 'n', 'p', 'e']
     norms= ['log', 'symlog', 'symlog', 'log', 'log', 'log']
     cmaps = [None, 'seismic', 'seismic', None, None, None]
     fig=visualizer.plot_vars(micro_model, vars, plot_time, x_range, y_range, norms=norms, cmaps=cmaps)

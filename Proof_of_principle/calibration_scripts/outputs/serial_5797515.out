@@ -1,0 +1,72 @@
+Running SLURM prolog script on gold53.cluster.local
+===============================================================================
+Job started on Mon Apr  8 11:00:53 BST 2024
+Job ID          : 5797515
+Job name        : py_serial.slurm
+WorkDir         : /mainfs/home/tc2m23/Filtering/Proof_of_principle/scripts_calibration
+Command         : /mainfs/home/tc2m23/Filtering/Proof_of_principle/scripts_calibration/py_serial.slurm
+Partition       : serial
+Num hosts       : 1
+Num cores       : 1
+Num of tasks    : 1
+Hosts allocated : gold53
+Job Output Follows ...
+===============================================================================
+DeprecationWarning: 'source deactivate' is deprecated. Use 'conda deactivate'.
+================================================
+Starting job on data from /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/pickled/50dx_data/rHD2d_cg=fw=bl=8dx.pickle
+================================================
+
+
+Dependent var: eta, Explanatory vars: ['n_tilde', 'T_tilde', 'det_shear', 'shear_sq', 'vort_sq', 'Q1', 'Q2']
+
+Trimming the dataset
+Pre-processing dataset
+Preprocess_data dictionary is not compatible with list_of_arrays. Exiting
+Scores of dependent var on principal components: 
+[-7.54696541e-12 -1.00000000e+00  1.46146095e-05  6.69383333e-07
+ -3.16436543e-06  7.72403240e-06 -2.46691513e-14  8.40274830e-21]
+
+0-th highest PCs decomposition: 
+[-1.00000000e+00  1.46367506e-05 -7.10101218e-07 -7.54696540e-12
+  7.60710509e-06 -1.16321035e-07  3.32993677e-06 -6.61620063e-14]
+Corresponding score: -0.9999999998581457
+
+n_tilde-rescaled coefficient: 1.4636750621041325e-05
+
+T_tilde-rescaled coefficient: -7.101012176048021e-07
+
+det_shear-rescaled coefficient: -7.546965400152193e-12
+
+shear_sq-rescaled coefficient: 7.6071050879069935e-06
+
+vort_sq-rescaled coefficient: -1.1632103527774598e-07
+
+Q1-rescaled coefficient: 3.3299367747304493e-06
+
+Q2-rescaled coefficient: -6.616200627999648e-14
+
+
+Producing correlation plot using info from PCA
+Finished correlation plot for eta, saved as /PCA_hunt_eta.png
+
+
+==============================================================================
+Running epilogue script on gold53.
+
+Submit time  : 2024-04-08T11:00:52
+Start time   : 2024-04-08T11:00:52
+End time     : 2024-04-08T11:01:24
+Elapsed time : 00:00:32 (Timelimit=00:10:00)
+
+Job ID: 5797515
+Cluster: i5
+User/Group: tc2m23/pj
+State: COMPLETED (exit code 0)
+Cores: 1
+CPU Utilized: 00:00:20
+CPU Efficiency: 62.50% of 00:00:32 core-walltime
+Job Wall-clock time: 00:00:32
+Memory Utilized: 4.12 GB
+Memory Efficiency: 17.84% of 23.07 GB
+

@@ -1,6 +1,6 @@
 import sys
 # import os
-sys.path.append('../master_files/')
+sys.path.append('../../master_files/')
 import pickle
 import configparser
 import json
@@ -39,8 +39,6 @@ if __name__ == '__main__':
     with open(MesoModelLoadFile, 'rb') as filehandle: 
         meso_model = pickle.load(filehandle)
 
-    # additional_entry = {'acc_mag': r'$|a|$'}
-    # meso_model.upgrade_labels_dict(additional_entry)
 
     # WHICH DATA YOU WANT TO RUN THE ROUTINE ON 
     regressors_strs = json.loads(config['PCA_settings']['regressors_2_reduce'])
@@ -51,10 +49,10 @@ if __name__ == '__main__':
     print('Trying to reduce the following list to a smaller subset: {}\n'.format(regressors_strs))
 
     # WHICH GRID-RANGES SHOULD WE CONSIDER?
-    ranges = json.loads(config['Ranges_for_analysis']['ranges'])
+    ranges = json.loads(config['PCA_settings']['ranges'])
     x_range = ranges['x_range']
     y_range = ranges['y_range']
-    num_slices_meso = int(config['Models_settings']['mesogrid_T_slices_num'])
+    num_slices_meso = int(config['PCA_settings']['num_T_slices'])
     time_of_central_slice = meso_model.domain_vars['T'][int((num_slices_meso-1)/2)]
     ranges = [[time_of_central_slice, time_of_central_slice], x_range, y_range]
 
@@ -67,13 +65,19 @@ if __name__ == '__main__':
     model_points = meso_model.domain_vars['Points']
     new_data = statistical_tool.trim_dataset(regressors, ranges, model_points)
     new_data = statistical_tool.preprocess_data(new_data, preprocess_data)
-    if extractions != 0: 
-        new_data = statistical_tool.extract_randomly(new_data, extractions)
+    # if extractions != 0: 
+    #     new_data = statistical_tool.extract_randomly(new_data, extractions)
 
     # PERFORMING PCA TO EXTRACT PRINCIPAL COMPONENTS
     var_wanted = float(config['PCA_settings']['variance_wanted'])
-    comp_decomp = statistical_tool.PCA_find_regressors_subset(regressors, var_wanted=var_wanted)
+    comp_decomp = statistical_tool.PCA_find_regressors_subset(new_data, var_wanted=var_wanted)
 
-    print('The components decomposition are:')
-    for i in range(len(comp_decomp)):
-        print(f'The {i}-th component decomposition in terms of original vars is\n{comp_decomp[i]}\n')
+    saving_directory = config['Directories']['figures_dir']
+    with open(saving_directory + '/Reducing_regressors.txt', 'w') as filehandle:
+        filehandle.write("===================================\nFeatures in the dataset:\n")
+        filehandle.write(regressors_strs[0])
+        for i in range(1, len(regressors_strs)):
+            filehandle.write(", " + regressors_strs[i])
+        filehandle.write("\n===================================\n")
+        for i in range(len(comp_decomp)):
+            filehandle.write(f'The {i}-th component decomposition in terms of original vars is\n\n{comp_decomp[i]}\n\n')

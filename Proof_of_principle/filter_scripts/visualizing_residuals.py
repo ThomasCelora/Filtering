@@ -1,6 +1,6 @@
 import sys
 # import os
-sys.path.append('../master_files/')
+sys.path.append('../../master_files/')
 import pickle
 import configparser
 import json
@@ -15,9 +15,11 @@ from Analysis import *
 
 if __name__ == '__main__':
 
-    # ##################################################################
-    # #CORRELATION PLOTS: RESIDUALS VS CORRESPONDING CLOSURE INGREDIENTS
-    # ##################################################################
+    # # ##########################################################################################
+    # # SCRIPT TO VISUALIZE THE RESIDUALS: PLOT THEM AGAINST THE CLOSURE INGREDIENTS AND THE
+    # # WEIGHING FUNCTIONS THAT CAN BE CONSIDERED FOR CALIBRATING THE MODEL
+    # ############################################################################################
+
     
     # READING SIMULATION SETTINGS FROM CONFIG FILE
     if len(sys.argv) == 1:
@@ -40,10 +42,11 @@ if __name__ == '__main__':
         meso_model = pickle.load(filehandle)
 
     statistical_tool = CoefficientsAnalysis()  
-    correlation_ranges = json.loads(config['Ranges_for_analysis']['ranges'])
+    correlation_ranges = json.loads(config['Plot_settings']['plot_ranges'])
     x_range = correlation_ranges['x_range']
     y_range = correlation_ranges['y_range']
-    num_slices_meso = int(config['Models_settings']['mesogrid_T_slices_num'])
+    meso_grid_info = json.loads(config['Meso_model_settings']['meso_grid'])
+    num_slices_meso = meso_grid_info['num_T_slices']
     time_of_central_slice = meso_model.domain_vars['T'][int((num_slices_meso-1)/2)]
     ranges = [[time_of_central_slice, time_of_central_slice], x_range, y_range]
     model_points = meso_model.domain_vars['Points']
@@ -109,46 +112,60 @@ if __name__ == '__main__':
     # PLOTTING RESIDUALS VS CORRESPONDING CLOSURE INGREDIENTS 
     # #############################################################
 
-    # num_slices_meso = int(config['Models_settings']['mesogrid_T_slices_num'])
-    # time_meso = meso_model.domain_vars['T'][int((num_slices_meso-1)/2)] 
-    # visualizer = Plotter_2D()  
+    meso_grid_info = json.loads(config['Meso_model_settings']['meso_grid'])
+    num_slices_meso = meso_grid_info['num_T_slices']
+    time_meso = meso_model.domain_vars['T'][int((num_slices_meso-1)/2)] 
+    visualizer = Plotter_2D()  
 
-    # vars_strs = ['zeta', 'exp_tilde', 'Pi_res']
-    # norms = ['mysymlog', 'symlog', 'log']
-    # cmaps = ['seismic', 'seismic', 'plasma']
+    vars_strs = ['zeta', 'exp_tilde', 'Pi_res']
+    norms = ['mysymlog', 'symlog', 'log']
+    cmaps = ['Spectral', 'Spectral', 'plasma']
+    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, norms=norms, cmaps=cmaps)
+    fig.tight_layout()
+    time_for_filename = str(round(time_meso,2))
+    filename = "/Bulk_viscosity.png"
+    plt.savefig(saving_directory + filename, format = 'png', dpi=300)
+    print('Finished bulk viscosity')
+
+    vars_strs = ['eta', 'shear_sq', 'pi_res_sq']
+    norms = ['mysymlog', 'log', 'log']
+    cmaps = ['Spectral', 'plasma', 'plasma']
+    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, norms=norms, cmaps=cmaps)
+    fig.tight_layout()
+    time_for_filename = str(round(time_meso,2))
+    filename = "/Shear_viscosity.png"
+    plt.savefig(saving_directory + filename, format = 'png', dpi=300)
+    print('Finished shear viscosity')
+
+    vars_strs = ['kappa', 'Theta_sq', 'q_res_sq']
+    norms = ['mysymlog', 'log', 'log']
+    cmaps = ['Spectral', 'plasma', 'plasma']
+    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, norms=norms, cmaps=cmaps)
+    fig.tight_layout()
+    time_for_filename = str(round(time_meso,2))
+    filename = "/Heat_conductivity.png"
+    plt.savefig(saving_directory + filename, format = 'png', dpi=300)
+    print('Finished heat conductivity')
+
+
+    # det_s = meso_model.meso_vars['det_shear']
+    # vars_strs = ['eta', 'det_shear']
+    # norms = ['mysymlog', 'mysymlog']
+    # cmaps = ['seismic', 'seismic']
     # fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, norms=norms, cmaps=cmaps)
     # fig.tight_layout()
     # time_for_filename = str(round(time_meso,2))
-    # filename = "/Bulk_viscosity.pdf"
-    # plt.savefig(saving_directory + filename, format = 'pdf')
-    # print('Finished bulk viscosity')
-
-    # vars_strs = ['eta', 'shear_sq', 'pi_res_sq']
-    # norms = ['mysymlog', 'log', 'log']
-    # cmaps = ['seismic', 'plasma', 'plasma']
-    # fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, norms=norms, cmaps=cmaps)
-    # fig.tight_layout()
-    # time_for_filename = str(round(time_meso,2))
-    # filename = "/Shear_viscosity.pdf"
-    # plt.savefig(saving_directory + filename, format = 'pdf')
-    # print('Finished shear viscosity')
-
-    # vars_strs = ['kappa', 'Theta_sq', 'q_res_sq']
-    # norms = ['mysymlog', 'log', 'log']
-    # cmaps = ['seismic', 'plasma', 'plasma']
-    # fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, norms=norms, cmaps=cmaps)
-    # fig.tight_layout()
-    # time_for_filename = str(round(time_meso,2))
-    # filename = "/Heat_conductivity.pdf"
-    # plt.savefig(saving_directory + filename, format = 'pdf')
-    # print('Finished heat conductivity')
+    # filename = "/eta_vs_newdet.png"
+    # plt.savefig(saving_directory + filename, format = 'png', dpi = 400)
+    # print(f'Finished figure {filename}')
 
 
     # ############################################################
     # # PLOTTING Q1 AND Q2 AGAINST THE RESIDUALS SQUARED
     # ############################################################
 
-    # num_slices_meso = int(config['Models_settings']['mesogrid_T_slices_num'])
+    # meso_grid_info = json.loads(config['Meso_model_settings']['meso_grid'])
+    # num_slices_meso = meso_grid_info['num_T_slices']
     # time_meso = meso_model.domain_vars['T'][int((num_slices_meso-1)/2)] 
     # visualizer = Plotter_2D()  
 
@@ -183,7 +200,8 @@ if __name__ == '__main__':
     # # PLOTTING WEIGHING FUNCTIONS
     # ############################################################
 
-    # num_slices_meso = int(config['Models_settings']['mesogrid_T_slices_num'])
+    # meso_grid_info = json.loads(config['Meso_model_settings']['meso_grid'])
+    # num_slices_meso = meso_grid_info['num_T_slices']
     # time_meso = meso_model.domain_vars['T'][int((num_slices_meso-1)/2)] 
     # visualizer = Plotter_2D()  
 

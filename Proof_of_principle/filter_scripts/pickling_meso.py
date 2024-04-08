@@ -1,6 +1,6 @@
 import sys
 import os
-sys.path.append('../master_files/')
+sys.path.append('../../master_files/')
 import pickle
 import time 
 import configparser
@@ -13,6 +13,11 @@ from MesoModels import *
 
 if __name__ == '__main__':
 
+    ####################################################################################################
+    # # MAIN SCRIPT OF PIPELINE: SET UP THE MESO MODEL FROM SIM DATA (MESO-GRID + OBSERVERS + FILTER)
+    # # AND DECOMPOSE THE RESIDUALS AS WELL AS COMPUTE DERIVATIVES AND QUANTITIES FOR MODELLING THEM 
+    ####################################################################################################
+    
     # READING SIMULATION SETTINGS FROM CONFIG FILE
     if len(sys.argv) == 1:
         print(f"You must pass the configuration file for the simulations.", flush=True)
@@ -21,9 +26,9 @@ if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.read(sys.argv[1])
 
+    # SETTING UP THE MICROMODEL
     start_time = time.perf_counter()
     hdf5_directory = config['Directories']['hdf5_dir']
-
     print(f'Starting job with data from {hdf5_directory}', flush=True)
     print('==============================================\n')
     filenames = hdf5_directory  
@@ -56,7 +61,7 @@ if __name__ == '__main__':
     y_range = meso_grid['y_range']
 
     box_len_ratio = float(filtering_options['box_len_ratio'])
-    filter_width_ratio =  filtering_options['filter_width_ratio']
+    filter_width_ratio =  float(filtering_options['filter_width_ratio'])
 
     box_len = box_len_ratio * micro_model.domain_vars['dx']
     width = filter_width_ratio * micro_model.domain_vars['dx']
@@ -70,7 +75,7 @@ if __name__ == '__main__':
     num_points = meso_model.domain_vars['Nx'] * meso_model.domain_vars['Ny'] * meso_model.domain_vars['Nt']
     print('Number of points: {}\n'.format(num_points), flush=True)
 
-    # FINDING THE OBSERVERS AND FILTERING
+    # FINDING THE OBSERVERS
     n_cpus = int(config['Meso_model_settings']['n_cpus'])
 
     start_time = time.perf_counter()
@@ -78,16 +83,11 @@ if __name__ == '__main__':
     time_taken = time.perf_counter() - start_time
     print('Observers found in parallel: time taken= {}\n'.format(time_taken), flush=True)
 
-    start_time = time.perf_counter()
-    meso_model.filter_micro_vars_parallel(n_cpus)
-    time_taken = time.perf_counter() - start_time
-    print('Parallel filtering stage ended (fw= {}): time taken= {}\n'.format(int(filter_width_ratio), time_taken), flush=True)
-
 
     # # UNCOMMENT IF MESO_MODEL EXISTS PICKLED EXIST ALREADY AND YOU WANT TO RE-RUN SOME OF THE LATER ROUTINES:
     # # LOADING MESO MODEL 
     # pickle_directory = config['Directories']['pickled_files_dir']
-    # meso_pickled_filename = config['Pickled_filenames']['meso_pickled']
+    # meso_pickled_filename = config['Filenames']['meso_pickled_filename']
     # MesoModelLoadFile = pickle_directory + meso_pickled_filename
     # n_cpus = int(config['Meso_model_settings']['n_cpus'])
 
@@ -96,6 +96,22 @@ if __name__ == '__main__':
     # print('=========================================================================\n\n')
     # with open(MesoModelLoadFile, 'rb') as filehandle: 
     #     meso_model = pickle.load(filehandle) 
+
+
+    # # This is to adjust the filter-size by retaining the observers computed above
+    # filtering_options = json.loads(config['Meso_model_settings']['filtering_options'])
+    # filter_width_ratio =  filtering_options['filter_width_ratio']
+    # micro_model = meso_model.micro_model
+    # width = filter_width_ratio * micro_model.domain_vars['dx']
+    # filter = box_filter_parallel(micro_model, width)
+    # meso_model.set_filter(filter)
+
+    
+    # FILTERING
+    start_time = time.perf_counter()
+    meso_model.filter_micro_vars_parallel(n_cpus)
+    time_taken = time.perf_counter() - start_time
+    print('Parallel filtering stage ended (fw= {}): time taken= {}\n'.format(int(filter_width_ratio), time_taken), flush=True)
 
 
     # DECOMPOSING AND CALCULATING THE CLOSURE INGREDIENTS
@@ -120,19 +136,22 @@ if __name__ == '__main__':
     time_taken = time.perf_counter() - start_time
     print('Finished computing the EL_style closure in parallel, time taken: {}\n'.format(time_taken), flush=True)
 
-
     start_time = time.perf_counter()
     meso_model.modelling_coefficients_parallel(n_cpus)
     time_taken = time.perf_counter() - start_time
     print('Finished computing quantities to model extracted coefficients, time taken: {}\n'.format(time_taken), flush=True)
 
+    # start_time = time.perf_counter()
+    # meso_model.build_weights_Q1()
+    # time_taken = time.perf_counter() - start_time
+    # print('Finished computing weights in serial, time taken: {}\n'.format(time_taken), flush=True)
 
-    # PICKLING THE CLASS INSTANCE FOR FUTURE USE 
-    pickled_directory = config['Directories']['pickled_files_dir']
-    filename = config['Pickled_filenames']['meso_pickled'] 
-    MesoModelPickleDumpFile = pickled_directory + filename
-    with open(MesoModelPickleDumpFile, 'wb') as filehandle:
-        pickle.dump(meso_model, filehandle)
+    # # PICKLING THE CLASS INSTANCE FOR FUTURE USE 
+    # pickle_directory = config['Directories']['pickled_files_dir']
+    # filename = config['Filenames']['meso_pickled_filename']
+    # MesoModelPickleDumpFile = pickle_directory + filename
+    # with open(MesoModelPickleDumpFile, 'wb') as filehandle:
+    #     pickle.dump(meso_model, filehandle)
     
 
 

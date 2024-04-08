@@ -1,6 +1,6 @@
 import sys
 # import os
-sys.path.append('../master_files/')
+sys.path.append('../../master_files/')
 import pickle
 import configparser
 import json
@@ -39,11 +39,6 @@ if __name__ == '__main__':
     with open(MesoModelLoadFile, 'rb') as filehandle:
         meso_model = pickle.load(filehandle)
 
-    dict_to_add = {'vort_sq' : r'$\omega_{ab}\omega^{ab}$'}
-    meso_model.update_labels_dict(dict_to_add)
-
-    dict_to_add = {'det_shear' : r'$det(\sigma)$'}
-    meso_model.update_labels_dict(dict_to_add)
 
     # WHICH DATA YOU WANT TO RUN THE ROUTINE ON?
     var_strs = json.loads(config['Visualize_correlations']['vars']) 
@@ -53,10 +48,10 @@ if __name__ == '__main__':
     print(f'Producing scatter plot for the vars: {var_strs}\n')
 
     # WHICH GRID-RANGES SHOULD WE CONSIDER?
-    regression_ranges = json.loads(config['Ranges_for_analysis']['ranges'])
+    regression_ranges = json.loads(config['Visualize_correlations']['ranges'])
     x_range = regression_ranges['x_range']
     y_range = regression_ranges['y_range']
-    num_slices_meso = int(config['Models_settings']['mesogrid_T_slices_num'])
+    num_slices_meso = int(config['Visualize_correlations']['num_T_slices'])
     time_of_central_slice = meso_model.domain_vars['T'][int((num_slices_meso-1)/2)]
     ranges = [[time_of_central_slice, time_of_central_slice], x_range, y_range]
 

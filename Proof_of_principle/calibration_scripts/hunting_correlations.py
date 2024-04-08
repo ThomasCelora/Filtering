@@ -1,6 +1,6 @@
 import sys
 # import os
-sys.path.append('../master_files/')
+sys.path.append('../../master_files/')
 import pickle
 import configparser
 import json
@@ -53,10 +53,10 @@ if __name__ == '__main__':
     
 
     # WHICH GRID-RANGES SHOULD WE CONSIDER?
-    PCA_ranges = json.loads(config['Ranges_for_analysis']['ranges'])
+    PCA_ranges = json.loads(config['PCA_settings']['ranges'])
     x_range = PCA_ranges['x_range']
     y_range = PCA_ranges['y_range']
-    num_slices_meso = int(config['Models_settings']['mesogrid_T_slices_num'])
+    num_slices_meso = int(config['PCA_settings']['num_T_slices'])
     time_of_central_slice = meso_model.domain_vars['T'][int((num_slices_meso-1)/2)]
     ranges = [[time_of_central_slice, time_of_central_slice], x_range, y_range]
 
@@ -116,21 +116,13 @@ if __name__ == '__main__':
             ylabel = meso_model.labels_var_dict[dep_var_str] 
     if preprocess_data['log_abs'][0] ==1: 
         ylabel = r"$\log($" + ylabel + r"$)$"
-
-    g=statistical_tool.visualize_correlation(x, y, xlabel="highest PC model", ylabel=ylabel)
-    saving_directory = config['Directories']['figures_dir']
-    filename = f'/PCA_hunt_{dep_var_str}'
-    format = str(config['Regression_settings']['format_fig'])
-    filename += "." + format
-    dpi = None
-    if format == 'png':
-        dpi = 400
-
+    g=statistical_tool.visualize_correlation(x, y, xlabel=r"$Highest$ $PC$ $model$", ylabel=ylabel)
+    
     # Building the text for the annotation box
-    text_for_box = "Coefficients:" +  r"$(\log)$" + "\n"
+    text_for_box = r"$Coefficients$ $(\log)$:" + "\n"
     legend_entries = []
     for i in range(len(explanatory_vars_strs)):
-        label = explanatory_vars_strs[i] + " :    "
+        label = explanatory_vars_strs[i] + " :  "
         if hasattr(meso_model, 'labels_var_dict') and explanatory_vars_strs[i] in meso_model.labels_var_dict.keys():
             label = meso_model.labels_var_dict[explanatory_vars_strs[i]] + " :  "
         sign, val = int(np.sign(coeffs[i])), '%.3f' %np.abs(coeffs[i]) 
@@ -139,10 +131,17 @@ if __name__ == '__main__':
         legend_entries.append(label)
     for i in range(len(legend_entries)):
         text_for_box += legend_entries[i]
-
     bbox_args = dict(boxstyle="round", fc="0.95")
     plt.annotate(text=text_for_box, xy = (0.99,0.1), xycoords='figure fraction', bbox=bbox_args, ha="right", va="bottom", fontsize = 9)
 
+    # Saving the figure
+    saving_directory = config['Directories']['figures_dir']
+    filename = f'/PCA_hunt_{dep_var_str}'
+    format = str(config['Regression_settings']['format_fig'])
+    filename += "." + format
+    dpi = None
+    if format == 'png':
+        dpi = 400   
     plt.savefig(saving_directory + filename, format=format, dpi=dpi)
     print(f'Finished correlation plot for {dep_var_str}, saved as {filename}\n\n')
 

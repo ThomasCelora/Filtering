@@ -1,0 +1,69 @@
+Running SLURM prolog script on gold51.cluster.local
+===============================================================================
+Job started on Mon Apr  8 09:21:34 BST 2024
+Job ID          : 5797282
+Job name        : py_serial.slurm
+WorkDir         : /mainfs/home/tc2m23/Filtering/Proof_of_principle/scripts_filter
+Command         : /mainfs/home/tc2m23/Filtering/Proof_of_principle/scripts_filter/py_serial.slurm
+Partition       : serial
+Num hosts       : 1
+Num cores       : 1
+Num of tasks    : 1
+Hosts allocated : gold51
+Job Output Follows ...
+===============================================================================
+DeprecationWarning: 'source deactivate' is deprecated. Use 'conda deactivate'.
+=========================================================================
+Starting job on data from /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/METHOD_output/20dx/
+=========================================================================
+
+
+Finished reading micro data from hdf5, structures also set up.
+No list of components indices passed: setting this to an empty list.
+=========================================================================
+Starting job on data from /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/pickled/20dx_data/rHD2d_nocg_fw=bl=8dx.pickle
+=========================================================================
+
+
+Finished reading data from /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/pickled/20dx_data/rHD2d_nocg_fw=bl=8dx.pickle
+Comparing data at same time-slice, hurray!
+Finished plotting the observers
+=========================================================================
+Starting job on data from /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/pickled/20dx_data/rHD2d_nocg_fw=bl=8dx.pickle
+=========================================================================
+
+
+Finished reading pickled data
+
+Comparing data at same time-slice, hurray!
+
+================================================
+Starting job on data from /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/pickled/20dx_data/rHD2d_nocg_fw=bl=8dx.pickle
+================================================
+
+
+No list of components indices passed: setting this to an empty list.
+Finished bulk viscosity
+No list of components indices passed: setting this to an empty list.
+Finished shear viscosity
+No list of components indices passed: setting this to an empty list.
+Finished heat conductivity
+==============================================================================
+Running epilogue script on gold51.
+
+Submit time  : 2024-04-08T09:21:33
+Start time   : 2024-04-08T09:21:34
+End time     : 2024-04-08T09:25:01
+Elapsed time : 00:03:27 (Timelimit=00:10:00)
+
+Job ID: 5797282
+Cluster: i5
+User/Group: tc2m23/pj
+State: COMPLETED (exit code 0)
+Cores: 1
+CPU Utilized: 00:03:18
+CPU Efficiency: 95.65% of 00:03:27 core-walltime
+Job Wall-clock time: 00:03:27
+Memory Utilized: 3.79 GB
+Memory Efficiency: 16.41% of 23.07 GB
+

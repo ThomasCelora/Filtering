@@ -1,0 +1,135 @@
+# CONFIGURATION FILE FOR SCRIPTS: 
+##########################################################
+
+[Directories]
+
+pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/pickled/50dx_data
+
+figures_dir = ./
+
+[Filenames] 
+
+meso_pickled_filename = /rHD2d_cg=fw=bl=8dx.pickle
+
+
+[Visualize_correlations]
+
+vars = ["eta", "shear_sq", "vort_sq", "det_shear", "T_tilde", "n_tilde", "Q1", "Q2"]
+ranges = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97]}
+num_T_slices = 3
+
+# Set values to null  if you do not want to restrict the data 
+preprocess_data = {"value_ranges": [[0, null], [null, null], [null, null], [null, null], [null, null], [null, null], [0, null], [null, null]], 
+                    "log_abs": [1, 1, 1, 1, 1, 1, 1, 1]}
+
+#set extractions 0 if you don't want to extract randomly from sample
+extractions = 0
+
+#Options for building weights: 'Q2' 'Q1_skew' 'Q1_non_neg' 'residual_weights' 'denominator_weights'. Any other choice correspond to no weights
+
+weighing_func = nope
+
+# this is only relevant when weights are built using 'residual_weights': specify a positive residual you want to consider for the weights
+residual_str = pi_res_sq
+
+# this is only relevant when weights are built using 'denominator_weights': specify the positive quantity at the denominator of extracted coefficient
+denominator_str = shear_sq
+
+# Set format_fig to either pdf or png
+format_fig = png
+
+
+[Regression_settings]
+
+dependent_var = eta
+regressors = ["vort_sq", "det_shear", "n_tilde", "T_tilde"]
+ranges = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97]}
+num_T_slices = 3
+
+add_intercept = 0
+centralize = 1
+test_percentage = 0.2
+
+# Set values to null  if you do not want to restrict the data
+preprocess_data = {"value_ranges": [[null, 0], [null, null], [null, null], [null, null], [null, null]], 
+                    "log_abs": [1, 1, 1, 1, 1]}
+
+#set extractions 0 if you don't want to extract randomly from sample: extraction only in the scatter plot? Not in regression? 
+extractions = 0
+
+#Options for building weights: 'Q2' 'Q1_skew' 'Q1_non_neg' 'residual_weights' 'denominator_weights'. Any other choice correspond to no weights
+
+weighing_func = no_weights
+
+# only relevant when weights are built using 'residual_weights': specify a positive residual you want to consider for the weights
+residual_str = pi_res_sq
+
+# this is only relevant when weights are built using 'denominator_weights': specify the positive quantity at the denominator of extracted coefficient
+denominator_str = shear_sq
+
+# Set format_fig to either pdf or png
+format_fig = png
+
+[Find_best_fit_settings]
+
+var_to_model = eta
+regressors_strs = ["vort_sq", "det_shear", "shear_sq", "T_tilde", "n_tilde", "Q1", "Q2"]
+ranges = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97]}
+num_T_slices = 3
+
+add_intercept = 0
+centralize = 1
+test_percentage = 0.3
+
+# Set values to null  if you do not want to restrict the data 
+
+preprocess_data = {"value_ranges": [[null, null], [null, null], [null, null], [null, null], [null, null], [null, null], [null, null], [null, null]], 
+                    "log_abs": [1, 1, 1, 1, 1, 1, 1, 1]}
+
+n_cpus = 40
+
+# Set format_fig to either pdf or png
+format_fig = png
+
+[Regress+residual_check_settings]
+
+coeff_str = eta
+coeff_regressors_strs = ["det_shear", "Q1", "Q2"]
+residual_str = pi_res_sq
+closure_ingr_str = shear_sq
+
+regression_ranges = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97]}
+idxs_time_slices = [1]
+
+add_intercept = 1
+centralize = 0
+
+#set the following 0 if you don't want to split into train and test
+test_percentage = 0.
+preprocess_data = {"value_ranges": [[null, null], [null, null], [null, null], [null, null], [null, null], [null, null]], 
+                    "log_abs": [1, 1, 1, 1, 1, 1],
+                    "sqrt": [0, 0, 0, 0, 1, 1]}
+
+[PCA_settings]
+
+dependent_var = eta
+explanatory_vars = ["n_tilde", "T_tilde", "det_shear", "shear_sq", "vort_sq", "Q1", "Q2"]
+ranges = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97]}
+num_T_slices = 3
+
+pcs_num = 1
+regressors_2_reduce =  ["det_shear", "shear_sq", "vort_sq", "Q1", "Q2"]
+variance_wanted = 0.9
+
+# Careful, only one dictionary here
+#preprocess_data = {"pos_or_neg": [1,1,1], "log_or_not": [1,1,1]}
+
+# Set values to null  if you do not want to restrict the data 
+preprocess_data = {"value_ranges": [[null, null], [null, null], [null, null], [null, null], [null, null]], 
+                    "log_abs": [1, 1, 1, 1, 1]}
+
+#set extractions 0 if you don't want to extract randomly from sample
+extractions = 0
+
+# Set format_fig to either pdf or png
+format_fig = png

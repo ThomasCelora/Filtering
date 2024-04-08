@@ -3,11 +3,9 @@
 
 [Directories]
 
-hdf5_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/METHOD_output
+pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/pickled/20dx_data
 
-pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/pickled
-
-figures_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/figures/CG1/CG1_fw8
+figures_dir = ./
 
 
 [Filenames] 
@@ -20,8 +18,8 @@ meso_pickled_filename = /rHD2d_nocg_fw=bl=8dx.pickle
 #relevant only for visualizing_micro.py
 
 snapshots_opts = {"fewer_snaps_required": false, "smaller_list": [9,10,11]}
- 
-mesogrid_T_slices_num = 3
+
+num_T_slices = 3
 
 [Plot_settings]
 # method sets that used for producing difference plots: set it to 'interpolate' when plotting models with different grids
@@ -29,6 +27,8 @@ mesogrid_T_slices_num = 3
 # Else, set method to "raw_data" to use gridded data directly 
 
 plot_ranges = {"x_range": [0.04, 0.96], "y_range": [0.04, 0.96]}
+
+inset_ranges = {"x_range": [0.75, 0.85], "y_range": [0.55, 0.65]}
 
 diff_plot_settings = {"method": "raw_data", "interp_dims": [300, 300]}
 
