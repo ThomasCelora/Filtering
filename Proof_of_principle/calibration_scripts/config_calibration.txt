@@ -19,7 +19,7 @@ ranges = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97]}
 num_T_slices = 3
 
 # Set values to null  if you do not want to restrict the data 
-preprocess_data = {"value_ranges": [[0, null], [null, null], [null, null], [null, null], [null, null], [null, null], [0, null], [null, null]], 
+preprocess_data = {"value_ranges": [[null, null], [null, null], [null, null], [null, null], [null, null], [null, null], [null, null], [null, null]], 
                     "log_abs": [1, 1, 1, 1, 1, 1, 1, 1]}
 
 #set extractions 0 if you don't want to extract randomly from sample
@@ -79,14 +79,14 @@ num_T_slices = 3
 
 add_intercept = 0
 centralize = 1
-test_percentage = 0.3
+test_percentage = 0.2
 
 # Set values to null  if you do not want to restrict the data 
 
 preprocess_data = {"value_ranges": [[null, null], [null, null], [null, null], [null, null], [null, null], [null, null], [null, null], [null, null]], 
                     "log_abs": [1, 1, 1, 1, 1, 1, 1, 1]}
 
-n_cpus = 40
+n_cpus = 30
 
 # Set format_fig to either pdf or png
 format_fig = png

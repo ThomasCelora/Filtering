@@ -5,8 +5,8 @@
 
 #SBATCH --output=outputs/parallel_%A.out  
 #SBATCH --nodes=1      
-#SBATCH --ntasks=40                
-#SBATCH --time=01:00:00 
+#SBATCH --ntasks=30                
+#SBATCH --time=00:10:00 
 
 #SBATCH --mail-type=begin        
 #SBATCH --mail-type=fail

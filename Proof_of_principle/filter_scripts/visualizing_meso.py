@@ -207,7 +207,10 @@ if __name__ == '__main__':
     norms = ['log', 'log', 'log']
     cmaps = ['plasma', 'plasma', 'plasma']
 
-    fig, axes = plt.subplots(1,3, squeeze=False, figsize=[10,3], sharey=True)
+
+    plt.rc("font",family="serif")
+    plt.rc("mathtext",fontset="cm")
+    fig, axes = plt.subplots(1,3, squeeze=False, figsize=[12,4], sharey=True)
     axes = axes.flatten()
 
     images = []
@@ -232,12 +235,12 @@ if __name__ == '__main__':
             # fig.colorbar(im, cax=cax, orientation='vertical')
             images.append(im)
 
-        axes[i].set_xlabel(r'$x$')
-        axes[i].set_ylabel(r'$y$')
+        axes[i].set_xlabel(r'$x$', fontsize=10)
+        axes[i].set_ylabel(r'$y$', fontsize=10)
 
-    axes[0].set_title(r'$\tilde{\Pi}$')
-    axes[1].set_title(r'$\sqrt{\tilde{\pi}_{ab}\tilde{\pi}^{ab}}$')
-    axes[2].set_title(r'$\sqrt{\tilde{q}_{a}\tilde{q}^{a}}$')
+    axes[0].set_title(r'$\tilde{\Pi}$', fontsize=14)
+    axes[1].set_title(r'$\sqrt{\tilde{\pi}_{ab}\tilde{\pi}^{ab}}$', fontsize=14)
+    axes[2].set_title(r'$\sqrt{\tilde{q}_{a}\tilde{q}^{a}}$', fontsize=14)
 
     fig.tight_layout()
 
@@ -253,7 +256,7 @@ if __name__ == '__main__':
     for im in images:
         im.set_norm(norm)
 
-    fig.colorbar(images[0], ax=axes.ravel().tolist(), orientation='vertical', location='right', shrink=1)
+    fig.colorbar(images[0], ax=axes.ravel().tolist(), orientation='vertical', location='right', shrink=0.9)
 
     # Make images respond to changes in the norm of other images (e.g. via the
     # "edit axis, curves and images parameters" GUI on Qt), but be careful not to

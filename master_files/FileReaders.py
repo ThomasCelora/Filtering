@@ -205,13 +205,15 @@ class METHOD_HDF5(object):
 
         micro_model.domain_vars['x'] = np.zeros(micro_model.domain_vars['nx'])
         for i in range(len(micro_model.domain_vars['x'])):
-            micro_model.domain_vars['x'][i] = (micro_model.domain_vars['xmax']- micro_model.domain_vars['xmin']) / (2 * micro_model.domain_vars['nx']) + \
-                                                i * micro_model.domain_vars['dx']
+            # micro_model.domain_vars['x'][i] = (micro_model.domain_vars['xmax']- micro_model.domain_vars['xmin']) / (2 * micro_model.domain_vars['nx']) + \
+            #                                     i * micro_model.domain_vars['dx']
+            micro_model.domain_vars['x'][i] = micro_model.domain_vars['xmin'] + i * micro_model.domain_vars['dx']
             
         micro_model.domain_vars['y'] = np.zeros(micro_model.domain_vars['ny'])
         for i in range(len(micro_model.domain_vars['y'])):
-            micro_model.domain_vars['y'][i] = (micro_model.domain_vars['ymax']- micro_model.domain_vars['ymin']) / (2 * micro_model.domain_vars['ny']) + \
-                                                i * micro_model.domain_vars['dy']
+            # micro_model.domain_vars['y'][i] = (micro_model.domain_vars['ymax']- micro_model.domain_vars['ymin']) / (2 * micro_model.domain_vars['ny']) + \
+            #                                     i * micro_model.domain_vars['dy']
+            micro_model.domain_vars['y'][i] = micro_model.domain_vars['ymin'] + i * micro_model.domain_vars['dy']
 
         micro_model.domain_vars['points'] = [micro_model.domain_vars['t'], micro_model.domain_vars['x'], \
                                              micro_model.domain_vars['y']]

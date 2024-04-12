@@ -173,7 +173,7 @@ if __name__ == '__main__':
     # FINALLY: PLOTTING
     plt.rc("font", family="serif")
     plt.rc("mathtext",fontset="cm")
-    plt.rc('font', size=8)
+    plt.rc('font', size=10)
     
     fig, axes = plt.subplots(1,3, figsize=[13,4])
     axes = axes.flatten()
@@ -207,12 +207,12 @@ if __name__ == '__main__':
     # comment the following line if you don't take the log of the residual
     residual_label = r"$\frac{1}{2}\log($" + residual_label + r"$)$"  
 
-    axes[0].set_xlabel('Regression model', fontsize=8)
-    axes[0].set_ylabel(coeff_label, fontsize=8)
-    axes[1].set_xlabel(coeff_label, fontsize=8)
-    axes[1].set_ylabel('pdf', fontsize=8)
-    axes[2].set_xlabel(residual_label, fontsize=8)
-    axes[2].set_ylabel('pdf', fontsize=8)
+    axes[0].set_xlabel('Regression model', fontsize=12)
+    axes[0].set_ylabel(coeff_label, fontsize=12)
+    axes[1].set_xlabel(coeff_label, fontsize=12)
+    axes[1].set_ylabel('pdf', fontsize=12)
+    axes[2].set_xlabel(residual_label, fontsize=12)
+    axes[2].set_ylabel('pdf', fontsize=12)
 
     fig.tight_layout()
 
@@ -265,24 +265,24 @@ if __name__ == '__main__':
 
 
     bbox_args = dict(boxstyle="round", fc="0.95")
-    plt.annotate(text=text_for_box, xy = (0.32,0.2), xycoords='figure fraction', bbox=bbox_args, ha="right", va="bottom", fontsize = 8)
+    plt.annotate(text=text_for_box, xy = (0.32,0.2), xycoords='figure fraction', bbox=bbox_args, ha="right", va="bottom", fontsize = 10)
 
 
     # Adding legend to the distribution comparison panel
-    axes[1].legend(loc = 'best', prop={'size': 8})
+    axes[1].legend(loc = 'best', prop={'size': 10})
     h, _ = axes[1].get_legend_handles_labels() 
     labels = ['Regression model', 'sim. data']
-    axes[1].legend(h, labels, loc = 'best', prop={'size': 8, 'family' : 'serif'})
+    axes[1].legend(h, labels, loc = 'best', prop={'size': 10, 'family' : 'serif'})
 
-    axes[2].legend(loc = 'best', prop={'size': 8})
+    axes[2].legend(loc = 'best', prop={'size': 10})
     h, _ = axes[2].get_legend_handles_labels() 
     labels = ['Regression model', 'sim. data']
-    axes[2].legend(h, labels, loc = 'best', prop={'size': 8, 'family' : 'serif'})
+    axes[2].legend(h, labels, loc = 'best', prop={'size': 10, 'family' : 'serif'})
 
     # Saving the figure
     print(f'Finished plot, now saving...\n\n')
     saving_directory = config['Directories']['figures_dir']   
-    filename = '/PROVA'
+    filename = '/Regress_and_check'
     format = 'png'
     filename += "." + format
     dpi = 300

@@ -32,8 +32,10 @@ conda activate myenv
 # python3 -u regress+residual_check.py config_calibration.txt
 # python3 -u visualizing_correlations.py config_calibration.txt
 # python3 -u reducing_regressors.py config_calibration.txt 
-python3 -u hunting_correlations.py config_calibration.txt
+# python3 -u hunting_correlations.py config_calibration.txt
 # python3 -u regressing_residual.py config_calibration.txt
+
+python3 -u L_dep_eta.py config_calibration.txt
 
 
 

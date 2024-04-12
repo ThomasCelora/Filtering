@@ -3,14 +3,14 @@
 
 [Directories]
 
-pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/pickled/20dx_data
+pickled_files_dir = /scratch/tc2m23/KHIRandom/hydro/new_data/800X800/ET10/pickled/50dx_data
 
 figures_dir = ./
 
 
 [Filenames] 
 
-meso_pickled_filename = /rHD2d_nocg_fw=bl=8dx.pickle
+meso_pickled_filename = /rHD2d_cg=fw=bl=8dx.pickle
 
 
 [Models_settings]

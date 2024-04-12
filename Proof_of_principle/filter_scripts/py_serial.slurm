@@ -31,10 +31,10 @@ conda activate myenv
 # LAUNCHING THE JOBS
 #####################################
 
-python3 -u visualizing_micro.py config_filter.txt
-python3 -u visualizing_obs.py config_filter.txt
+# python3 -u visualizing_micro.py config_filter.txt
+# python3 -u visualizing_obs.py config_filter.txt
 python3 -u visualizing_meso.py config_filter.txt
-python3 -u visualizing_residuals.py config_filter.txt
+# python3 -u visualizing_residuals.py config_filter.txt
 
 
 
