@@ -181,6 +181,11 @@ if __name__ == '__main__':
         warnings.filterwarnings("ignore", message='is_categorical_dtype is deprecated')
         warnings.filterwarnings('ignore', message='use_inf_as_na option is deprecated')
 
+        coeff_model = coeff_model.flatten()
+        coeff_test = coeff_test.flatten()
+        residual_model = residual_model.flatten()
+        residual_test = residual_test.flatten()
+
         sns.set_theme(style="dark")
         sns.scatterplot(x=coeff_model, y=coeff_test, s=4, color=".15", ax=axes[0])
         sns.histplot(x=coeff_model, y=coeff_test, bins=50, ax=axes[0], pthresh=.1, cmap="mako")
@@ -205,7 +210,8 @@ if __name__ == '__main__':
     if hasattr(meso_model, 'labels_var_dict') and residual_str in meso_model.labels_var_dict.keys():
         residual_label = meso_model.labels_var_dict[residual_str] 
     # comment the following line if you don't take the log of the residual
-    residual_label = r"$\frac{1}{2}\log($" + residual_label + r"$)$"  
+    # residual_label = r"$\frac{1}{2}\log($" + residual_label + r"$)$" 
+    residual_label = r"$\log($" + residual_label + r"$)$" 
 
     axes[0].set_xlabel('Regression model', fontsize=12)
     axes[0].set_ylabel(coeff_label, fontsize=12)
@@ -265,7 +271,7 @@ if __name__ == '__main__':
 
 
     bbox_args = dict(boxstyle="round", fc="0.95")
-    plt.annotate(text=text_for_box, xy = (0.32,0.2), xycoords='figure fraction', bbox=bbox_args, ha="right", va="bottom", fontsize = 10)
+    plt.annotate(text=text_for_box, xy = (0.18,0.95), xycoords='figure fraction', bbox=bbox_args, ha="right", va="top", fontsize = 10)
 
 
     # Adding legend to the distribution comparison panel

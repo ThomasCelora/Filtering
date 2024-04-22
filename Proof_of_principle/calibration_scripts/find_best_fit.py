@@ -171,7 +171,6 @@ if __name__ == '__main__':
     ordering_idx = np.argsort(wassersteins)
     
 
-    # Change this: output also the coefficients? Yes but for check!
     # for i in range(-1,-6,-1):
     for i in range(0,6,1):
         index = ordering_idx[i]

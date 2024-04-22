@@ -38,6 +38,11 @@ denominator_str = shear_sq
 # Set format_fig to either pdf or png
 format_fig = png
 
+[Fs_residual_dependence]
+
+coeff = zeta
+residual = Pi_res
+EL_force = exp_tilde
 
 [Regression_settings]
 
@@ -72,8 +77,8 @@ format_fig = png
 
 [Find_best_fit_settings]
 
-var_to_model = eta
-regressors_strs = ["vort_sq", "det_shear", "shear_sq", "T_tilde", "n_tilde", "Q1", "Q2"]
+var_to_model = zeta
+regressors_strs = ["vort_sq", "det_shear", "shear_sq", "T_tilde", "n_tilde", "Q1", "Q2", "acc_mag", "Theta_sq"]
 ranges = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97]}
 num_T_slices = 3
 
@@ -83,8 +88,7 @@ test_percentage = 0.2
 
 # Set values to null  if you do not want to restrict the data 
 
-preprocess_data = {"value_ranges": [[null, null], [null, null], [null, null], [null, null], [null, null], [null, null], [null, null], [null, null]], 
-                    "log_abs": [1, 1, 1, 1, 1, 1, 1, 1]}
+preprocess_data = {"log_abs": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]}
 
 n_cpus = 30
 
@@ -93,10 +97,10 @@ format_fig = png
 
 [Regress+residual_check_settings]
 
-coeff_str = eta
-coeff_regressors_strs = ["det_shear", "Q1", "Q2"]
-residual_str = pi_res_sq
-closure_ingr_str = shear_sq
+coeff_str = zeta
+coeff_regressors_strs = ["n_tilde", "T_tilde"]
+residual_str = Pi_res
+closure_ingr_str = exp_tilde
 
 regression_ranges = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97]}
 idxs_time_slices = [1]
@@ -106,9 +110,8 @@ centralize = 0
 
 #set the following 0 if you don't want to split into train and test
 test_percentage = 0.
-preprocess_data = {"value_ranges": [[null, null], [null, null], [null, null], [null, null], [null, null], [null, null]], 
-                    "log_abs": [1, 1, 1, 1, 1, 1],
-                    "sqrt": [0, 0, 0, 0, 1, 1]}
+preprocess_data = { "log_abs": [1, 1, 1, 1, 1],
+                    "sqrt": [0, 0, 0, 0, 0]}
 
 [PCA_settings]
 
