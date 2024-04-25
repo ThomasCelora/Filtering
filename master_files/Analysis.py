@@ -284,16 +284,16 @@ class CoefficientsAnalysis(object):
             if weights is not None: 
                 Weights = np.ma.masked_array(weights, tot_mask).compressed()
                 #when array is compressed, this is automatically flattened!
-            
-        if preprocess_data.__contains__('sqrt'):
-            for i in range(len(processed_list)):
-                if preprocess_data['sqrt'][i]:
-                    processed_list[i] = np.sqrt(processed_list[i])
         
         if preprocess_data.__contains__('log_abs'):
             for i in range(len(processed_list)):
                 if preprocess_data['log_abs'][i]:
                     processed_list[i] = np.log10(np.abs(processed_list[i]))
+
+        if preprocess_data.__contains__('sqrt'):
+            for i in range(len(processed_list)):
+                if preprocess_data['sqrt'][i]:
+                    processed_list[i] = np.sqrt(processed_list[i])
 
         # removing corresponding entries from weights
         if weights is not None: 

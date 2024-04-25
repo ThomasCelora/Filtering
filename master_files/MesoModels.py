@@ -1172,7 +1172,7 @@ class resHD2D(object):
 
 
         # dictionary with non-local quantities (keys must match one of meso_vars or structure)
-        self.nonlocal_vars_strs = ['u_tilde', 'T_tilde'] 
+        self.nonlocal_vars_strs = ['u_tilde', 'T_tilde', 'n_tilde', 'eps_tilde'] 
         Dstrs = ['D_' + i for i in self.nonlocal_vars_strs]
         self.deriv_vars = dict.fromkeys(Dstrs)
 
@@ -1195,19 +1195,26 @@ class resHD2D(object):
 
         self.labels_var_dict = {'SET' : r'$<T^{ab}>$', 
                                 'BC' : r'$<n^a>$',
+                                'U' : r'$U^a$',
+                                'Gamma' : r'$\Gamma$',
+                                'eos_res' : r'$M$',
+                                'Pi_res' : r'$\tilde{\Pi}$',
+                                'q_res' : r'$\tilde{q}^a$',
+                                'pi_res' : r'$\tilde{\pi}^{ab}$',
                                 'eps_tilde' : r'$\tilde{\varepsilon}$',
                                 'n_tilde' : r'$\tilde{n}$',
                                 'p_tilde' : r'$\tilde{p}$',
                                 'p_filt' : r'$<p>$',
-                                'eos_res' : r'$M$',
-                                'Pi_res' : r'$\tilde{\Pi}$',
                                 'T_tilde' : r'$\tilde{T}$',
                                 'u_tilde' : r'$\tilde{u}^a$',
                                 'D_u_tilde' : r'$\nabla_{a}\tilde{u}^b$',
                                 'D_T_tilde' : r'$\nabla_{a}\tilde{T}$',
-                                'q_res' : r'$\tilde{q}^a$',
-                                'pi_res' : r'$\tilde{\pi}^{ab}$',
-                                'Gamma' : r'$\Gamma$',
+                                'D_n_tilde' : r'$\nabla_{a}\tilde{n}$',
+                                'D_eps_tilde' : r'$\nabla_{a}\tilde{\varepsilon}$',
+                                'n_tilde_dot' : r'$\dot{\tilde{n}}$',
+                                'T_tilde_dot' : r'$\dot{\tilde{T}}$',
+                                'sD_T_tilde': r'$D_{a}\tilde{T}$',
+                                'sD_n_tilde': r'$D_{a}\tilde{n}$',
                                 'shear_tilde' : r'$\tilde{\sigma}^{ab}$',
                                 'acc_tilde' : r'$\tilde{a}^a$',
                                 'exp_tilde' : r'$\tilde{\theta}$',
@@ -1223,7 +1230,8 @@ class resHD2D(object):
                                 'det_shear': r'$det(\sigma)$',
                                 'vort_sq' : r'$\omega_{ab}\omega^{ab}$',
                                 'acc_mag': r'$|a|$', 
-                                'U' : r'$U^a$',
+                                'sD_n_tilde_sq' : r'$D_{a}\tilde{n}D^{a}\tilde{n}$',
+                                'dot_Dn_Theta' : r'$D_{a}\tilde{n}\Theta^{a}$',
                                 'Q1' : r'$\tilde{\sigma}_{ab}\tilde{\sigma}^{ab} - \tilde{\omega}_{ab}\tilde{\omega}^{ab}$',
                                 'Q2' : r'$\tilde{\sigma}_{ab}\tilde{\sigma}^{ab}/\tilde{\omega}_{ab}\tilde{\omega}^{ab}$',
                                 'weights' : r'$w$'}
@@ -1984,7 +1992,7 @@ class resHD2D(object):
                                     self.meso_vars[key][h,i,j] = values[idx]
     
     @staticmethod
-    def closure_ingredients_task(u_t, nabla_u, T_t, nabla_T, h, i, j):
+    def closure_ingredients_task(u_t, nabla_u, T_t, nabla_T, nabla_n, h, i, j):
         """
         Task to decompose Favre obs + Temperature derivatives
         These will be used in EL_style_closure to extract the 
@@ -2056,15 +2064,22 @@ class resHD2D(object):
         # vort_t = np.multiply(1/2., Daub - np.einsum('ij->ji', Daub))
 
         
-        # CLOSURE INGREDIENTS: HEAT FLUX  
+        # CLOSURE INGREDIENTS:  DERIVATIVES OF N_TILDE AND T_TILDE  
         projector = np.zeros((3,3))
         np.fill_diagonal(projector, 1)
         projector += np.einsum('i,j->ij',u_t_cov, u_t) #This is different from the projector above: look at indices!
-        DaT = np.einsum('ij,j->i', projector, nabla_T)
-        Theta_t = DaT + np.multiply(T_t, np.einsum('ij,j->i', metric, acc_t))
 
-        closure_vars_strs = ['shear_tilde', 'exp_tilde', 'acc_tilde', 'vort_tilde','Theta_tilde']
-        closure_vars = [shear_t, exp_t, acc_t, vort_t, Theta_t]
+        sD_n_tilde = np.einsum('ij,j->i', projector, nabla_n)
+        sD_T_tilde = np.einsum('ij,j->i', projector, nabla_T)
+
+        n_tilde_dot = np.einsum('i,i->', u_t, nabla_n)
+        T_tilde_dot = np.einsum('i,i->', u_t, nabla_T)
+
+        Theta_t = sD_T_tilde + np.multiply(T_t, np.einsum('ij,j->i', metric, acc_t))
+
+        closure_vars_strs = ['shear_tilde', 'exp_tilde', 'acc_tilde', 'vort_tilde','Theta_tilde', 'n_tilde_dot', \
+                             'T_tilde_dot', 'sD_n_tilde', 'sD_T_tilde' ]
+        closure_vars = [shear_t, exp_t, acc_t, vort_t, Theta_t, n_tilde_dot, T_tilde_dot, sD_n_tilde, sD_T_tilde]
         return closure_vars_strs, closure_vars, [h,i,j]
 
     def closure_ingredients_parallel(self, n_cpus):
@@ -2092,7 +2107,8 @@ class resHD2D(object):
                     nabla_u = self.deriv_vars['D_u_tilde'][h,i,j]
                     T_t = self.meso_vars['T_tilde'][h,i,j]
                     nabla_T = self.deriv_vars['D_T_tilde'][h,i,j]
-                    args_for_pool.append((u_t, nabla_u, T_t, nabla_T, h, i, j))
+                    nabla_n = self.deriv_vars['D_n_tilde'][h,i,j]
+                    args_for_pool.append((u_t, nabla_u, T_t, nabla_T, nabla_n, h, i, j))
 
         with mp.Pool(processes=n_cpus) as pool:
             print('Computing closure ingredients with {} processes'.format(pool._processes), flush=True)
@@ -2399,7 +2415,7 @@ class resHD2D(object):
             return results_dictionary
 
     @staticmethod
-    def modelling_coefficients_task(shear, vort, acc, Theta, Pi_res, pi_res, q_res, h, i, j):
+    def modelling_coefficients_task(shear, vort, acc, Theta, sD_n_tilde, Pi_res, pi_res, q_res, h, i, j):
         """
         Task (to be used in parallel) to compute various quantities that will be used later 
         for modelling the extracted closure coefficients. 
@@ -2441,19 +2457,31 @@ class resHD2D(object):
         var_names.append('Q2')
         vars.append(Q2)
 
-        #Computing squares of residuals and also of Theta_tilde
-        Pi_res_sq = Pi_res * Pi_res
-        var_names.append('Pi_res_sq')
-        vars.append(Pi_res_sq)
-        pi_res_sq = np.einsum('ij,kl,ik,jl->', pi_res, pi_res, metric, metric)
-        var_names.append('pi_res_sq')
-        vars.append(pi_res_sq)
-        q_res_sq = np.einsum('i,ij,j', q_res, metric, q_res)
-        var_names.append('q_res_sq')
-        vars.append(q_res_sq)
+        # Computing scalars out of thermo gradients
         Theta_sq = np.einsum('i,ij,j', Theta, metric, Theta)
         var_names.append('Theta_sq')
         vars.append(Theta_sq)
+
+        sD_n_tilde_sq = np.einsum('i,ij,j->', sD_n_tilde, metric, sD_n_tilde)
+        var_names.append('sD_n_tilde_sq')
+        vars.append(sD_n_tilde_sq)
+
+        dot_Dn_Theta = np.einsum('i,ij,j->', sD_n_tilde, metric, Theta )
+        var_names.append('dot_Dn_Theta')
+        vars.append(dot_Dn_Theta)
+
+        # Computing squares of residuals and also of Theta_tilde
+        Pi_res_sq = Pi_res * Pi_res
+        var_names.append('Pi_res_sq')
+        vars.append(Pi_res_sq)
+
+        pi_res_sq = np.einsum('ij,kl,ik,jl->', pi_res, pi_res, metric, metric)
+        var_names.append('pi_res_sq')
+        vars.append(pi_res_sq)
+
+        q_res_sq = np.einsum('i,ij,j', q_res, metric, q_res)
+        var_names.append('q_res_sq')
+        vars.append(q_res_sq)
 
         return var_names, vars, [h,i,j]
     
@@ -2474,11 +2502,12 @@ class resHD2D(object):
                     vort_t = self.meso_vars['vort_tilde'][h,i,j]
                     acc_t = self.meso_vars['acc_tilde'][h,i,j]
                     Theta_t = self.meso_vars['Theta_tilde'][h,i,j]  
+                    sD_n_tilde = self.meso_vars['sD_n_tilde'][h,i,j]
                     Pi_res = self.meso_vars['Pi_res'][h,i,j]
                     pi_res = self.meso_vars['pi_res'][h,i,j]
                     q_res = self.meso_vars['q_res'][h,i,j]
 
-                    args_for_pool.append((shear_t, vort_t, acc_t, Theta_t, Pi_res, pi_res, q_res, h, i, j))
+                    args_for_pool.append((shear_t, vort_t, acc_t, Theta_t, sD_n_tilde, Pi_res, pi_res, q_res, h, i, j))
 
         with mp.Pool(processes=n_cpus) as pool: 
             print('Computing vars for modelling coefficients with {} processes'.format(pool._processes), flush=True)
