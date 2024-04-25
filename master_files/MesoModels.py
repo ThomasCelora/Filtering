@@ -1772,6 +1772,7 @@ class resHD2D(object):
         s_ab_tracefree = s_ab - np.multiply(s, metric + np.einsum('i,j->ij', u_t, u_t)) 
 
         p_t = resHD2D.p_Gamma_law(eps_t, n_t, 4.0/3.0) 
+        # rechange this: this was just to test the impact of EOS residuals onto the modelling of zeta
         # Pi_res = s - p_t
         Pi_res = s - p_filt
         EOS_res = p_filt - p_t
