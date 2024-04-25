@@ -2213,7 +2213,7 @@ class resHD2D(object):
         metric[1,1] = metric[2,2] = +1
 
         # CALCULATING BULK VISCOUS COEFF
-        zeta = Pi_res / exp 
+        zeta = - Pi_res / exp 
         coefficients_names.append('zeta')
         coefficients.append(zeta)
 
@@ -2227,7 +2227,7 @@ class resHD2D(object):
         transformed_shear = np.einsum('ji,jk,kl', pi_eigv, shear, pi_eigv)
         abs_pi_eig = np.abs(pi_eig)
         pos = list(abs_pi_eig).index(np.max(abs_pi_eig))
-        eta = eta * np.sign(pi_eig[pos] / transformed_shear[pos,pos])
+        eta = eta * np.sign( - pi_eig[pos] / transformed_shear[pos,pos])
         coefficients_names.append('eta')
         coefficients.append(eta)
 
@@ -2235,7 +2235,7 @@ class resHD2D(object):
         q_res_sq = np.einsum('i,ij,j', q_res, metric, q_res)
         Theta_sq = np.einsum('i,ij,j', Theta, metric, Theta)
         cos_angle = np.einsum('i,ij,j', q_res, metric, Theta) / (q_res_sq * Theta_sq)
-        sign = np.sign(cos_angle)
+        sign = - np.sign(cos_angle)
         kappa = sign * np.sqrt(q_res_sq / Theta_sq)
         coefficients_names.append('kappa')
         coefficients.append(kappa)
@@ -2294,6 +2294,109 @@ class resHD2D(object):
                         self.meso_vars.update({key : np.zeros(([Nt,Nx,Ny]+ list(shape)))})
                     finally: 
                         self.meso_vars[key][tuple(grid_idxs)] = values[idx]
+
+    @staticmethod 
+    def EL_componentwise_task(pi_res, shear, h, i, j):
+        """
+        Task for computing the shear coefficients componentwise
+
+        Parameters:
+        -----------
+        pi_res: nd.array
+            the anisotropic stress residual at gridpoint h,i,j
+
+        shear: nd.array
+            the (Favre-observer) shear tensor at gridpoint h,i,j
+
+        Returns:
+        --------
+        list of strs:
+            the names by which you want to store data in the class instance
+        
+        nd.array:
+            the componentwise values of the coefficient, for now eta only
+        
+        list:
+            the gridpoint indices on the meso-grid
+
+        Notes:
+        ------
+        """
+        eta_componentwise = np.zeros(pi_res.shape)
+        eta_componentwise =  - np.divide(pi_res, shear)
+        coeff_name = 'eta_cw'
+
+        return [coeff_name], [eta_componentwise], [h, i, j]
+    
+    def EL_componentwise_parallel(self, n_cpus, store=False):
+        """
+        Wrapper of EL_componentwise_task: launch the task in parallel with n_cpus
+
+        Parameters:
+        -----------
+        n_cpus: int
+            number of processes for parallelization
+
+        store: bool 
+            If true, the meso_vars dictionary is extended to include these 
+            Otherwise, the dictionary is created and returned
+        """
+        args_for_pool=[]
+
+        Nt = self.domain_vars['Nt']
+        Nx = self.domain_vars['Nx']
+        Ny = self.domain_vars['Ny']
+
+        printshit = self.meso_vars['shear_tilde'].shape
+        print(f'shear_tilde.shape: {printshit}')
+        printshit = self.meso_vars['pi_res'].shape
+        print(f'pi_res.shape: {printshit}')
+
+        for h in range(Nt): 
+            for i in range(Nx):
+                for j in range(Ny):
+                    shear_t = self.meso_vars['shear_tilde'][h,i,j]
+                    pi_res = self.meso_vars['pi_res'][h,i,j]
+
+                    args_for_pool.append((pi_res, shear_t, h, i, j))
+
+        with mp.Pool(processes=n_cpus) as pool: 
+            print('Computing vars for modelling coefficients with {} processes'.format(pool._processes), flush=True) 
+
+            for result in pool.starmap(resHD2D.EL_componentwise_task, args_for_pool):
+                keys, values, grid_idxs = result
+
+                if store: 
+                    for idx, key in enumerate(keys):
+                        try:
+                            self.meso_vars[key]
+                        except KeyError:
+                            print('The key {} does not belong to meso_vars yet, adding it!'.format(key), flush=True)
+                            try: 
+                                shape = values[idx].shape
+                            except AttributeError: 
+                                shape = []
+                            self.meso_vars.update({key : np.zeros(([Nt,Nx,Ny]+ list(shape)))})
+                        finally: 
+                            self.meso_vars[key][tuple(grid_idxs)] = values[idx]
+                
+                else:
+                    for i, key in enumerate(keys):
+                        try:
+                            results_dictionary[key]
+                        except UnboundLocalError:
+                            results_dictionary = dict.fromkeys([key])
+                            shape = values[i].shape
+                            results_dictionary[key] = np.zeros(([Nt, Nx, Ny] + list(shape)))
+                        except KeyError:
+                            shape = values[i].shape
+                            results_dictionary.update( {key : np.zeros(([Nt, Nx, Ny] + list(shape)))} )
+
+                        finally:
+                            results_dictionary[key][tuple(grid_idxs)] = values[i]
+
+        if not store:
+            return results_dictionary
 
     @staticmethod
     def modelling_coefficients_task(shear, vort, acc, Theta, Pi_res, pi_res, q_res, h, i, j):
