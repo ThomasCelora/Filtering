@@ -58,7 +58,7 @@ if __name__ == '__main__':
     x_range = plot_ranges['x_range']
     y_range = plot_ranges['y_range']
     saving_directory = config['Directories']['figures_dir']
-    visualizer = Plotter_2D([10, 3])
+    visualizer = Plotter_2D([12, 8])
     diff_plot_settings =json.loads(config['Plot_settings']['diff_plot_settings']) 
     diff_method = diff_plot_settings['method']
     interp_dims = diff_plot_settings['interp_dims']
@@ -100,28 +100,28 @@ if __name__ == '__main__':
     # time_taken = time.perf_counter() - start_time
     # print(f'Finished plotting model comparison: time taken (X2) ={time_taken}\n')
 
-    # # # # PLOTTING THE DECOMPOSED SET 
-    # # # #############################
-    # vars_strs = ['pi_res', 'pi_res', 'pi_res', 'pi_res', 'pi_res', 'pi_res']
-    # norms = ['mysymlog', 'mysymlog', 'mysymlog', 'mysymlog', 'mysymlog', 'mysymlog']
-    # cmaps = ['seismic','seismic','seismic','seismic','seismic','seismic']
-    # components = [(0,0), (0,1), (0,2), (1,1), (1,2), (2,2)]
-    # fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components, norms=norms, cmaps=cmaps)
-    # fig.tight_layout()
-    # time_for_filename = str(round(time_meso,2))
-    # filename = "/DecomposedSET_1.pdf" 
-    # plt.savefig(saving_directory + filename, format = 'pdf')
+    # # # PLOTTING THE DECOMPOSED SET 
+    # # #############################
+    vars_strs = ['pi_res', 'pi_res', 'pi_res', 'pi_res', 'pi_res', 'pi_res']
+    norms = ['mysymlog', 'mysymlog', 'mysymlog', 'mysymlog', 'mysymlog', 'mysymlog']
+    cmaps = ['Spectral_r','Spectral_r','Spectral_r','Spectral_r','Spectral_r','Spectral_r']
+    components = [(0,0), (0,1), (0,2), (1,1), (1,2), (2,2)]
+    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components, norms=norms, cmaps=cmaps)
+    fig.tight_layout()
+    time_for_filename = str(round(time_meso,2))
+    filename = "/DecomposedSET_1.pdf" 
+    plt.savefig(saving_directory + filename, format = 'pdf')
 
-    # vars_strs = ['q_res', 'q_res', 'q_res', 'Pi_res', 'p_tilde', 'p_filt']
-    # norms = ['mysymlog', 'mysymlog', 'mysymlog', 'log', 'log', 'log']
-    # cmaps = ['seismic','seismic','seismic', 'plasma', 'plasma', 'plasma']
-    # components = [(0,), (1,), (2,), (), (), ()]
-    # fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components, norms=norms, cmaps=cmaps)
-    # fig.tight_layout()
-    # time_for_filename = str(round(time_meso,2))
-    # filename = "/DecomposedSET_2.pdf"
-    # plt.savefig(saving_directory + filename, format = 'pdf')
-    # print('Finished plotting decomposition of SET\n')
+    vars_strs = ['q_res', 'q_res', 'q_res', 'Pi_res', 'p_tilde', 'p_filt']
+    norms = ['mysymlog', 'mysymlog', 'mysymlog', 'log', 'log', 'log']
+    cmaps = ['Spectral_r','Spectral_r','Spectral_r', 'plasma', 'plasma', 'plasma']
+    components = [(0,), (1,), (2,), (), (), ()]
+    fig = visualizer.plot_vars(meso_model, vars_strs, time_meso, x_range, y_range, components_indices=components, norms=norms, cmaps=cmaps)
+    fig.tight_layout()
+    time_for_filename = str(round(time_meso,2))
+    filename = "/DecomposedSET_2.pdf"
+    plt.savefig(saving_directory + filename, format = 'pdf')
+    print('Finished plotting decomposition of SET\n')
 
     # # # # PLOTTING THE DERIVATIVES OF FAVRE VEL AND TEMPERATURE
     # # ######################################################### 
@@ -191,7 +191,7 @@ if __name__ == '__main__':
     # plt.savefig(saving_directory + filename, format = 'pdf')
     # print('Finished plotting vorticity\n', flush=True)
 
-    
+    # # SUMMARY PLOT OF THE RESIDUALS
     vars_strs = ['Pi_res', 'pi_res_sq', 'q_res_sq']
     vars = []
     extents = []
@@ -274,5 +274,65 @@ if __name__ == '__main__':
     format='png'
     dpi=400
     filename = f"/Residuals." + format 
+    plt.savefig(saving_directory + filename, format = format, dpi=dpi)
+
+
+    # # NOW SUMMARY PLOT FOR THE CLOSURE INGREDIENTS
+
+    vars_strs = ['exp_tilde', 'shear_sq', 'Theta_sq']
+    vars = []
+    extents = []
+    for var_str in vars_strs:
+        temp_var, temp_extent = visualizer.get_var_data(meso_model, var_str, time_meso, x_range, y_range) 
+        if var_str != 'exp_tilde':
+            temp_var = np.sqrt(temp_var)
+        vars.append(temp_var)
+        extents.append(temp_extent)
+
+
+
+    norms = ['symlog', 'log', 'log']
+    cmaps = ['Spectral_r', 'plasma', 'plasma']
+
+
+    plt.rc("font",family="serif")
+    plt.rc("mathtext",fontset="cm")
+    fig, axes = plt.subplots(1,3, squeeze=False, figsize=[12,4], sharey=True)
+    axes = axes.flatten()
+
+    images = []
+
+    for i in range(len(axes)):
+
+        if norms[i] == 'mysymlog': 
+            ticks, labels, nodes = MySymLogPlotting.get_mysymlog_var_ticks(vars[i])
+            data_to_plot = MySymLogPlotting.symlog_var(vars[i])
+            mynorm = MyThreeNodesNorm(nodes)
+            im = axes[i].imshow(data_to_plot, extent=extents[i], origin='lower', norm=mynorm, cmap=cmaps[i])
+            divider = make_axes_locatable(axes[i])
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+            cbar.set_ticks(ticks)
+            cbar.ax.set_yticklabels(labels)
+
+        else:
+            im = axes[i].imshow(vars[i], extent=extents[i], origin='lower', cmap=cmaps[i], norm=norms[i])
+            divider = make_axes_locatable(axes[i])
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            fig.colorbar(im, cax=cax, orientation='vertical')
+            images.append(im)
+
+        axes[i].set_xlabel(r'$x$', fontsize=10)
+        axes[i].set_ylabel(r'$y$', fontsize=10)
+
+    axes[0].set_title(r'$\tilde{\theta}$', fontsize=14)
+    axes[1].set_title(r'$\sqrt{\tilde{\sigma}_{ab}\tilde{\sigma}^{ab}}$', fontsize=14)
+    axes[2].set_title(r'$\sqrt{\tilde{\Theta}_{a}\tilde{\Theta}^{a}}$', fontsize=14)
+
+    fig.tight_layout()
+
+    format='png'
+    dpi=400
+    filename = f"/Gradients." + format 
     plt.savefig(saving_directory + filename, format = format, dpi=dpi)
     

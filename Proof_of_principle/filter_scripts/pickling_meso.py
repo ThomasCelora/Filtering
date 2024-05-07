@@ -60,6 +60,9 @@ if __name__ == '__main__':
     x_range = meso_grid['x_range']
     y_range = meso_grid['y_range']
 
+    ts = micro_model.domain_vars['t'][:]
+    print(f'ts: {ts}\n')
+
     box_len_ratio = float(filtering_options['box_len_ratio'])
     filter_width_ratio =  float(filtering_options['filter_width_ratio'])
 
@@ -146,12 +149,12 @@ if __name__ == '__main__':
     # time_taken = time.perf_counter() - start_time
     # print('Finished computing weights in serial, time taken: {}\n'.format(time_taken), flush=True)
 
-    # # PICKLING THE CLASS INSTANCE FOR FUTURE USE 
-    # pickle_directory = config['Directories']['pickled_files_dir']
-    # filename = config['Filenames']['meso_pickled_filename']
-    # MesoModelPickleDumpFile = pickle_directory + filename
-    # with open(MesoModelPickleDumpFile, 'wb') as filehandle:
-    #     pickle.dump(meso_model, filehandle)
+    # PICKLING THE CLASS INSTANCE FOR FUTURE USE 
+    pickle_directory = config['Directories']['pickled_files_dir']
+    filename = config['Filenames']['meso_pickled_filename']
+    MesoModelPickleDumpFile = pickle_directory + filename
+    with open(MesoModelPickleDumpFile, 'wb') as filehandle:
+        pickle.dump(meso_model, filehandle)
     
 
 

@@ -24,7 +24,7 @@ if __name__ == '__main__':
     config.read(sys.argv[1])
 
     # LOADING MICRO DATA FROM HDF5 OR PICKLE
-    micro_from_hdf5 = True
+    micro_from_hdf5 = False 
 
     if micro_from_hdf5:
         hdf5_directory = config['Directories']['hdf5_dir']
@@ -50,7 +50,10 @@ if __name__ == '__main__':
         print(f'Starting job on data from {MicroModelLoadFile}')
         print('=========================================================================\n\n')
         with open(MicroModelLoadFile, 'rb') as filehandle: 
-            micro_model = pickle.load(filehandle)
+            meso_model = pickle.load(filehandle)
+            micro_model = meso_model.micro_model
+            # micro_model = pickle.load(filehandle)
+
 
     # PLOT SETTINGS
     plot_ranges = json.loads(config['Plot_settings']['plot_ranges'])
@@ -68,7 +71,7 @@ if __name__ == '__main__':
     # Plotting the baryon current
     vars = ['BC', 'BC', 'BC', 'W', 'vx', 'vy']
     norms= ['log', 'symlog', 'symlog', 'log', 'symlog', 'symlog']
-    cmaps = [None, 'seismic', 'seismic', None, 'seismic', 'seismic']
+    cmaps = [None, 'Spectral_r', 'Spectral_r', None, 'Spectral_r', 'Spectral_r']
     components = [(0,), (1,), (2,), (), (), ()]
     fig=visualizer.plot_vars(micro_model, vars, plot_time, x_range, y_range, components_indices = components, norms=norms, cmaps=cmaps)
     fig.tight_layout()
@@ -80,7 +83,7 @@ if __name__ == '__main__':
     vars = ['SET', 'SET', 'SET', 'SET', 'SET', 'SET']
     components = [(0,0), (0,1), (0,2), (1,1), (1,2), (2,2)]
     norms= ['log', 'symlog', 'symlog', 'log', 'symlog', 'log']
-    cmaps = [None, 'seismic', 'seismic', None, 'seismic', None]
+    cmaps = [None, 'Spectral_r', 'Spectral_r', None, 'Spectral_r', None]
     fig=visualizer.plot_vars(micro_model, vars, plot_time, x_range, y_range, components_indices = components, norms=norms, cmaps=cmaps)
     fig.tight_layout()
     time_for_filename = str(round(plot_time,2))
@@ -90,7 +93,7 @@ if __name__ == '__main__':
     # plotting primitive quantities
     vars = ['W', 'vx', 'vy', 'n', 'p', 'e']
     norms= ['log', 'symlog', 'symlog', 'log', 'log', 'log']
-    cmaps = [None, 'seismic', 'seismic', None, None, None]
+    cmaps = [None, 'Spectral_r', 'Spectral_r', None, None, None]
     fig=visualizer.plot_vars(micro_model, vars, plot_time, x_range, y_range, norms=norms, cmaps=cmaps)
     fig.tight_layout()
     time_for_filename = str(round(plot_time,2))

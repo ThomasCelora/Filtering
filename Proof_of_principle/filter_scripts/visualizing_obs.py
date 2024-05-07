@@ -100,7 +100,7 @@ if __name__ == '__main__':
     # axes[1].set_title(meso_model.labels_var_dict['U'] + r"$,$ $a=0$")
     # axes[2].set_title(r"$Relative$ $difference$")
 
-    comp = (0,)
+    comp = (1,)
     bar_vel_data, extent_micro = visualizer.get_var_data(micro_model, 'bar_vel', time_meso, x_range, y_range, comp)
     obs_data, extent_meso = visualizer.get_var_data(meso_model, 'U', time_meso, x_range, y_range, comp)
     ar_mean = (np.abs(bar_vel_data) + np.abs(obs_data))/2
