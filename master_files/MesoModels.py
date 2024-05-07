@@ -1470,6 +1470,8 @@ class resHD2D(object):
         # Setup arrays for derivatives of the model. 
         self.deriv_vars['D_u_tilde'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1, self.spatial_dims+1))
         self.deriv_vars['D_T_tilde'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1))
+        self.deriv_vars['D_eps_tilde'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1))
+        self.deriv_vars['D_n_tilde'] = np.zeros((Nt, Nx, Ny, self.spatial_dims+1))
  
     def find_observers(self): 
         """
@@ -1768,8 +1770,8 @@ class resHD2D(object):
         q_a = - np.einsum('ij,jk,kl,l->i', h_ab, SET, metric, u_t)
         s_ab = np.einsum('ij,kl,jl->ik', h_ab, h_ab, SET)
         s = np.einsum('ij,ji->', s_ab, metric)
-        s = np.multiply(1/spatial_dims, s)
-        s_ab_tracefree = s_ab - np.multiply(s, metric + np.einsum('i,j->ij', u_t, u_t)) 
+        # s = np.multiply(1/spatial_dims, s)
+        s_ab_tracefree = s_ab - np.multiply(s/3, metric + np.einsum('i,j->ij', u_t, u_t)) 
 
         p_t = resHD2D.p_Gamma_law(eps_t, n_t, 4.0/3.0) 
         # rechange this: this was just to test the impact of EOS residuals onto the modelling of zeta
