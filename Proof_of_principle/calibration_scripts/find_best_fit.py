@@ -46,6 +46,60 @@ if __name__ == '__main__':
     with open(MesoModelLoadFile, 'rb') as filehandle: 
         meso_model = pickle.load(filehandle)
 
+    # # RE-COMPUTING DERIVATIVES AND STUFF FOR MODELLING COEFFICIENTS
+    # # adding labels to dictionary for better figures
+    # entry_dic = {'D_n_tilde' : r'$\nabla_{a}\tilde{n}$'}
+    # meso_model.update_labels_dict(entry_dic)
+    # entry_dic = {'D_eps_tilde' : r'$\nabla_{a}\tilde{\varepsilon}$'}
+    # meso_model.update_labels_dict(entry_dic)
+    # entry_dic = {'n_tilde_dot' : r'$\dot{\tilde{n}}$'}
+    # meso_model.update_labels_dict(entry_dic)
+    # entry_dic = {'T_tilde_dot' : r'$\dot{\tilde{T}}$'}
+    # meso_model.update_labels_dict(entry_dic)
+    # entry_dic = {'sD_T_tilde': r'$D_{a}\tilde{T}$'}
+    # meso_model.update_labels_dict(entry_dic)
+    # entry_dic = {'sD_n_tilde': r'$D_{a}\tilde{n}$'}
+    # meso_model.update_labels_dict(entry_dic)
+    # entry_dic = {'sD_n_tilde_sq' : r'$D_{a}\tilde{n}D^{a}\tilde{n}$'}
+    # meso_model.update_labels_dict(entry_dic)
+    # entry_dic = {'dot_Dn_Theta' : r'$D_{a}\tilde{n}\Theta^{a}$'}
+    # meso_model.update_labels_dict(entry_dic)
+
+    # Nt = meso_model.domain_vars['Nt']
+    # Nx = meso_model.domain_vars['Nx']
+    # Ny = meso_model.domain_vars['Ny']
+
+    # meso_model.nonlocal_vars_strs = ['u_tilde', 'T_tilde', 'n_tilde', 'eps_tilde'] 
+    # meso_model.deriv_vars.update({'D_n_tilde' : np.zeros((Nt,Nx,Ny,3))})
+    # meso_model.deriv_vars.update({'D_eps_tilde' : np.zeros((Nt,Nx,Ny,3))})
+
+    # n_cpus = int(config['Find_best_fit_settings']['n_cpus'])
+    # start_time = time.perf_counter()
+    # meso_model.calculate_derivatives()
+    # time_taken = time.perf_counter() - start_time
+    # print('Finished computing derivatives (serial), time taken: {}\n'.format(time_taken), flush=True)
+
+    # start_time = time.perf_counter()
+    # meso_model.closure_ingredients_parallel(n_cpus)
+    # time_taken = time.perf_counter() - start_time
+    # print('Finished computing the closure ingredients in parallel, time taken: {}\n'.format(time_taken), flush=True)
+
+    # start_time = time.perf_counter()
+    # meso_model.EL_style_closure_parallel(n_cpus)
+    # time_taken = time.perf_counter() - start_time
+    # print('Finished computing the EL_style closure in parallel, time taken: {}\n'.format(time_taken), flush=True)
+
+    # start_time = time.perf_counter()
+    # meso_model.modelling_coefficients_parallel(n_cpus)
+    # time_taken = time.perf_counter() - start_time
+    # print('Finished computing quantities to model extracted coefficients, time taken: {}\n'.format(time_taken), flush=True)
+
+    # pickle_directory = config['Directories']['pickled_files_dir']
+    # filename = config['Filenames']['meso_pickled_filename']
+    # MesoModelPickleDumpFile = pickle_directory + filename
+    # with open(MesoModelPickleDumpFile, 'wb') as filehandle:
+    #     pickle.dump(meso_model, filehandle)
+
 
     # WHICH DATA YOU WANT TO RUN THE ROUTINE ON?
     dep_var_str = config['Find_best_fit_settings']['var_to_model']
@@ -55,7 +109,7 @@ if __name__ == '__main__':
     for i in range(len(regressors_strs)):
         temp = meso_model.meso_vars[regressors_strs[i]]
         regressors.append(temp)
-    print(f'Dependent var: {dep_var_str}, Explanatory vars: {regressors_strs}\n')
+    print(f'Dependent var: {dep_var_str},\n Explanatory vars: {regressors_strs}\n')
 
     
     # WHICH GRID-RANGES SHOULD WE CONSIDER?
@@ -135,9 +189,11 @@ if __name__ == '__main__':
                     dep_var_model += np.multiply(coeffs[i], actual_regressors[i]) 
    
         # r, _ = stats.pearsonr(dep_var_test, dep_var_model)
+        # return r, coeffs , comb_regressors
+    
         # mean_error = mean_absolute_error(dep_var_test, dep_var_model)
-        # return r, mean_error, coeffs , comb_regressors
-                    
+        # return mean_error, coeffs , comb_regressors
+
         w = statistical_tool.wasserstein_distance(dep_var_test, dep_var_model, sample_points=300)            
         return w, coeffs, comb_regressors
                     
@@ -152,7 +208,7 @@ if __name__ == '__main__':
         print('Performing all possible regression of {} in parallel with {} processes\n'.format(dep_var_str, pool._processes), flush=True)
         for result in pool.map(parall_regress_task, bool_regressors_combs): 
             # pearsons.append(result[0])
-            # mean_errors.append(result[1])
+            # mean_errors.append(result[0])
             wassersteins.append(result[0])
             fitted_coeffs.append(result[1])
             regressors_combinations.append(result[2])

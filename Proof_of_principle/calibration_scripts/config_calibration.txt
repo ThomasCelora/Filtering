@@ -44,6 +44,14 @@ coeff = zeta
 residual = Pi_res
 EL_force = exp_tilde
 
+[compare_eta_cw]
+
+n_cpus = 30
+components = [[0,0], [0,1], [0,2], [1,1], [1,2]]
+preprocess_data = {"value_ranges": [[null, null], [null, null], [null, null], [null, null], [null, null]], 
+                    "log_abs": [1, 1, 1, 1, 1]}
+
+
 [Regression_settings]
 
 dependent_var = eta
@@ -77,8 +85,10 @@ format_fig = png
 
 [Find_best_fit_settings]
 
-var_to_model = zeta
-regressors_strs = ["vort_sq", "det_shear", "shear_sq", "T_tilde", "n_tilde", "Q1", "Q2", "acc_mag", "Theta_sq"]
+var_to_model = eta
+regressors_strs = ["vort_sq", "det_shear", "shear_sq", "T_tilde", "n_tilde", "Q1", "Q2", "acc_mag", 
+                    "Theta_sq", "n_tilde_dot", "T_tilde_dot", "sD_n_tilde_sq", "dot_Dn_Theta", "exp_tilde"]
+
 ranges = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97]}
 num_T_slices = 3
 
@@ -88,21 +98,21 @@ test_percentage = 0.2
 
 # Set values to null  if you do not want to restrict the data 
 
-preprocess_data = {"log_abs": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]}
+preprocess_data = {"log_abs": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]}
 
-n_cpus = 30
+n_cpus = 40
 
 # Set format_fig to either pdf or png
 format_fig = png
 
 [Regress+residual_check_settings]
 
-coeff_str = zeta
-coeff_regressors_strs = ["n_tilde", "T_tilde"]
-residual_str = Pi_res
-closure_ingr_str = exp_tilde
+coeff_str = kappa
+coeff_regressors_strs = ["shear_sq", "n_tilde", "Q1", "sD_n_tilde_sq", "dot_Dn_Theta"]
+residual_str = q_res_sq
+closure_ingr_str = Theta_sq
 
-regression_ranges = {"x_range": [0.03, 0.97], "y_range": [0.03, 0.97]}
+regression_ranges = {"x_range": [0.04, 0.96], "y_range": [0.04, 0.96]}
 idxs_time_slices = [1]
 
 add_intercept = 1
@@ -110,8 +120,8 @@ centralize = 0
 
 #set the following 0 if you don't want to split into train and test
 test_percentage = 0.
-preprocess_data = { "log_abs": [1, 1, 1, 1, 1],
-                    "sqrt": [0, 0, 0, 0, 0]}
+preprocess_data = { "log_abs": [1, 1, 1, 1, 1, 1, 1, 1],
+                    "sqrt": [0, 0, 0, 0, 0, 0, 1, 1]}
 
 [PCA_settings]
 

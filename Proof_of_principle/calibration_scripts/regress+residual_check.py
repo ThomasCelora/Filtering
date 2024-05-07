@@ -210,8 +210,8 @@ if __name__ == '__main__':
     if hasattr(meso_model, 'labels_var_dict') and residual_str in meso_model.labels_var_dict.keys():
         residual_label = meso_model.labels_var_dict[residual_str] 
     # comment the following line if you don't take the log of the residual
-    # residual_label = r"$\frac{1}{2}\log($" + residual_label + r"$)$" 
-    residual_label = r"$\log($" + residual_label + r"$)$" 
+    residual_label = r"$\frac{1}{2}\log($" + residual_label + r"$)$" 
+    # residual_label = r"$\log($" + residual_label + r"$)$" 
 
     axes[0].set_xlabel('Regression model', fontsize=12)
     axes[0].set_ylabel(coeff_label, fontsize=12)
@@ -271,7 +271,7 @@ if __name__ == '__main__':
 
 
     bbox_args = dict(boxstyle="round", fc="0.95")
-    plt.annotate(text=text_for_box, xy = (0.18,0.95), xycoords='figure fraction', bbox=bbox_args, ha="right", va="top", fontsize = 10)
+    plt.annotate(text=text_for_box, xy = (0.34,0.2), xycoords='figure fraction', bbox=bbox_args, ha="right", va="bottom", fontsize = 9)
 
 
     # Adding legend to the distribution comparison panel

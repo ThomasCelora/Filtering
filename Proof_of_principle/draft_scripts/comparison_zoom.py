@@ -106,15 +106,15 @@ if __name__ == '__main__':
         axes[i].set_ylabel(r'$y$')
 
     title = r'$Rel.$ $difference$'
-    ax1.set_title(title)
+    ax1.set_title(title, fontsize=10)
 
     title = micro_model.labels_var_dict[var_str]
     title += r'$,$ $a=0$'
-    ax2.set_title(title)
+    ax2.set_title(title, fontsize=10)
 
     title = meso_model.labels_var_dict[var_str]
     title += r'$,$ $a=0$'
-    ax3.set_title(title)
+    ax3.set_title(title, fontsize=10)
 
     # fig.tight_layout()
     divider = make_axes_locatable(ax2)
